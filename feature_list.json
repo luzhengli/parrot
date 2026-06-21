@@ -4,7 +4,12 @@
   "updated": "2026-06-21",
   "source_documents": [
     "Docs/ai-translation-macos-prd.md",
-    "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng"
+    "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",
+    "Design/README.md",
+    "Design/quick-text-translation-panel.png",
+    "Design/screenshot-translation-result-card.png",
+    "Design/settings-window.png",
+    "Design/menu-bar-dropdown.png"
   ],
   "status_values": [
     "passing",
@@ -39,6 +44,20 @@
       "passes": true,
       "last_verified": "2026-06-21",
       "notes": "Initial handoff files are present; keep them updated after feature work."
+    },
+    {
+      "id": "foundation.design-references",
+      "priority": "P0",
+      "category": "foundation",
+      "description": "High-fidelity product prototypes are available as implementation references.",
+      "acceptance": [
+        "Store the provided prototype images under Design/ with descriptive filenames.",
+        "Document each prototype surface and its intended implementation reference.",
+        "Keep the prototypes discoverable from the harness source documents."
+      ],
+      "passes": true,
+      "last_verified": "2026-06-21",
+      "notes": "Added four high-fidelity prototype images and Design/README.md."
     },
     {
       "id": "p0.menu-bar-residency",

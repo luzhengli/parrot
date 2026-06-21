@@ -9,6 +9,7 @@
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
 - 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建。
+- 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
 
@@ -25,6 +26,12 @@
   - `init.sh`：新会话启动、工程检查、Debug 构建。
   - `parrot-progress.md`：进度交接日志。
   - `feature_list.json`：结构化功能验收清单。
+- 添加产品高保真原型图：
+  - `Design/quick-text-translation-panel.png`
+  - `Design/screenshot-translation-result-card.png`
+  - `Design/settings-window.png`
+  - `Design/menu-bar-dropdown.png`
+  - `Design/README.md`
 
 ## 当前未实现
 
@@ -65,3 +72,10 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 将文档中的通用 Web 项目 harness 思路改写为适合 macOS SwiftUI/Xcode 项目的初始化文件。
 - 新增 `init.sh`、`parrot-progress.md`、`feature_list.json`。
 - 已运行 `./init.sh`，确认 `Parrot` scheme 可发现且 Debug 构建通过。
+
+### 2026-06-21 - 添加产品高保真原型图
+
+- 新建 `Design/` 目录并保存 4 张上传的产品原型图。
+- 使用语义化文件名区分快捷文本翻译小窗、截图翻译结果卡片、设置窗口、菜单栏下拉菜单。
+- 新增 `Design/README.md`，记录每张原型图对应的产品界面与实现参考。
+- 更新 `feature_list.json` 的 `source_documents`，并新增 `foundation.design-references` 验收项。
