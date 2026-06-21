@@ -1,0 +1,226 @@
+{
+  "project": "Parrot",
+  "platform": "macOS",
+  "updated": "2026-06-21",
+  "source_documents": [
+    "Docs/ai-translation-macos-prd.md",
+    "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng"
+  ],
+  "status_values": [
+    "passing",
+    "failing",
+    "blocked"
+  ],
+  "features": [
+    {
+      "id": "foundation.project-builds",
+      "priority": "P0",
+      "category": "foundation",
+      "description": "The Xcode project can be opened and built by a fresh developer or agent session.",
+      "acceptance": [
+        "Run ./init.sh from the repository root.",
+        "Verify xcodebuild lists the Parrot scheme.",
+        "Verify the Debug macOS build completes with CODE_SIGNING_ALLOWED=NO."
+      ],
+      "passes": true,
+      "last_verified": "2026-06-21",
+      "notes": "./init.sh completed successfully in the current environment."
+    },
+    {
+      "id": "foundation.agent-handoff",
+      "priority": "P0",
+      "category": "foundation",
+      "description": "A fresh agent can understand startup, current progress, and next work without prior chat history.",
+      "acceptance": [
+        "Read parrot-progress.md for current state and next steps.",
+        "Read feature_list.json for implementation priorities and verification criteria.",
+        "Use ./init.sh for project metadata and build verification."
+      ],
+      "passes": true,
+      "last_verified": "2026-06-21",
+      "notes": "Initial handoff files are present; keep them updated after feature work."
+    },
+    {
+      "id": "p0.menu-bar-residency",
+      "priority": "P0",
+      "category": "app-shell",
+      "description": "The app runs as a macOS menu-bar utility with entries for key actions.",
+      "acceptance": [
+        "Launch the app and verify a menu-bar item appears.",
+        "Open settings from the menu-bar item.",
+        "Open quick text translation from the menu-bar item.",
+        "Trigger screenshot translation from the menu-bar item.",
+        "Quit the app from the menu-bar item."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Prefer AppKit status item integration where SwiftUI alone is insufficient."
+    },
+    {
+      "id": "p0.global-shortcuts",
+      "priority": "P0",
+      "category": "system-integration",
+      "description": "The app supports global shortcuts for screenshot translation and quick text translation.",
+      "acceptance": [
+        "Configure default shortcuts for screenshot translation and text translation.",
+        "Verify shortcuts work while another app is frontmost.",
+        "Verify shortcuts can be paused or disabled.",
+        "Surface an actionable error if required accessibility permissions are missing."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Do not change privacy behavior without updating the PRD and progress file."
+    },
+    {
+      "id": "p0.screenshot-selection",
+      "priority": "P0",
+      "category": "screenshot-translation",
+      "description": "Users can select an arbitrary screen region for screenshot translation.",
+      "acceptance": [
+        "Invoke screenshot mode from the shortcut or menu.",
+        "Drag to select a region on the active screen.",
+        "Cancel selection with Esc.",
+        "Pass the selected image region to the OCR pipeline."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Use native macOS APIs; keep the transient UI lightweight."
+    },
+    {
+      "id": "p0.local-ocr",
+      "priority": "P0",
+      "category": "screenshot-translation",
+      "description": "The app uses local OCR to recognize text from screenshots before translation.",
+      "acceptance": [
+        "Recognize text from a selected screenshot region using local macOS capabilities.",
+        "Do not upload screenshot images by default.",
+        "Show a clear message when no text is detected.",
+        "Preserve paragraph structure where OCR output allows it."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Vision is the preferred OCR framework."
+    },
+    {
+      "id": "p0.llm-provider-settings",
+      "priority": "P0",
+      "category": "settings",
+      "description": "Users can configure an OpenAI-compatible LLM provider.",
+      "acceptance": [
+        "Enter Base URL, model name, and API Key.",
+        "Test the provider connection.",
+        "Show concise errors for invalid credentials, network failure, and timeout.",
+        "Avoid hard-coded provider-specific assumptions beyond OpenAI-compatible defaults."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Store API keys only in Keychain."
+    },
+    {
+      "id": "p0.keychain-secrets",
+      "priority": "P0",
+      "category": "privacy-security",
+      "description": "API keys are stored in macOS Keychain and never written to repository files or logs.",
+      "acceptance": [
+        "Save API Key to Keychain.",
+        "Read API Key from Keychain for requests.",
+        "Delete or replace API Key from settings.",
+        "Verify repository files and logs do not contain secret values."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Never add real API keys to fixtures, docs, config files, or progress logs."
+    },
+    {
+      "id": "p0.quick-text-translation",
+      "priority": "P0",
+      "category": "text-translation",
+      "description": "Users can summon a lightweight text input window and quickly translate pasted or typed text.",
+      "acceptance": [
+        "Open the text translation window from a global shortcut.",
+        "Focus the input field automatically.",
+        "Translate with Enter or the chosen primary action.",
+        "Close the transient window with Esc.",
+        "Copy the translation with Cmd+Enter."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Keep the workflow keyboard-first and quick to dismiss."
+    },
+    {
+      "id": "p0.zh-en-auto-translation",
+      "priority": "P0",
+      "category": "translation",
+      "description": "The app automatically translates Chinese input to English and English input to Chinese.",
+      "acceptance": [
+        "Translate Chinese source text into English.",
+        "Translate English source text into Chinese.",
+        "Preserve paragraphs, code, variable names, links, product names, and proper nouns.",
+        "Do not add explanations unless the user explicitly asks for explanation mode."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Prompt behavior should match the PRD and workspace rules."
+    },
+    {
+      "id": "p0.comparison-result-window",
+      "priority": "P0",
+      "category": "translation-ui",
+      "description": "Translation results are displayed in a lightweight original/translated comparison window.",
+      "acceptance": [
+        "Show OCR or input text and translated text in a readable comparison layout.",
+        "Provide copy translated text and copy original text actions.",
+        "Allow retry when translation fails.",
+        "Close the result window with Esc."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Prefer native SwiftUI for simple window content and AppKit only where needed."
+    },
+    {
+      "id": "p0.user-facing-errors",
+      "priority": "P0",
+      "category": "reliability",
+      "description": "The app surfaces clear user-facing errors for permission, OCR, authentication, network, and timeout failures.",
+      "acceptance": [
+        "Show missing permission guidance with next-step actions.",
+        "Show no-text-detected OCR failures without crashing.",
+        "Show authentication failures without exposing secrets.",
+        "Show network and timeout failures with retry options."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Keep errors concise and actionable."
+    },
+    {
+      "id": "p1.translation-history",
+      "priority": "P1",
+      "category": "history",
+      "description": "Users can view recent translation history and disable history if desired.",
+      "acceptance": [
+        "Store recent text translation records when history is enabled.",
+        "Open history from the menu-bar item.",
+        "Copy previous translations.",
+        "Disable history from settings."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Defer until P0 translation flow is stable."
+    },
+    {
+      "id": "p1.custom-shortcuts",
+      "priority": "P1",
+      "category": "settings",
+      "description": "Users can customize screenshot and text translation shortcuts.",
+      "acceptance": [
+        "Record user-selected shortcut combinations.",
+        "Persist shortcut preferences.",
+        "Detect conflicts or invalid shortcuts.",
+        "Apply changed shortcuts without restarting when practical."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Defer until default global shortcuts work reliably."
+    }
+  ]
+}
