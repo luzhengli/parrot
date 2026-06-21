@@ -6,7 +6,7 @@ struct ParrotApp: App {
 
     var body: some Scene {
         Settings {
-            SettingsPlaceholderView()
+            ProviderSettingsView()
         }
     }
 }

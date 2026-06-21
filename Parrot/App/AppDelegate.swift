@@ -142,7 +142,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showSettings() {
-        presentWindow(&settingsWindowController, title: "Settings", rootView: SettingsPlaceholderView())
+        presentWindow(&settingsWindowController, title: "Settings", rootView: ProviderSettingsView())
+        settingsWindowController?.window?.setContentSize(NSSize(width: 640, height: 440))
     }
 
     @objc private func toggleShortcuts() {

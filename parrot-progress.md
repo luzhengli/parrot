@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开新的 LLM Provider 设置窗口。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -51,14 +51,19 @@
   - 截图图片默认不上传；结果窗口只展示本地识别出的文字。
   - 未识别到文字时展示清晰提示，识别结果按 Vision observation 使用换行保留基础段落/行结构。
   - Debug 构建和本地生成图片 OCR smoke test 均已通过；`p0.local-ocr` 已标记通过。
+- 添加 LLM Provider 设置基础能力：
+  - 设置窗口支持厂商预设、OpenAI-compatible Base URL、模型名和 API Key。
+  - 默认推荐 DeepSeek V4 Flash；预设包含 DeepSeek、GLM、OpenAI 和 Custom。
+  - Base URL/模型名/厂商选择保存到 UserDefaults；API Key 按厂商隔离保存、替换、删除于 macOS Keychain。
+  - 设置页提供连接测试入口，调用 OpenAI-compatible `/chat/completions` 并展示认证、网络、超时等简短错误。
+  - Debug 构建已通过；用户本地使用 DeepSeek 预设和已保存 Keychain API Key 验证连接测试成功，`p0.llm-provider-settings` 已标记通过。
 
 ## 当前未实现
 
 - 快捷文本翻译小窗。
-- OpenAI-compatible LLM 配置与请求。
-- Keychain API Key 保存。
+- 真实 LLM 翻译流程接入截图/文本结果。
 - 翻译结果对照浮窗。
-- 权限、网络、认证、OCR 等错误提示。
+- 完整权限、网络、认证、OCR 等错误提示闭环。
 
 ## 已知约束
 
@@ -175,3 +180,31 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - OCR 语言优先级改为简体中文、繁体中文、英文，并降低 `minimumTextHeight` 以覆盖更小字号。
 - 已运行 `./init.sh` 并通过 Debug 构建。
 - 已运行等效中文 OCR smoke test：临时生成深色背景、白色小字号的混排图片，Vision 成功识别 `时间线` 和 `Cue-Pro`。
+
+### 2026-06-22 - 实现 LLM Provider 设置基础能力
+
+- 新增 `ProviderSettingsStore`、`KeychainSecretStore` 和 `OpenAICompatibleProviderClient`。
+- 新增 `ProviderSettingsView`，替换设置占位页，支持 Base URL、模型名、API Key 输入、保存、删除 Keychain API Key 和连接测试。
+- 连接测试使用 OpenAI-compatible `/chat/completions`，仅发送最小测试消息，不记录或展示 API Key。
+- 已将新增 Swift 文件加入 Xcode target sources，并运行 `./init.sh` 通过 Debug 构建。
+- 已运行设置入口 GUI 烟测：`./init.sh --run` 启动 Debug app 后，通过状态栏 `Parrot > Settings` 打开 `Settings` 窗口。
+- 已运行 `git diff --check`，并扫描仓库源文件未发现 token-like API secret。
+- 当时当前环境没有真实 Provider 凭据，未完成真实连接测试验收；后续已由用户本地验证 DeepSeek 连接成功并标记通过。
+
+### 2026-06-22 - 支持多厂商模型预设
+
+- 参考 DeepSeek 官方文档 `https://api-docs.deepseek.com/zh-cn/`，将默认推荐设置改为 DeepSeek：Base URL `https://api.deepseek.com`，模型 `deepseek-v4-flash`。
+- Provider 设置新增厂商预设：DeepSeek、GLM、OpenAI、Custom；GLM 预设使用智谱 OpenAI-compatible 端点 `https://open.bigmodel.cn/api/paas/v4` 和官方示例模型 `glm-4.7`。
+- 选择厂商预设会自动填充 Base URL 与模型名；Custom 可继续手动填写任意 OpenAI-compatible 端点。
+- Keychain API Key 改为按厂商账号后缀隔离，避免 DeepSeek、GLM、OpenAI 和 Custom 密钥互相覆盖。
+- 已运行 `./init.sh` 并通过 Debug 构建。
+- 尝试运行 `./init.sh --run` 后用 GUI 自动化打开设置窗口，但当前环境被 macOS Accessibility 权限拦截，未作为完整 UI 验收。
+
+### 2026-06-22 - 用户本地验证 DeepSeek API 连接
+
+- 用户本地在设置窗口选择 DeepSeek 预设，Base URL 为 `https://api.deepseek.com`，模型为 `deepseek-v4-flash`。
+- API Key 已保存到 Keychain，输入框显示“Leave blank to keep saved Keychain API Key”。
+- 点击 `Test Connection` 后返回成功状态：“Connection test succeeded. Provider accepted the test request.”
+- 已更新 `feature_list.json`：`p0.llm-provider-settings.passes = true`，`last_verified = 2026-06-22`。
+- 用户随后本地验证 API Key 替换和删除流程也正常。
+- 已更新 `feature_list.json`：`p0.keychain-secrets.passes = true`，`last_verified = 2026-06-22`。

@@ -13,6 +13,8 @@
 		2F3A6C8D2B10000100A00004 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00016 /* AppDelegate.swift */; };
 		2F3A6C8D2B10000100A00005 /* GlobalShortcutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00017 /* GlobalShortcutManager.swift */; };
 		2F3A6C8D2B10000100A00006 /* ScreenshotSelectionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */; };
+		2F3A6C8D2B10000100A00007 /* ProviderSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00019 /* ProviderSettings.swift */; };
+		2F3A6C8D2B10000100A00008 /* ProviderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +27,8 @@
 		2F3A6C8D2B10000100A00016 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A00017 /* GlobalShortcutManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcutManager.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotSelectionController.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A00019 /* ProviderSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSettings.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +67,8 @@
 				2F3A6C8D2B10000100A00016 /* AppDelegate.swift */,
 				2F3A6C8D2B10000100A00017 /* GlobalShortcutManager.swift */,
 				2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */,
+				2F3A6C8D2B10000100A00019 /* ProviderSettings.swift */,
+				2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */,
 				2F3A6C8D2B10000100A00012 /* ContentView.swift */,
 			);
 			path = App;
@@ -166,6 +172,8 @@
 				2F3A6C8D2B10000100A00004 /* AppDelegate.swift in Sources */,
 				2F3A6C8D2B10000100A00005 /* GlobalShortcutManager.swift in Sources */,
 				2F3A6C8D2B10000100A00006 /* ScreenshotSelectionController.swift in Sources */,
+				2F3A6C8D2B10000100A00007 /* ProviderSettings.swift in Sources */,
+				2F3A6C8D2B10000100A00008 /* ProviderSettingsView.swift in Sources */,
 				2F3A6C8D2B10000100A00002 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

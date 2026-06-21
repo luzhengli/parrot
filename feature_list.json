@@ -131,9 +131,9 @@
         "Show concise errors for invalid credentials, network failure, and timeout.",
         "Avoid hard-coded provider-specific assumptions beyond OpenAI-compatible defaults."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Store API keys only in Keychain."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Implemented ProviderSettingsView for provider preset, Base URL, model, and API Key entry. Default recommended preset is DeepSeek with https://api.deepseek.com and deepseek-v4-flash, based on https://api-docs.deepseek.com/zh-cn/. Additional presets include GLM with https://open.bigmodel.cn/api/paas/v4 and glm-4.7, OpenAI, and Custom. Non-secret settings are stored in UserDefaults; API Keys are saved/replaced/deleted via macOS Keychain per provider. Added an OpenAI-compatible /chat/completions connection test with concise invalid URL, missing model, missing API key, authentication, network, and timeout errors. Verified ./init.sh Debug build. User local smoke test verified the DeepSeek preset with saved Keychain API Key returns \"Connection test succeeded. Provider accepted the test request.\""
     },
     {
       "id": "p0.keychain-secrets",
@@ -146,9 +146,9 @@
         "Delete or replace API Key from settings.",
         "Verify repository files and logs do not contain secret values."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Never add real API keys to fixtures, docs, config files, or progress logs."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "KeychainSecretStore is implemented and integrated with settings save, test, replace, and delete flows. API Keys are isolated by provider account suffix so DeepSeek, GLM, OpenAI, and Custom can use different secrets. Repository scan found no token-like API secret values in tracked source. User local smoke test verified save/read through provider connection testing, and verified API Key replace/delete flows from the settings UI."
     },
     {
       "id": "p0.quick-text-translation",
