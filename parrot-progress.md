@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开新的 LLM Provider 设置窗口。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开 LLM Provider 设置窗口；`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -60,7 +60,6 @@
 
 ## 当前未实现
 
-- 快捷文本翻译小窗。
 - 真实 LLM 翻译流程接入截图/文本结果。
 - 翻译结果对照浮窗。
 - 完整权限、网络、认证、OCR 等错误提示闭环。
@@ -208,3 +207,29 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 已更新 `feature_list.json`：`p0.llm-provider-settings.passes = true`，`last_verified = 2026-06-22`。
 - 用户随后本地验证 API Key 替换和删除流程也正常。
 - 已更新 `feature_list.json`：`p0.keychain-secrets.passes = true`，`last_verified = 2026-06-22`。
+
+### 2026-06-22 - 实现快捷文本翻译小窗
+
+- 新增 `QuickTextTranslationView`，用原生 `NSTextView` 包装输入区，支持呼出后自动聚焦。
+- 快捷文本入口从占位页改为真实小窗：`Enter` 触发翻译，`Esc` 关闭，`Cmd+K` 清空，`Cmd+Enter` 复制译文并关闭。
+- 复用已配置的 OpenAI-compatible Provider 和 Keychain API Key；翻译请求按 PRD 要求自动判断中英方向，保留段落、代码、变量名、链接、产品名和专有名词，只输出译文。
+- 已将 `QuickTextTranslationView.swift` 加入 Xcode target sources，并运行 `./init.sh` 通过 Debug 构建。
+- 已运行 `./init.sh --run` 启动固定 Debug App，并通过 `Cmd+Shift+T` smoke 确认 `Quick Text Translation` 窗口出现。
+- 当前环境在自动输入阶段被 macOS `System Events` 权限拦截（`-10004`），因此最初未标记通过；后续已由用户本地完成端到端复验并标记通过。
+
+### 2026-06-22 - 修复快捷文本翻译首轮结果不显示
+
+- 根因：快捷翻译旧实现等待非流式 `/chat/completions` 完整返回后才一次性写入 `translatedText`，并且 `isTranslating` 时 UI 不渲染 `Translation` 结果区，导致首次翻译期间无法把结果显示在灰底区域。
+- 修复：新增 OpenAI-compatible SSE streaming 翻译路径，逐个解析 `data:` chunk 并把 delta 追加到 `translatedText`。
+- 调整 UI：翻译中也持续显示 `Translation` 区域；尚未收到首个 token 时显示等待提示，收到 token 后逐步显示译文。
+- 状态提示现在只在 stream 完整结束后显示 “Translation ready. Press Cmd+Enter to copy and close.”；异常时清空部分结果并展示错误信息。
+- 已运行 `./init.sh` 通过 Debug 构建；已运行 `git diff --check` 和 `feature_list.json` JSON 校验；已 grep 确认 Swift 代码中没有其他调用旧的非流式快捷翻译路径。
+
+### 2026-06-22 - 二次修复快捷文本 Translation 区域空白
+
+- 用户复验后同症状仍存在：首次翻译后 `Translation` 灰底区域为空，点外部后再次呼出才显示译文。
+- 重新判断根因：首轮修复只解决了网络流式返回，但结果仍由动态 SwiftUI `ScrollView/Text` 渲染，且快捷窗口固定为 `520x420`，翻译完成后结果区在尺寸不足的 hosting window 中没有稳定重绘；重新呼出触发新布局后同一份 `translatedText` 才显示。
+- 修复：将结果区替换为固定高度 AppKit 只读 `NSTextView`，每次 `translatedText` 变化时在 `updateNSView` 直接设置 `textView.string`，避免 SwiftUI ScrollView/Text 的首轮重绘失效。
+- 修复：快捷文本翻译窗口尺寸从 `520x420` 调整为 `600x560`，确保输入区、状态、结果区和底部按钮在首轮结果展示时都有足够空间。
+- 已运行 `./init.sh` 通过 Debug 构建；用户本地复验确认首轮输入后可流式显示翻译结果，完成后才显示 “Translation ready. Press Cmd+Enter to copy and close.”，且 `Cmd+Enter` 可复制译文并关闭窗口。
+- 已更新 `feature_list.json`：`p0.quick-text-translation.passes = true`，`last_verified = 2026-06-22`。

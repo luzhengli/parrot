@@ -6,6 +6,7 @@ struct LLMProviderSettings: Codable, Equatable {
     var providerID: String
     var baseURLString: String
     var modelName: String
+    static let storageKey = "LLMProviderSettings"
 
     static let defaults = LLMProviderSettings(
         providerID: LLMProviderPreset.deepSeek.id,
@@ -24,6 +25,16 @@ struct LLMProviderSettings: Codable, Equatable {
         providerID = try container.decodeIfPresent(String.self, forKey: .providerID) ?? LLMProviderPreset.custom.id
         baseURLString = try container.decode(String.self, forKey: .baseURLString)
         modelName = try container.decode(String.self, forKey: .modelName)
+    }
+
+    static func loadSaved(from userDefaults: UserDefaults = .standard) -> LLMProviderSettings {
+        guard let data = userDefaults.data(forKey: storageKey),
+              let settings = try? JSONDecoder().decode(LLMProviderSettings.self, from: data)
+        else {
+            return .defaults
+        }
+
+        return settings
     }
 }
 
@@ -116,7 +127,6 @@ final class ProviderSettingsStore: ObservableObject {
 
     private let userDefaults: UserDefaults
     private let keychain: KeychainSecretStore
-    private let settingsKey = "LLMProviderSettings"
 
     init(
         userDefaults: UserDefaults = .standard,
@@ -125,7 +135,7 @@ final class ProviderSettingsStore: ObservableObject {
         self.userDefaults = userDefaults
         self.keychain = keychain
 
-        let settings = Self.loadSettings(from: userDefaults, key: settingsKey)
+        let settings = LLMProviderSettings.loadSaved(from: userDefaults)
         selectedProviderID = settings.providerID
         baseURLString = settings.baseURLString
         modelName = settings.modelName
@@ -218,7 +228,7 @@ final class ProviderSettingsStore: ObservableObject {
         guard let data = try? JSONEncoder().encode(settings) else {
             throw ProviderSettingsError.requestFailed("Unable to save provider settings.")
         }
-        userDefaults.set(data, forKey: settingsKey)
+        userDefaults.set(data, forKey: LLMProviderSettings.storageKey)
     }
 
     private func saveAPIKeyIfNeeded() throws {
@@ -231,16 +241,6 @@ final class ProviderSettingsStore: ObservableObject {
         try keychain.saveAPIKey(trimmedAPIKey, providerID: selectedProviderID)
         apiKeyInput = ""
         hasSavedAPIKey = true
-    }
-
-    private static func loadSettings(from userDefaults: UserDefaults, key: String) -> LLMProviderSettings {
-        guard let data = userDefaults.data(forKey: key),
-              let settings = try? JSONDecoder().decode(LLMProviderSettings.self, from: data)
-        else {
-            return .defaults
-        }
-
-        return settings
     }
 }
 
@@ -308,59 +308,81 @@ struct OpenAICompatibleProviderClient {
     let apiKey: String
 
     func testConnection() async throws -> String {
-        guard var components = URLComponents(string: settings.baseURLString),
-              components.scheme == "https",
-              components.host != nil
-        else {
-            throw ProviderSettingsError.invalidBaseURL
+        let completion = try await makeChatCompletion(
+            messages: [
+                .init(role: "system", content: "You are testing an API connection. Reply with OK only."),
+                .init(role: "user", content: "Reply with OK.")
+            ],
+            maxTokens: 8,
+            timeoutMessage: "The connection test timed out. Check the Base URL or network connection.",
+            failurePrefix: "Connection test failed"
+        )
+        let reply = completion.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return reply?.isEmpty == false ? "Provider replied: \(reply!)." : "Provider accepted the test request."
+    }
+
+    func translate(_ text: String) async throws -> String {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
+            throw ProviderSettingsError.requestFailed("Enter text to translate.")
         }
 
-        guard !settings.modelName.isEmpty else {
-            throw ProviderSettingsError.missingModel
+        let targetLanguage = detectedTargetLanguage(for: trimmedText)
+        let completion = try await makeChatCompletion(
+            messages: [
+                .init(
+                    role: "system",
+                    content: """
+                    You are a professional translation assistant. Translate the user's text into \(targetLanguage).
+                    Requirements:
+                    1. Preserve paragraph structure.
+                    2. Preserve code, variable names, links, product names, and proper nouns.
+                    3. Do not add information that does not exist in the source text.
+                    4. Output only the translation.
+                    """
+                ),
+                .init(role: "user", content: trimmedText)
+            ],
+            maxTokens: 2_000,
+            timeoutMessage: "Translation timed out. Check the provider or network connection.",
+            failurePrefix: "Translation failed"
+        )
+        let translatedText = completion.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !translatedText.isEmpty else {
+            throw ProviderSettingsError.unexpectedResponse
         }
 
-        let basePath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        components.path = "/" + ([basePath, "chat/completions"].filter { !$0.isEmpty }.joined(separator: "/"))
+        return translatedText
+    }
 
-        guard let url = components.url else {
-            throw ProviderSettingsError.invalidBaseURL
+    func translateStreaming(
+        _ text: String,
+        onDelta: @escaping @MainActor (String) -> Void
+    ) async throws -> String {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
+            throw ProviderSettingsError.requestFailed("Enter text to translate.")
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 20
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(ConnectionTestRequest(model: settings.modelName))
+        let targetLanguage = detectedTargetLanguage(for: trimmedText)
+        let messages = translationMessages(for: trimmedText, targetLanguage: targetLanguage)
+        var finalTranslation = ""
 
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 20
-        configuration.timeoutIntervalForResource = 25
-        let session = URLSession(configuration: configuration)
-
-        do {
-            let (data, response) = try await session.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw ProviderSettingsError.unexpectedResponse
-            }
-
-            guard (200..<300).contains(httpResponse.statusCode) else {
-                throw mappedHTTPError(statusCode: httpResponse.statusCode, data: data)
-            }
-
-            let completion = try JSONDecoder().decode(ConnectionTestResponse.self, from: data)
-            let reply = completion.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
-            return reply?.isEmpty == false ? "Provider replied: \(reply!)." : "Provider accepted the test request."
-        } catch let error as ProviderSettingsError {
-            throw error
-        } catch let error as URLError {
-            if error.code == .timedOut {
-                throw ProviderSettingsError.requestFailed("The connection test timed out. Check the Base URL or network connection.")
-            }
-            throw ProviderSettingsError.requestFailed("Network request failed: \(error.localizedDescription)")
-        } catch {
-            throw ProviderSettingsError.requestFailed("Connection test failed: \(error.localizedDescription)")
+        try await makeChatCompletionStream(
+            messages: messages,
+            maxTokens: 2_000,
+            timeoutMessage: "Translation timed out. Check the provider or network connection."
+        ) { delta in
+            finalTranslation += delta
+            await onDelta(delta)
         }
+
+        finalTranslation = finalTranslation.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !finalTranslation.isEmpty else {
+            throw ProviderSettingsError.unexpectedResponse
+        }
+
+        return finalTranslation
     }
 
     private func mappedHTTPError(statusCode: Int, data: Data) -> ProviderSettingsError {
@@ -380,31 +402,202 @@ struct OpenAICompatibleProviderClient {
 
         return response.error.message
     }
+
+    private func makeChatCompletion(
+        messages: [OpenAIChatMessage],
+        maxTokens: Int,
+        timeoutMessage: String,
+        failurePrefix: String
+    ) async throws -> OpenAIChatCompletionResponse {
+        let url = try chatCompletionsURL()
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 25
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(OpenAIChatCompletionRequest(
+            model: settings.modelName,
+            messages: messages,
+            maxTokens: maxTokens,
+            temperature: 0.2,
+            stream: false
+        ))
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 25
+        configuration.timeoutIntervalForResource = 30
+        let session = URLSession(configuration: configuration)
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw ProviderSettingsError.unexpectedResponse
+            }
+
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                throw mappedHTTPError(statusCode: httpResponse.statusCode, data: data)
+            }
+
+            return try JSONDecoder().decode(OpenAIChatCompletionResponse.self, from: data)
+        } catch let error as ProviderSettingsError {
+            throw error
+        } catch let error as URLError {
+            if error.code == .timedOut {
+                throw ProviderSettingsError.requestFailed(timeoutMessage)
+            }
+            throw ProviderSettingsError.requestFailed("Network request failed: \(error.localizedDescription)")
+        } catch {
+            throw ProviderSettingsError.requestFailed("\(failurePrefix): \(error.localizedDescription)")
+        }
+    }
+
+    private func makeChatCompletionStream(
+        messages: [OpenAIChatMessage],
+        maxTokens: Int,
+        timeoutMessage: String,
+        onDelta: @escaping (String) async -> Void
+    ) async throws {
+        let url = try chatCompletionsURL()
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 25
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(OpenAIChatCompletionRequest(
+            model: settings.modelName,
+            messages: messages,
+            maxTokens: maxTokens,
+            temperature: 0.2,
+            stream: true
+        ))
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 25
+        configuration.timeoutIntervalForResource = 45
+        let session = URLSession(configuration: configuration)
+
+        do {
+            let (bytes, response) = try await session.bytes(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw ProviderSettingsError.unexpectedResponse
+            }
+
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                throw mappedHTTPError(statusCode: httpResponse.statusCode, data: try await data(from: bytes))
+            }
+
+            for try await line in bytes.lines {
+                let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard trimmedLine.hasPrefix("data:") else {
+                    continue
+                }
+
+                let payload = trimmedLine.dropFirst("data:".count).trimmingCharacters(in: .whitespacesAndNewlines)
+                if payload == "[DONE]" {
+                    break
+                }
+
+                guard let data = payload.data(using: .utf8),
+                      let chunk = try? JSONDecoder().decode(OpenAIChatCompletionStreamChunk.self, from: data)
+                else {
+                    continue
+                }
+
+                for choice in chunk.choices {
+                    if let content = choice.delta.content, !content.isEmpty {
+                        await onDelta(content)
+                    }
+                }
+            }
+        } catch let error as ProviderSettingsError {
+            throw error
+        } catch let error as URLError {
+            if error.code == .timedOut {
+                throw ProviderSettingsError.requestFailed(timeoutMessage)
+            }
+            throw ProviderSettingsError.requestFailed("Network request failed: \(error.localizedDescription)")
+        } catch {
+            throw ProviderSettingsError.requestFailed("Translation failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func chatCompletionsURL() throws -> URL {
+        guard var components = URLComponents(string: settings.baseURLString),
+              components.scheme == "https",
+              components.host != nil
+        else {
+            throw ProviderSettingsError.invalidBaseURL
+        }
+
+        guard !settings.modelName.isEmpty else {
+            throw ProviderSettingsError.missingModel
+        }
+
+        let basePath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        components.path = "/" + ([basePath, "chat/completions"].filter { !$0.isEmpty }.joined(separator: "/"))
+
+        guard let url = components.url else {
+            throw ProviderSettingsError.invalidBaseURL
+        }
+
+        return url
+    }
+
+    private func translationMessages(for text: String, targetLanguage: String) -> [OpenAIChatMessage] {
+        [
+            .init(
+                role: "system",
+                content: """
+                You are a professional translation assistant. Translate the user's text into \(targetLanguage).
+                Requirements:
+                1. Preserve paragraph structure.
+                2. Preserve code, variable names, links, product names, and proper nouns.
+                3. Do not add information that does not exist in the source text.
+                4. Output only the translation.
+                """
+            ),
+            .init(role: "user", content: text)
+        ]
+    }
+
+    private func detectedTargetLanguage(for text: String) -> String {
+        let hasChinese = text.unicodeScalars.contains { scalar in
+            (0x4E00...0x9FFF).contains(Int(scalar.value))
+        }
+        return hasChinese ? "English" : "Simplified Chinese"
+    }
+
+    private func data(from bytes: URLSession.AsyncBytes) async throws -> Data {
+        var data = Data()
+        for try await byte in bytes {
+            data.append(byte)
+        }
+        return data
+    }
 }
 
-private struct ConnectionTestRequest: Encodable {
+private struct OpenAIChatCompletionRequest: Encodable {
     let model: String
-    let messages: [Message] = [
-        Message(role: "system", content: "You are testing an API connection. Reply with OK only."),
-        Message(role: "user", content: "Reply with OK.")
-    ]
-    let maxTokens = 8
-    let temperature = 0
+    let messages: [OpenAIChatMessage]
+    let maxTokens: Int
+    let temperature: Double
+    let stream: Bool
 
     enum CodingKeys: String, CodingKey {
         case model
         case messages
         case maxTokens = "max_tokens"
         case temperature
-    }
-
-    struct Message: Encodable {
-        let role: String
-        let content: String
+        case stream
     }
 }
 
-private struct ConnectionTestResponse: Decodable {
+private struct OpenAIChatMessage: Encodable {
+    let role: String
+    let content: String
+}
+
+private struct OpenAIChatCompletionResponse: Decodable {
     let choices: [Choice]
 
     struct Choice: Decodable {
@@ -413,6 +606,18 @@ private struct ConnectionTestResponse: Decodable {
 
     struct Message: Decodable {
         let content: String
+    }
+}
+
+private struct OpenAIChatCompletionStreamChunk: Decodable {
+    let choices: [Choice]
+
+    struct Choice: Decodable {
+        let delta: Delta
+
+        struct Delta: Decodable {
+            let content: String?
+        }
     }
 }
 

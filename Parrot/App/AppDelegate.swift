@@ -127,13 +127,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showQuickTextTranslation() {
-        let view = FeaturePlaceholderView(
-            title: "Quick Text Translation",
-            systemImageName: "text.cursor",
-            description: "Quick text translation is not implemented yet.",
-            detail: "This menu action is wired so the app can expose the intended workflow while the dedicated translation feature is built."
-        )
+        let view = QuickTextTranslationView { [weak self] in
+            self?.quickTextWindowController?.close()
+        }
         presentWindow(&quickTextWindowController, title: "Quick Text Translation", rootView: view)
+        quickTextWindowController?.window?.setContentSize(NSSize(width: 600, height: 560))
     }
 
     @objc private func showScreenshotTranslation() {

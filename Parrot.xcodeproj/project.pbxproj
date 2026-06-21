@@ -15,6 +15,7 @@
 		2F3A6C8D2B10000100A00006 /* ScreenshotSelectionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */; };
 		2F3A6C8D2B10000100A00007 /* ProviderSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00019 /* ProviderSettings.swift */; };
 		2F3A6C8D2B10000100A00008 /* ProviderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */; };
+		2F3A6C8D2B10000100A00009 /* QuickTextTranslationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001B /* QuickTextTranslationView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +30,7 @@
 		2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotSelectionController.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A00019 /* ProviderSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSettings.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSettingsView.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A0001B /* QuickTextTranslationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickTextTranslationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +71,7 @@
 				2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */,
 				2F3A6C8D2B10000100A00019 /* ProviderSettings.swift */,
 				2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */,
+				2F3A6C8D2B10000100A0001B /* QuickTextTranslationView.swift */,
 				2F3A6C8D2B10000100A00012 /* ContentView.swift */,
 			);
 			path = App;
@@ -174,6 +177,7 @@
 				2F3A6C8D2B10000100A00006 /* ScreenshotSelectionController.swift in Sources */,
 				2F3A6C8D2B10000100A00007 /* ProviderSettings.swift in Sources */,
 				2F3A6C8D2B10000100A00008 /* ProviderSettingsView.swift in Sources */,
+				2F3A6C8D2B10000100A00009 /* QuickTextTranslationView.swift in Sources */,
 				2F3A6C8D2B10000100A00002 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

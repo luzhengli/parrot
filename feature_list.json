@@ -162,9 +162,9 @@
         "Close the transient window with Esc.",
         "Copy the translation with Cmd+Enter."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Keep the workflow keyboard-first and quick to dismiss."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Implemented QuickTextTranslationView and wired the existing Quick Text Translation menu/global shortcut entry to a real keyboard-first input window. The window auto-focuses a native NSTextView, Enter triggers translation through the configured OpenAI-compatible provider, Esc closes, Cmd+K clears, and Cmd+Enter copies the translated text and closes after a successful result. Follow-up fix changed translation from a one-shot /chat/completions request to OpenAI-compatible SSE streaming so Translation receives text deltas as they arrive; the ready message is only set after the stream finishes, and errors clear partial output and show the exception message. A repeated empty Translation-area report showed the first follow-up was incomplete: the result was still rendered by a dynamic SwiftUI ScrollView/Text inside a too-small fixed window, so the same StateObject data could appear only after a later window relayout. The result area now uses a fixed-height AppKit read-only NSTextView that is updated directly from translatedText, and the quick translation window height is increased to fit the result area. Verified ./init.sh Debug build and checked no other Swift caller still uses the old non-streaming translate path. User local E2E verification on 2026-06-22 confirmed Cmd+Shift+T opens the quick translation window, text input translates with streaming output in the Translation area, the ready message appears only after translation completes, and Cmd+Enter copies the translation and closes the window."
     },
     {
       "id": "p0.zh-en-auto-translation",
