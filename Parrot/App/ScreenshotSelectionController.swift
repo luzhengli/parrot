@@ -108,7 +108,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
             isStatusError = false
         } catch {
             translatedText = ""
-            statusMessage = error.localizedDescription
+            statusMessage = error.userFacingMessage
             isStatusError = true
         }
 
@@ -132,7 +132,7 @@ final class ScreenshotOCRPipeline {
         guard let cgImage = selection.image.cgImageForOCR()?.scaledForOCR() else {
             return ScreenshotPipelineStatus(
                 title: "OCR unavailable",
-                message: "Unable to prepare the selected image for local text recognition. Try selecting the region again.",
+                message: "Unable to prepare the selected image for local text recognition. Use New Screenshot to select the region again.",
                 recognizedText: nil,
                 isSuccess: false
             )
@@ -149,7 +149,7 @@ final class ScreenshotOCRPipeline {
         } catch {
             return ScreenshotPipelineStatus(
                 title: "OCR failed",
-                message: "Local text recognition failed: \(error.localizedDescription)",
+                message: "Local text recognition failed: \(error.localizedDescription). Use New Screenshot to retry with a clearer region.",
                 recognizedText: nil,
                 isSuccess: false
             )
@@ -163,7 +163,7 @@ final class ScreenshotOCRPipeline {
         guard !recognizedText.isEmpty else {
             return ScreenshotPipelineStatus(
                 title: "No text detected",
-                message: "No translatable text was detected in the selected region. Try selecting a clearer or larger area.",
+                message: "No translatable text was detected in the selected region. Use New Screenshot to select a clearer or larger area.",
                 recognizedText: nil,
                 isSuccess: false
             )
@@ -504,13 +504,20 @@ struct ScreenshotSelectionResultView: View {
     let result: ScreenshotSelectionResult
     let status: ScreenshotPipelineStatus
     let onClose: () -> Void
+    let onRetrySelection: () -> Void
 
     @StateObject private var store: ScreenshotTranslationComparisonStore
 
-    init(result: ScreenshotSelectionResult, status: ScreenshotPipelineStatus, onClose: @escaping () -> Void) {
+    init(
+        result: ScreenshotSelectionResult,
+        status: ScreenshotPipelineStatus,
+        onClose: @escaping () -> Void,
+        onRetrySelection: @escaping () -> Void
+    ) {
         self.result = result
         self.status = status
         self.onClose = onClose
+        self.onRetrySelection = onRetrySelection
         _store = StateObject(wrappedValue: ScreenshotTranslationComparisonStore(sourceText: status.recognizedText ?? ""))
     }
 
@@ -644,6 +651,12 @@ struct ScreenshotSelectionResultView: View {
                 store.retryTranslation()
             }
             .disabled(!store.canRetry)
+
+            if !status.isSuccess {
+                Button("New Screenshot") {
+                    onRetrySelection()
+                }
+            }
 
             Spacer()
 

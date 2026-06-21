@@ -194,9 +194,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleScreenshotSelection(_ result: ScreenshotSelectionResult) {
         let status = screenshotOCRPipeline.receive(result)
-        let view = ScreenshotSelectionResultView(result: result, status: status) { [weak self] in
-            self?.screenshotWindowController?.close()
-        }
+        let view = ScreenshotSelectionResultView(
+            result: result,
+            status: status,
+            onClose: { [weak self] in
+                self?.screenshotWindowController?.close()
+            },
+            onRetrySelection: { [weak self] in
+                self?.screenshotWindowController?.close()
+                self?.showScreenshotTranslation()
+            }
+        )
         screenshotWindowController = makeWindowController(title: "Screenshot Translation", rootView: view)
         screenshotWindowController?.window?.setContentSize(NSSize(width: 800, height: 620))
 
@@ -206,18 +214,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showScreenshotSelectionError(_ message: String) {
-        let view = FeaturePlaceholderView(
-            title: "Screenshot Capture Failed",
-            systemImageName: "exclamationmark.triangle",
-            description: message,
-            detail: "Open System Settings > Privacy & Security > Screen Recording, enable Parrot, then try again."
+        let view = ScreenshotCaptureErrorView(
+            message: message,
+            onOpenSettings: {
+                Self.openScreenRecordingSettings()
+            },
+            onRetry: { [weak self] in
+                self?.screenshotWindowController?.close()
+                self?.showScreenshotTranslation()
+            },
+            onClose: { [weak self] in
+                self?.screenshotWindowController?.close()
+            }
         )
         screenshotWindowController = makeWindowController(title: "Screenshot Translation", rootView: view)
+        screenshotWindowController?.window?.setContentSize(NSSize(width: 520, height: 320))
 
         NSApp.setActivationPolicy(.accessory)
         NSApp.activate(ignoringOtherApps: true)
         screenshotWindowController?.showWindow(nil)
         screenshotWindowController?.window?.makeKeyAndOrderFront(nil)
+    }
+
+    private static func openScreenRecordingSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+            ?? URL(fileURLWithPath: "/System/Applications/System Settings.app")
+        NSWorkspace.shared.open(url)
     }
 }
 
@@ -271,5 +293,60 @@ struct FeaturePlaceholderView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct ScreenshotCaptureErrorView: View {
+    let message: String
+    let onOpenSettings: () -> Void
+    let onRetry: () -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(.orange)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Screenshot Capture Failed")
+                        .font(.title3.bold())
+
+                    Text("Parrot needs Screen Recording permission to capture other apps.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(message)
+                .font(.body)
+                .textSelection(.enabled)
+
+            Text("Open System Settings > Privacy & Security > Screen Recording, enable Parrot, then return here and use Retry.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+
+            HStack {
+                Button("Open Screen Recording Settings") {
+                    onOpenSettings()
+                }
+
+                Button("Retry") {
+                    onRetry()
+                }
+
+                Spacer()
+
+                Button("Close") {
+                    onClose()
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onExitCommand(perform: onClose)
     }
 }

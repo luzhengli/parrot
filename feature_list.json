@@ -207,9 +207,9 @@
         "Show authentication failures without exposing secrets.",
         "Show network and timeout failures with retry options."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Keep errors concise and actionable."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Implemented actionable user-facing errors across the P0 flows. Screenshot capture permission failures now open a dedicated error window with Open Screen Recording Settings, Retry, and Close actions. OCR no-text/unavailable/failure statuses stay in the screenshot result window and include a New Screenshot action so the app does not crash or strand the user. Provider errors are mapped into concise titles, messages, and recovery suggestions; authentication messages redact token-like secrets and provider messages are truncated/sanitized before display. Quick Text Translation now has an explicit Retry button after failures, while screenshot translation keeps its Retry action for network/timeout/provider errors. Verified with ./init.sh Debug build, git diff --check, feature_list.json JSON validation, CGEvent smoke that Cmd+Shift+T opens Quick Text Translation, and an equivalent integration/E2E executable compiled from app sources that covered authentication redaction, network and timeout retry guidance, invalid HTTPS Base URL guidance, and blank-image OCR no-text handling. Full UI text automation was blocked by macOS System Events Accessibility permission (-10004), so validation used CGEvent/window presence plus source-level integration checks."
     },
     {
       "id": "p1.translation-history",

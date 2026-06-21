@@ -7,6 +7,7 @@ final class QuickTextTranslationStore: ObservableObject {
     @Published private(set) var translatedText = ""
     @Published private(set) var statusMessage: String?
     @Published private(set) var isStatusError = false
+    @Published private(set) var errorPresentation: UserFacingErrorPresentation?
     @Published private(set) var isTranslating = false
 
     private let keychain: KeychainSecretStore
@@ -23,6 +24,10 @@ final class QuickTextTranslationStore: ObservableObject {
         !translatedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    var canRetry: Bool {
+        isStatusError && canTranslate
+    }
+
     func translate() async {
         let text = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isTranslating else {
@@ -33,6 +38,7 @@ final class QuickTextTranslationStore: ObservableObject {
         translatedText = ""
         statusMessage = "Translating with the configured provider..."
         isStatusError = false
+        errorPresentation = nil
 
         do {
             let settings = LLMProviderSettings.loadSaved()
@@ -47,10 +53,12 @@ final class QuickTextTranslationStore: ObservableObject {
             translatedText = finalTranslation
             statusMessage = "Translation ready. Press Cmd+Enter to copy and close."
             isStatusError = false
+            errorPresentation = nil
         } catch {
             translatedText = ""
-            statusMessage = error.localizedDescription
+            statusMessage = nil
             isStatusError = true
+            errorPresentation = UserFacingErrorPresentation(error: error)
         }
 
         isTranslating = false
@@ -61,6 +69,7 @@ final class QuickTextTranslationStore: ObservableObject {
         translatedText = ""
         statusMessage = nil
         isStatusError = false
+        errorPresentation = nil
     }
 
     @discardableResult
@@ -74,6 +83,7 @@ final class QuickTextTranslationStore: ObservableObject {
         NSPasteboard.general.setString(text, forType: .string)
         statusMessage = "Translation copied."
         isStatusError = false
+        errorPresentation = nil
         return true
     }
 }
@@ -124,19 +134,18 @@ struct QuickTextTranslationView: View {
 
     @ViewBuilder
     private var statusView: some View {
-        if let statusMessage = store.statusMessage {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: store.isStatusError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                    .foregroundStyle(store.isStatusError ? .orange : .green)
-
-                Text(statusMessage)
-                    .font(.callout)
-                    .foregroundStyle(store.isStatusError ? .primary : .secondary)
-                    .textSelection(.enabled)
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+        if let error = store.errorPresentation {
+            QuickStatusBanner(
+                style: .error,
+                title: error.title,
+                message: "\(error.message) \(error.recoverySuggestion)"
+            )
+        } else if let statusMessage = store.statusMessage {
+            QuickStatusBanner(
+                style: .success,
+                title: nil,
+                message: statusMessage
+            )
         }
     }
 
@@ -166,6 +175,11 @@ struct QuickTextTranslationView: View {
                 _ = store.copyTranslation()
             }
             .disabled(!store.canCopyTranslation)
+
+            Button("Retry") {
+                startTranslation()
+            }
+            .disabled(!store.canRetry)
 
             Button("Clear") {
                 store.clear()
@@ -197,6 +211,65 @@ struct QuickTextTranslationView: View {
                 onClose()
             }
         }
+    }
+}
+
+private struct QuickStatusBanner: View {
+    enum Style: Equatable {
+        case success
+        case error
+
+        var iconName: String {
+            switch self {
+            case .success:
+                return "checkmark.circle.fill"
+            case .error:
+                return "exclamationmark.triangle.fill"
+            }
+        }
+
+        var iconColor: Color {
+            switch self {
+            case .success:
+                return .green
+            case .error:
+                return .orange
+            }
+        }
+    }
+
+    let style: Style
+    let title: String?
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: style.iconName)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(style.iconColor)
+                .frame(width: 22, height: 22, alignment: .top)
+
+            VStack(alignment: .leading, spacing: 3) {
+                if let title {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Text(message)
+                    .font(.system(size: 13))
+                    .foregroundStyle(style == .error ? .primary : .secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

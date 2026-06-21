@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开 LLM Provider 设置窗口；`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开 LLM Provider 设置窗口；`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -61,10 +61,16 @@
   - 共享翻译实现会自动判断目标语言：包含中文时翻译为英文，否则翻译为简体中文。
   - 翻译 prompt 要求保留段落、代码、变量名、链接、产品名和专有名词，且只输出译文。
   - Quick Text Translation 和截图翻译对照窗口均复用同一条流式翻译路径；`p0.zh-en-auto-translation` 已标记通过。
+- 补齐用户可见错误闭环：
+  - 截图权限错误显示专用错误窗口，提供 `Open Screen Recording Settings`、`Retry` 和 `Close`。
+  - OCR 无文本/不可用/失败会保留在截图结果窗口，并提供 `New Screenshot` 重新框选入口。
+  - Provider 错误统一转成标题、说明和恢复建议；认证错误和服务商错误会清洗换行、截断并脱敏 token-like 内容。
+  - Quick Text Translation 失败后新增显式 `Retry` 按钮，截图翻译保留已有 `Retry` 按钮用于网络、超时和 Provider 失败。
+  - 已运行 `./init.sh`、`git diff --check`、`feature_list.json` JSON 校验、`Cmd+Shift+T` CGEvent 窗口 smoke，以及从应用源码编译的等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。
 
 ## 当前未实现
 
-- 完整权限、网络、认证、OCR 等错误提示闭环。
+- P1 翻译历史和自定义快捷键。
 
 ## 已知约束
 
@@ -252,3 +258,15 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 翻译 prompt 已覆盖保留段落结构、代码、变量名、链接、产品名和专有名词，并要求只输出译文、不额外解释。
 - Quick Text Translation 和截图翻译对照窗口均调用同一条 OpenAI-compatible 流式翻译路径。
 - 已更新 `feature_list.json`：`p0.zh-en-auto-translation.passes = true`，`last_verified = 2026-06-22`。
+
+### 2026-06-22 - 实现用户可见错误闭环
+
+- 新增统一的用户错误展示映射，将 Provider 错误转成简短标题、说明和恢复建议，覆盖无效 Base URL、缺模型、缺 API Key、认证失败、网络失败、超时和非兼容响应。
+- 认证错误与服务商错误会清洗换行、截断长消息，并脱敏 `sk-*` 与 `api key=` 这类 token-like 内容，避免把 API Key 暴露到 UI。
+- 截图权限错误不再只展示静态文字，改为专用错误窗口，包含打开系统 Screen Recording 设置、重试和关闭操作。
+- OCR 无文本/不可用/失败仍保留结果窗口，不崩溃，并提供 `New Screenshot` 重新框选入口。
+- Quick Text Translation 在失败后新增显式 `Retry`，截图翻译继续保留 `Retry` 用于网络、超时和 Provider 错误。
+- 已运行 `./init.sh` 并通过 Debug 构建；已运行 `git diff --check` 和 `feature_list.json` JSON 校验。
+- 已运行 `./init.sh --run`，并通过 CGEvent 验证 `Cmd+Shift+T` 可打开 `Quick Text Translation` 窗口；当前环境的 `System Events` UI 文本读取被 Accessibility 权限拦截（`-10004`）。
+- 已从应用源码临时编译等效集成/E2E 检查，覆盖认证错误脱敏、网络/超时 Retry 指引、无效 HTTPS Base URL 恢复建议，以及空白图片 OCR 的 no-text 失败处理，检查通过。
+- 已更新 `feature_list.json`：`p0.user-facing-errors.passes = true`，`last_verified = 2026-06-22`。

@@ -115,6 +115,99 @@ enum ProviderSettingsError: LocalizedError {
     }
 }
 
+struct UserFacingErrorPresentation {
+    let title: String
+    let message: String
+    let recoverySuggestion: String
+
+    init(error: Error) {
+        if let providerError = error as? ProviderSettingsError {
+            self = Self(providerError: providerError)
+        } else {
+            title = "Something went wrong"
+            message = error.localizedDescription
+            recoverySuggestion = "Try again. If the problem continues, check Settings and your network connection."
+        }
+    }
+
+    init(providerError: ProviderSettingsError) {
+        switch providerError {
+        case .invalidBaseURL:
+            title = "Invalid Base URL"
+            message = "The configured provider URL is not a valid HTTPS endpoint."
+            recoverySuggestion = "Open Settings, enter the provider Base URL, then retry."
+        case .missingModel:
+            title = "Model name required"
+            message = "A model must be configured before Parrot can request a translation."
+            recoverySuggestion = "Open Settings, enter a model name, then retry."
+        case .missingAPIKey:
+            title = "API Key required"
+            message = "No API Key is saved for the selected provider."
+            recoverySuggestion = "Open Settings, save the API Key to Keychain, then retry."
+        case .authenticationFailed(let providerMessage):
+            let safeProviderMessage = Self.safeMessage(providerMessage)
+            title = "Authentication failed"
+            message = safeProviderMessage.isEmpty
+                ? "The provider rejected the saved API Key or account access."
+                : "The provider rejected the request: \(safeProviderMessage)"
+            recoverySuggestion = "Open Settings, replace the Keychain API Key or confirm account access, then retry."
+        case .requestFailed(let providerMessage):
+            let safeProviderMessage = Self.safeMessage(providerMessage)
+            if safeProviderMessage.localizedCaseInsensitiveContains("timed out") {
+                title = "Request timed out"
+                message = safeProviderMessage
+                recoverySuggestion = "Check the provider status or network connection, then use Retry."
+            } else if safeProviderMessage.localizedCaseInsensitiveContains("network request failed") {
+                title = "Network request failed"
+                message = safeProviderMessage
+                recoverySuggestion = "Check the network or Base URL, then use Retry."
+            } else {
+                title = "Provider request failed"
+                message = safeProviderMessage
+                recoverySuggestion = "Check Settings and provider compatibility, then retry."
+            }
+        case .unexpectedResponse:
+            title = "Unsupported provider response"
+            message = "The provider returned a response Parrot could not read."
+            recoverySuggestion = "Check that the Base URL uses an OpenAI-compatible chat completions endpoint, then retry."
+        }
+    }
+
+    var combinedMessage: String {
+        "\(title). \(message) \(recoverySuggestion)"
+    }
+
+    private static func safeMessage(_ message: String) -> String {
+        var safe = message
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        safe = safe.replacingOccurrences(
+            of: #"sk-[A-Za-z0-9_\-]{8,}"#,
+            with: "[redacted]",
+            options: .regularExpression
+        )
+        safe = safe.replacingOccurrences(
+            of: #"(?i)(api[_ -]?key[=: ]+)[A-Za-z0-9_\-\.]{8,}"#,
+            with: "$1[redacted]",
+            options: .regularExpression
+        )
+
+        if safe.count > 240 {
+            safe = String(safe.prefix(240)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+        }
+
+        return safe
+    }
+}
+
+extension Error {
+    var userFacingMessage: String {
+        UserFacingErrorPresentation(error: self).combinedMessage
+    }
+}
+
 final class ProviderSettingsStore: ObservableObject {
     @Published var selectedProviderID: String
     @Published var baseURLString: String
@@ -170,7 +263,7 @@ final class ProviderSettingsStore: ObservableObject {
                 : "Settings saved."
             isStatusError = false
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = error.userFacingMessage
             isStatusError = true
         }
     }
@@ -183,7 +276,7 @@ final class ProviderSettingsStore: ObservableObject {
             statusMessage = "API Key deleted from Keychain for \(selectedPreset.name)."
             isStatusError = false
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = error.userFacingMessage
             isStatusError = true
         }
     }
@@ -208,7 +301,7 @@ final class ProviderSettingsStore: ObservableObject {
             statusMessage = "Connection test succeeded. \(responseSummary)"
             isStatusError = false
         } catch {
-            statusMessage = error.localizedDescription
+            statusMessage = error.userFacingMessage
             isStatusError = true
         }
 
@@ -400,7 +493,21 @@ struct OpenAICompatibleProviderClient {
             return "Check Base URL, model name, and provider compatibility."
         }
 
-        return response.error.message
+        return sanitizedProviderMessage(response.error.message)
+    }
+
+    private func sanitizedProviderMessage(_ message: String) -> String {
+        var sanitized = message
+            .replacingOccurrences(of: apiKey, with: "[redacted]")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if sanitized.count > 220 {
+            sanitized = String(sanitized.prefix(220)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+        }
+
+        return sanitized
     }
 
     private func makeChatCompletion(
