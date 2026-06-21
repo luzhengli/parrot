@@ -8,18 +8,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenshotWindowController: NSWindowController?
     private var globalShortcutManager: GlobalShortcutManager?
     private var shortcutsMenuItem: NSMenuItem?
+    private let screenshotOCRPipeline = PendingScreenshotOCRPipeline()
+    private lazy var screenshotSelectionController = ScreenshotSelectionController(
+        completion: { [weak self] result in
+            self?.handleScreenshotSelection(result)
+        },
+        failure: { [weak self] message in
+            self?.showScreenshotSelectionError(message)
+        }
+    )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.prohibited)
+
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.statusItem = statusItem
+        statusItem.length = 64
 
         if let button = statusItem.button {
-            if let image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: "Parrot") {
-                image.isTemplate = true
-                button.image = image
-            } else {
-                button.title = "Parrot"
-            }
+            button.title = "Parrot"
+            button.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+            button.toolTip = "Parrot"
         }
 
         statusItem.menu = makeStatusMenu()
@@ -128,13 +137,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showScreenshotTranslation() {
-        let view = FeaturePlaceholderView(
-            title: "Screenshot Translation",
-            systemImageName: "camera.viewfinder",
-            description: "Screenshot translation is not implemented yet.",
-            detail: "Region selection, local OCR, and translation results will be added in their own feature work."
-        )
-        presentWindow(&screenshotWindowController, title: "Screenshot Translation", rootView: view)
+        NSApp.setActivationPolicy(.accessory)
+        screenshotSelectionController.beginSelection()
     }
 
     @objc private func showSettings() {
@@ -171,6 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             controller = makeWindowController(title: title, rootView: rootView)
         }
 
+        NSApp.setActivationPolicy(.accessory)
         NSApp.activate(ignoringOtherApps: true)
         controller?.showWindow(nil)
         controller?.window?.makeKeyAndOrderFront(nil)
@@ -186,6 +191,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
 
         return NSWindowController(window: window)
+    }
+
+    private func handleScreenshotSelection(_ result: ScreenshotSelectionResult) {
+        let status = screenshotOCRPipeline.receive(result)
+        let view = ScreenshotSelectionResultView(result: result, status: status)
+        screenshotWindowController = makeWindowController(title: "Screenshot Translation", rootView: view)
+        screenshotWindowController?.window?.setContentSize(NSSize(width: 520, height: 360))
+
+        NSApp.activate(ignoringOtherApps: true)
+        screenshotWindowController?.showWindow(nil)
+        screenshotWindowController?.window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func showScreenshotSelectionError(_ message: String) {
+        let view = FeaturePlaceholderView(
+            title: "Screenshot Capture Failed",
+            systemImageName: "exclamationmark.triangle",
+            description: message,
+            detail: "Open System Settings > Privacy & Security > Screen Recording, enable Parrot, then try again."
+        )
+        screenshotWindowController = makeWindowController(title: "Screenshot Translation", rootView: view)
+
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.activate(ignoringOtherApps: true)
+        screenshotWindowController?.showWindow(nil)
+        screenshotWindowController?.window?.makeKeyAndOrderFront(nil)
     }
 }
 

@@ -6,7 +6,9 @@ Parrot is a native macOS SwiftUI app scaffold for an AI translation assistant. T
 
 - Open locally: `open Parrot.xcodeproj`
 - List project metadata: `xcodebuild -list -project Parrot.xcodeproj`
-- Build: `xcodebuild -scheme Parrot -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`
+- Build: `./init.sh`
+- Debug run without Xcode: `./init.sh --run`
+- Reset screenshot permission only when needed: `./init.sh --reset-screen-capture --run`
 - If `xcodebuild` uses Command Line Tools instead of full Xcode, tell the user to run `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
 
 ## Layout
@@ -39,7 +41,7 @@ Parrot is a native macOS SwiftUI app scaffold for an AI translation assistant. T
 ## Workflow
 
 - For non-trivial tasks, start by reading the harness handoff files: `parrot-progress.md` for current state and `feature_list.json` for prioritized acceptance criteria.
-- Use `./init.sh` as the default fresh-session bootstrap and verification command. Use `./init.sh --skip-build` when only project metadata is needed, and `./init.sh --open` when opening Xcode is useful.
+- Use `./init.sh` as the default fresh-session bootstrap and verification command. Use `./init.sh --skip-build` when only project metadata is needed, `./init.sh --open` when opening Xcode is useful, and `./init.sh --run` for TCC-sensitive local debugging because it stops old Parrot instances, builds into `./.DerivedData`, and opens that exact app bundle.
 - Before larger changes, read `Docs/ai-translation-macos-prd.md` and align behavior with the MVP scope.
 - When implementing product functionality, choose a high-priority feature with `passes: false` from `feature_list.json` unless the user explicitly asks for different work.
 - Building successfully is only the baseline verification. Before marking any feature as `passes: true`, verify the feature against its `acceptance` criteria with an end-to-end or equivalent integration/manual acceptance check. Record the verification method and result in `feature_list.json` notes and update `parrot-progress.md`. If full end-to-end verification is not possible in the current environment, keep `passes: false` or mark the feature as blocked/failing with clear notes instead of treating a build-only check as feature completion.
@@ -54,6 +56,7 @@ Parrot is a native macOS SwiftUI app scaffold for an AI translation assistant. T
 
 - The repository is currently a scaffold; many PRD features are not implemented yet.
 - `DEVELOPMENT_TEAM` is empty in both xcconfig files, so command-line builds should use `CODE_SIGNING_ALLOWED=NO`.
+- Screen Recording permission is TCC-sensitive. For screenshot/global-shortcut debugging, prefer `./init.sh --run` instead of opening arbitrary `DerivedData` app bundles; multiple ad-hoc Debug copies can confuse permission identity and leave old processes holding global shortcuts.
 - The app currently has one target and one scheme, both named `Parrot`.
 - The default bundle identifier is `com.example.parrot`; treat it as placeholder unless the user asks to prepare distribution.
 

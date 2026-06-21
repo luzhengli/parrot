@@ -8,13 +8,13 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
 
-- [x] 能启动：`./init.sh --open` 可打开 Xcode 工程。
-- [x] 能验证：`./init.sh` 会列出工程元数据并执行 Debug 构建。
+- [x] 能启动：`./init.sh --run` 可停止旧实例、构建并打开固定 Debug App；`./init.sh --open` 可打开 Xcode 工程。
+- [x] 能验证：`./init.sh` 会列出工程元数据并在 `./.DerivedData` 执行 Debug 构建。
 - [x] 能看进度：本文件记录当前状态、已完成事项、已知问题和下一步。
 - [x] 能接手下一步：`feature_list.json` 记录功能清单、验收标准和通过状态。
 
@@ -41,10 +41,15 @@
   - `Cmd+Shift+2` 触发截图翻译入口。
   - 菜单栏支持暂停/启用快捷键，并在注册失败时显示不可用状态。
   - Debug 构建已通过，并已通过自动化 GUI 烟测；`p0.global-shortcuts` 已标记通过。
+- 添加截图框选基础能力：
+  - `Cmd+Shift+2` 或菜单截图入口会进入全屏框选模式。
+  - 拖拽选区后截取屏幕区域，并交给 OCR 管线占位。
+  - `Esc` 可取消框选，不生成截图结果窗口。
+  - Debug 构建已通过，并已通过自动化 GUI 烟测；`p0.screenshot-selection` 已标记通过。
 
 ## 当前未实现
 
-- 截图框选与本地 OCR。
+- 本地 OCR。
 - 快捷文本翻译小窗。
 - OpenAI-compatible LLM 配置与请求。
 - Keychain API Key 保存。
@@ -56,7 +61,8 @@
 - MVP 仅面向 macOS。
 - 默认使用本地 OCR，仅将识别后的文本发送给 LLM。
 - API Key 只能保存到 macOS Keychain，不能写入配置文件、日志、fixture 或文档。
-- 命令行构建使用 `CODE_SIGNING_ALLOWED=NO`，因为当前未配置 `DEVELOPMENT_TEAM`。
+- 命令行构建默认使用 `CODE_SIGNING_ALLOWED=NO`，因为当前未配置 `DEVELOPMENT_TEAM`。
+- TCC/录屏权限调试使用 `./init.sh --run`，避免多个系统 DerivedData 副本和旧进程导致权限身份漂移或全局快捷键被占用。
 - 如 `xcodebuild` 使用 Command Line Tools 而非完整 Xcode，需要运行：
 
 ```sh
@@ -65,7 +71,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 ## 建议下一步
 
-1. 运行 `./init.sh`，确认当前 scaffold 可构建。
+1. 运行 `./init.sh`，确认当前 scaffold 可构建；调试运行使用 `./init.sh --run`。
 2. 从 `feature_list.json` 中选择最高优先级且 `passes: false` 的 P0 功能。
 3. 一次只实现一个功能，并补充必要的验证方式。
 4. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件。
@@ -105,3 +111,46 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 已完成自动化 GUI 烟测：Finder 前台时 `Cmd+Shift+T` 打开 `Quick Text Translation`，`Cmd+Shift+2` 打开 `Screenshot Translation`。
 - 已通过 Swift Accessibility `AXPress` 验证菜单栏 `Pause Shortcuts` 会切换为 `Resume Shortcuts`，暂停后两个快捷键不再打开窗口，恢复后两个快捷键重新生效。
 - 已更新 `feature_list.json`：`p0.global-shortcuts.passes = true`。
+
+### 2026-06-21 - 实现截图框选基础能力
+
+- 新增 `ScreenshotSelectionController`，使用原生 AppKit borderless overlay 窗口进入屏幕区域框选模式。
+- 截图翻译菜单项和 `Cmd+Shift+2` 快捷键改为启动框选，而不是打开占位窗口。
+- 拖拽选区后隐藏 overlay，截取选中屏幕区域，并通过 `PendingScreenshotOCRPipeline` 交给 OCR 管线占位。
+- 框选完成后打开 `Screenshot Translation` 结果窗口，展示选中图片预览和 OCR 待接入状态。
+- `Esc` 可取消框选，且不会生成截图结果窗口。
+- 已将 `ScreenshotSelectionController.swift` 加入 Xcode target sources。
+- 已运行 Debug 构建命令并通过：`xcodebuild -scheme Parrot -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`。
+- 已完成自动化 GUI 烟测：`Cmd+Shift+2` 进入框选，自动拖拽区域后窗口列表出现 `Screenshot Translation` 结果窗口；再次进入框选并发送 `Esc` 后，窗口列表中 `Screenshot Translation` 数量为 0。
+- 已更新 `feature_list.json`：`p0.screenshot-selection.passes = true`。
+
+### 2026-06-21 - 修复截图框选验证问题
+
+- 修复菜单入口混淆：将 App 配置为 `LSUIElement` / accessory 菜单栏工具，并将状态栏入口改为固定宽度 `Parrot` 文本。
+- 修复截图预览错位：截图前将 AppKit 选区 rect 转换为 Quartz 截图坐标，并应用 Retina backing scale。
+- 稳定命令行构建：将 `ContentView` 的宏式 `#Preview` 改为 `PreviewProvider`，避免 Xcode Preview 宏插件在命令行构建中间歇失败。
+- 已运行 Debug 构建命令并通过：`xcodebuild -scheme Parrot -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`。
+- 已验证生成的 Debug App 包含 `LSUIElement = true`，运行态为 accessory policy，`Cmd+Shift+2` 可进入截图框选 overlay。
+- 当前会话的合成鼠标拖拽不稳定，截图预览内容对齐仍建议由用户手动确认。
+
+### 2026-06-21 - 修复菜单入口和截图预览一致性
+
+- 修复启动后菜单入口误导：`ParrotApp` 不再创建默认 `WindowGroup`，冷启动无主窗口；`AppDelegate` 启动时使用 `prohibited` activation policy，只保留状态栏入口，打开设置/翻译窗口或截图 overlay 时再切到 `accessory`。
+- 验证状态栏菜单：通过 Accessibility 打开 status menu，确认包含 `Quick Text Translation`、`Screenshot Translation`、`Pause Shortcuts`、`Settings` 和 `Quit Parrot`；Quick Text 与 Settings 菜单项可打开对应窗口。
+- 重构截图预览来源：进入框选模式前先缓存每个屏幕的截图，拖拽完成后从缓存图按选区裁剪，避免 overlay 隐藏时机、屏幕内容变化或坐标系二次转换导致预览和框选内容不一致。
+- 已运行 Debug 构建命令并通过：`xcodebuild -scheme Parrot -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`。
+- 已完成截图流程自动化烟测：状态栏触发 `Screenshot Translation`，合成多段拖拽后出现 `Screenshot Translation` 结果窗口，结果显示选区 origin/尺寸并将裁剪图交给 OCR placeholder。
+
+### 2026-06-21 - 修复无屏幕录制权限时截图只包含桌面的问题
+
+- 根因：`CGWindowListCreateImage` 在缺少 Screen Recording 权限时仍可能返回桌面/壁纸层图像，旧逻辑只判断是否返回图片，误把桌面图当作有效截图缓存。
+- 修复：截图框选开始前调用 `CGPreflightScreenCaptureAccess()`，未授权时调用 `CGRequestScreenCaptureAccess()`，仍未授权则显示权限错误并停止框选。
+- 已更新 `feature_list.json` 的截图框选说明，记录该权限场景仍需要用户在 System Settings 中手动复验。
+
+### 2026-06-21 - 稳定本地调试 Harness
+
+- 仅修改 harness，不改 Swift 业务代码。
+- `init.sh` 现在固定使用仓库内 `./.DerivedData`，避免 Xcode/命令行生成多个 `~/Library/Developer/Xcode/DerivedData/Parrot-*` 副本。
+- 新增 `./init.sh --run`：先停止旧 `Parrot` 进程，再构建并打开 `./.DerivedData/Build/Products/Debug/Parrot.app`，降低录屏权限和全局快捷键被旧实例干扰的概率。
+- 新增 `./init.sh --stop`、`--reset-screen-capture`、`--signed`，分别用于停止旧实例、显式重置录屏权限、在配置 Team 后使用正常 Xcode 签名构建。
+- `.gitignore` 已忽略 `./.DerivedData/`；`AGENTS.md` 已记录 TCC 调试必须优先使用 `./init.sh --run`。

@@ -29,7 +29,7 @@
       ],
       "passes": true,
       "last_verified": "2026-06-21",
-      "notes": "./init.sh completed successfully in the current environment."
+      "notes": "./init.sh completed successfully in the current environment. The harness now builds into the repo-local ./.DerivedData path to avoid multiple system DerivedData app copies during TCC-sensitive debugging."
     },
     {
       "id": "foundation.agent-handoff",
@@ -43,7 +43,7 @@
       ],
       "passes": true,
       "last_verified": "2026-06-21",
-      "notes": "Initial handoff files are present; keep them updated after feature work."
+      "notes": "Initial handoff files are present; keep them updated after feature work. AGENTS.md and parrot-progress.md document ./init.sh --run as the stable local debug entry point: stop old Parrot instances, build into ./.DerivedData, and open that exact app bundle."
     },
     {
       "id": "foundation.design-references",
@@ -73,7 +73,7 @@
       ],
       "passes": true,
       "last_verified": "2026-06-21",
-      "notes": "Added an AppKit NSStatusItem with Quick Text Translation, Screenshot Translation, Settings, and Quit Parrot menu entries. Settings, quick text translation, and screenshot translation open placeholder windows pending their dedicated features."
+      "notes": "Added an AppKit NSStatusItem with Quick Text Translation, Screenshot Translation, Pause Shortcuts, Settings, and Quit Parrot menu entries. The SwiftUI app no longer opens a default WindowGroup on launch, so cold start shows the status item without an extra main window that can be confused with the status menu. Verified via Accessibility that the status menu lists all expected entries and that Quick Text Translation and Settings open their windows."
     },
     {
       "id": "p0.global-shortcuts",
@@ -101,9 +101,9 @@
         "Cancel selection with Esc.",
         "Pass the selected image region to the OCR pipeline."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Use native macOS APIs; keep the transient UI lightweight."
+      "passes": true,
+      "last_verified": "2026-06-21",
+      "notes": "Added a native AppKit full-screen overlay for region selection. Follow-up fixes made the app an LSUIElement menu-bar utility, removed the default launch WindowGroup, and changed screenshot capture to snapshot every screen before the overlay appears, then crop the selected region from that cached screenshot. Added Screen Recording preflight/request before snapshotting, because macOS can return a desktop-only image when permission is missing. Debug build succeeded with CODE_SIGNING_ALLOWED=NO. Verified via Accessibility and synthetic multi-step drag that Screenshot Translation opens a result window with the selected region handed to the OCR placeholder; permission-change behavior still needs manual verification in System Settings."
     },
     {
       "id": "p0.local-ocr",
