@@ -76,7 +76,7 @@
 
 ## 当前未实现
 
-- P1 自定义快捷键。
+- P1 自定义快捷键：实现前先将当前 Provider-only 设置页轻量整理为统一 Settings，范围限定为 `Model`、`Shortcuts`、`Privacy` 三个已有或即将落地的配置区。
 
 ## 已知约束
 
@@ -94,12 +94,19 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ## 建议下一步
 
 1. 运行 `./init.sh`，确认当前 scaffold 可构建；调试运行使用 `./init.sh --run`。
-2. 从 `feature_list.json` 中选择最高优先级且 `passes: false` 的 P0 功能。
-3. 一次只实现一个功能，并补充必要的验证方式。
-4. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件。
-5. 保持工作区整洁，提交描述性 commit。
+2. 下一项实现 `p1.custom-shortcuts`：先新增统一 Settings 容器，将现有模型配置归入 `Model`，将翻译历史开关归入 `Privacy`，再新增 `Shortcuts` 配置区。
+3. `Shortcuts` 只覆盖当前真实动作：`Quick Text Translation` 和 `Screenshot Translation`；保存默认值 `Cmd+Shift+T`、`Cmd+Shift+2`，支持冲突/无效组合校验、持久化和保存后重新注册。
+4. 暂不加入无真实行为支撑的设置项，例如启动项、菜单栏行为、默认语言、翻译风格、Prompt、术语表或图片上传策略。
+5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-22 - 明确自定义快捷键前的 Settings 范围
+
+- 分析当前设置页、全局快捷键实现、PRD 和 `p1.custom-shortcuts` 验收标准后，决定实现自定义快捷键时顺手做一次轻量 Settings 结构整理。
+- 推荐 Settings 当前只包含 `Model`、`Shortcuts`、`Privacy`：`Model` 复用已有 Provider/API Key/连接测试，`Privacy` 复用已有历史记录开关，`Shortcuts` 新增文本翻译和截图翻译全局快捷键配置。
+- 明确不提前加入空壳配置：启动项、菜单栏行为、默认语言、翻译风格、Prompt、术语表和上传策略应等对应业务行为存在后再接入。
+- 已更新 `feature_list.json` 的 `p1.custom-shortcuts` 验收和备注，作为下一步实现范围依据。
 
 ### 2026-06-21 - 初始化 Harness 文件
 

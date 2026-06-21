@@ -235,11 +235,12 @@
         "Record user-selected shortcut combinations.",
         "Persist shortcut preferences.",
         "Detect conflicts or invalid shortcuts.",
-        "Apply changed shortcuts without restarting when practical."
+        "Apply changed shortcuts without restarting when practical.",
+        "Expose shortcut preferences from the unified Settings window alongside existing Model and Privacy settings."
       ],
       "passes": false,
       "last_verified": null,
-      "notes": "Defer until default global shortcuts work reliably."
+      "notes": "Ready to implement now that default global shortcuts work reliably. Implementation should first convert the current Provider-only settings window into a lightweight unified Settings view with Model, Shortcuts, and Privacy sections. Model should reuse existing provider/Base URL/model/API Key/test connection behavior; Privacy should keep the existing Save translation history setting; Shortcuts should add configurable Quick Text Translation and Screenshot Translation global shortcuts with defaults Cmd+Shift+T and Cmd+Shift+2. Do not add inactive General or Translation settings such as launch at login, menu behavior, default language, prompt style, or glossary until those behaviors exist."
     }
   ]
 }
