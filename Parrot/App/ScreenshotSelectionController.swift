@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import SwiftUI
+import Vision
 
 struct ScreenshotSelectionResult {
     let image: NSImage
@@ -16,18 +17,103 @@ private struct ScreenSnapshot {
 struct ScreenshotPipelineStatus {
     let title: String
     let message: String
+    let recognizedText: String?
+    let isSuccess: Bool
 }
 
-final class PendingScreenshotOCRPipeline {
+final class ScreenshotOCRPipeline {
     private(set) var lastSelection: ScreenshotSelectionResult?
+    private(set) var lastRecognizedText: String?
 
     func receive(_ selection: ScreenshotSelectionResult) -> ScreenshotPipelineStatus {
         lastSelection = selection
+        lastRecognizedText = nil
+
+        guard let cgImage = selection.image.cgImageForOCR()?.scaledForOCR() else {
+            return ScreenshotPipelineStatus(
+                title: "OCR unavailable",
+                message: "Unable to prepare the selected image for local text recognition. Try selecting the region again.",
+                recognizedText: nil,
+                isSuccess: false
+            )
+        }
+
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
+        request.minimumTextHeight = 0.01
+
+        do {
+            try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
+        } catch {
+            return ScreenshotPipelineStatus(
+                title: "OCR failed",
+                message: "Local text recognition failed: \(error.localizedDescription)",
+                recognizedText: nil,
+                isSuccess: false
+            )
+        }
+
+        let recognizedText = (request.results ?? [])
+            .compactMap { $0.topCandidates(1).first?.string.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+
+        guard !recognizedText.isEmpty else {
+            return ScreenshotPipelineStatus(
+                title: "No text detected",
+                message: "No translatable text was detected in the selected region. Try selecting a clearer or larger area.",
+                recognizedText: nil,
+                isSuccess: false
+            )
+        }
+
+        lastRecognizedText = recognizedText
 
         return ScreenshotPipelineStatus(
-            title: "Screenshot captured",
-            message: "The selected image region has been handed to the OCR pipeline placeholder. Local OCR will be implemented in the dedicated OCR feature."
+            title: "Text recognized locally",
+            message: "OCR completed on this Mac. The screenshot image was not uploaded; only recognized text will be sent to translation in a later feature.",
+            recognizedText: recognizedText,
+            isSuccess: true
         )
+    }
+}
+
+private extension NSImage {
+    func cgImageForOCR() -> CGImage? {
+        var imageRect = CGRect(origin: .zero, size: size)
+        return cgImage(forProposedRect: &imageRect, context: nil, hints: nil)
+    }
+}
+
+private extension CGImage {
+    func scaledForOCR() -> CGImage? {
+        let longestSide = max(width, height)
+        let scale = min(max(1, 900 / CGFloat(longestSide)), 4)
+        guard scale > 1 else {
+            return self
+        }
+
+        let scaledWidth = Int(CGFloat(width) * scale)
+        let scaledHeight = Int(CGFloat(height) * scale)
+        guard let colorSpace = colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: scaledWidth,
+                height: scaledHeight,
+                bitsPerComponent: bitsPerComponent,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else {
+            return self
+        }
+
+        context.interpolationQuality = .high
+        context.draw(self, in: CGRect(x: 0, y: 0, width: scaledWidth, height: scaledHeight))
+        return context.makeImage() ?? self
     }
 }
 
@@ -321,9 +407,9 @@ struct ScreenshotSelectionResultView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: status.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                     .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(status.isSuccess ? .green : .orange)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(status.title)
@@ -348,6 +434,23 @@ struct ScreenshotSelectionResultView: View {
             Text("Selected region: x \(Int(result.screenRect.minX)), y \(Int(result.screenRect.minY)), \(Int(result.screenRect.width)) x \(Int(result.screenRect.height))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if let recognizedText = status.recognizedText {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Recognized text")
+                        .font(.headline)
+
+                    ScrollView {
+                        Text(recognizedText)
+                            .font(.body)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 180)
+                    .padding(12)
+                    .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+                }
+            }
         }
         .padding(24)
         .frame(width: 520)

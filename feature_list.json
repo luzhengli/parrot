@@ -1,7 +1,7 @@
 {
   "project": "Parrot",
   "platform": "macOS",
-  "updated": "2026-06-21",
+  "updated": "2026-06-22",
   "source_documents": [
     "Docs/ai-translation-macos-prd.md",
     "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",
@@ -116,9 +116,9 @@
         "Show a clear message when no text is detected.",
         "Preserve paragraph structure where OCR output allows it."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Vision is the preferred OCR framework."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Implemented local OCR with Vision VNRecognizeTextRequest. The screenshot image stays local; the pipeline returns recognized text only and shows a clear no-text message when Vision finds no candidates. Paragraph/line structure is preserved by joining recognized observations with newlines. Follow-up optimization for Chinese OCR scales small selections up to 4x before recognition, prioritizes zh-Hans/zh-Hant before en-US, and lowers minimumTextHeight for compact UI text. Verified with ./init.sh Debug build and equivalent smoke tests: English two-line image recognized \"Hello Parrot OCR\" and \"Translate this text\"; dark compact mixed Chinese/English image recognized \"时间线\" and \"Cue-Pro\"."
     },
     {
       "id": "p0.llm-provider-settings",

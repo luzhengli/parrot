@@ -2,13 +2,13 @@
 
 ## 当前状态
 
-- 日期：2026-06-21
+- 日期：2026-06-22
 - 项目形态：macOS SwiftUI App scaffold
 - Xcode 工程：`Parrot.xcodeproj`
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -43,13 +43,17 @@
   - Debug 构建已通过，并已通过自动化 GUI 烟测；`p0.global-shortcuts` 已标记通过。
 - 添加截图框选基础能力：
   - `Cmd+Shift+2` 或菜单截图入口会进入全屏框选模式。
-  - 拖拽选区后截取屏幕区域，并交给 OCR 管线占位。
+  - 拖拽选区后截取屏幕区域，并交给 OCR 管线处理。
   - `Esc` 可取消框选，不生成截图结果窗口。
   - Debug 构建已通过，并已通过自动化 GUI 烟测；`p0.screenshot-selection` 已标记通过。
+- 添加本地 OCR 基础能力：
+  - 截图选区图片通过 Vision `VNRecognizeTextRequest` 在本机识别文字。
+  - 截图图片默认不上传；结果窗口只展示本地识别出的文字。
+  - 未识别到文字时展示清晰提示，识别结果按 Vision observation 使用换行保留基础段落/行结构。
+  - Debug 构建和本地生成图片 OCR smoke test 均已通过；`p0.local-ocr` 已标记通过。
 
 ## 当前未实现
 
-- 本地 OCR。
 - 快捷文本翻译小窗。
 - OpenAI-compatible LLM 配置与请求。
 - Keychain API Key 保存。
@@ -154,3 +158,20 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 新增 `./init.sh --run`：先停止旧 `Parrot` 进程，再构建并打开 `./.DerivedData/Build/Products/Debug/Parrot.app`，降低录屏权限和全局快捷键被旧实例干扰的概率。
 - 新增 `./init.sh --stop`、`--reset-screen-capture`、`--signed`，分别用于停止旧实例、显式重置录屏权限、在配置 Team 后使用正常 Xcode 签名构建。
 - `.gitignore` 已忽略 `./.DerivedData/`；`AGENTS.md` 已记录 TCC 调试必须优先使用 `./init.sh --run`。
+
+### 2026-06-22 - 实现本地 OCR
+
+- 将截图 OCR 占位管线替换为 `ScreenshotOCRPipeline`，使用 Vision `VNRecognizeTextRequest` 在本机识别选区图片文字。
+- OCR 请求启用 accurate 识别和语言校正，识别语言包含英文、简体中文和繁体中文。
+- 结果窗口展示 OCR 状态、截图预览、选区信息和可选中的识别文本；无文字时展示“未识别到可翻译文字”的可操作提示。
+- 图片仍只在本地处理，当前功能不会上传截图；后续翻译功能只应消费识别出的文本。
+- 已运行 `./init.sh` 并通过 Debug 构建。
+- 已运行等效 OCR smoke test：临时编译当前 `ScreenshotSelectionController.swift` 和本地生成的两行文字图片，Vision 成功识别 `Hello Parrot OCR` 与 `Translate this text` 并保留换行。
+- 已更新 `feature_list.json`：`p0.local-ocr.passes = true`。
+
+### 2026-06-22 - 优化中文 OCR
+
+- 针对中文小字号截图误识别问题，OCR 前会将小尺寸选区最多放大 4 倍，提升 Vision 对紧凑 UI 文本的输入分辨率。
+- OCR 语言优先级改为简体中文、繁体中文、英文，并降低 `minimumTextHeight` 以覆盖更小字号。
+- 已运行 `./init.sh` 并通过 Debug 构建。
+- 已运行等效中文 OCR smoke test：临时生成深色背景、白色小字号的混排图片，Vision 成功识别 `时间线` 和 `Cue-Pro`。

@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenshotWindowController: NSWindowController?
     private var globalShortcutManager: GlobalShortcutManager?
     private var shortcutsMenuItem: NSMenuItem?
-    private let screenshotOCRPipeline = PendingScreenshotOCRPipeline()
+    private let screenshotOCRPipeline = ScreenshotOCRPipeline()
     private lazy var screenshotSelectionController = ScreenshotSelectionController(
         completion: { [weak self] result in
             self?.handleScreenshotSelection(result)
