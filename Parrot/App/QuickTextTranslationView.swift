@@ -51,6 +51,11 @@ final class QuickTextTranslationStore: ObservableObject {
                 self?.translatedText += delta
             }
             translatedText = finalTranslation
+            TranslationHistoryStore.shared.addRecord(
+                sourceText: text,
+                translatedText: finalTranslation,
+                sourceType: "Quick Text"
+            )
             statusMessage = "Translation ready. Press Cmd+Enter to copy and close."
             isStatusError = false
             errorPresentation = nil

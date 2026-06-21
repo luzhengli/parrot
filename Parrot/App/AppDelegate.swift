@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindowController: NSWindowController?
     private var quickTextWindowController: NSWindowController?
     private var screenshotWindowController: NSWindowController?
+    private var historyWindowController: NSWindowController?
     private var globalShortcutManager: GlobalShortcutManager?
     private var shortcutsMenuItem: NSMenuItem?
     private let screenshotOCRPipeline = ScreenshotOCRPipeline()
@@ -46,6 +47,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(makeMenuItem(
             title: "Screenshot Translation",
             action: #selector(showScreenshotTranslation),
+            keyEquivalent: ""
+        ))
+        menu.addItem(makeMenuItem(
+            title: "Translation History",
+            action: #selector(showTranslationHistory),
             keyEquivalent: ""
         ))
         let shortcutsMenuItem = makeMenuItem(
@@ -139,9 +145,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         screenshotSelectionController.beginSelection()
     }
 
+    @objc private func showTranslationHistory() {
+        let view = TranslationHistoryView { [weak self] in
+            self?.historyWindowController?.close()
+        }
+        presentWindow(&historyWindowController, title: "Translation History", rootView: view)
+        historyWindowController?.window?.setContentSize(NSSize(width: 760, height: 580))
+    }
+
     @objc private func showSettings() {
         presentWindow(&settingsWindowController, title: "Settings", rootView: ProviderSettingsView())
-        settingsWindowController?.window?.setContentSize(NSSize(width: 640, height: 440))
+        settingsWindowController?.window?.setContentSize(NSSize(width: 640, height: 520))
     }
 
     @objc private func toggleShortcuts() {

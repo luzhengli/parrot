@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProviderSettingsView: View {
     @StateObject private var store = ProviderSettingsStore()
+    @ObservedObject private var historyStore = TranslationHistoryStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -50,6 +51,9 @@ struct ProviderSettingsView: View {
                 }
             }
 
+            Divider()
+            historySettings
+
             if let statusMessage = store.statusMessage {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: store.isStatusError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
@@ -97,6 +101,18 @@ struct ProviderSettingsView: View {
         .frame(width: 560)
     }
 
+    private var historySettings: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Save translation history", isOn: historyEnabledBinding)
+
+            Text(historyStore.isHistoryEnabled
+                 ? "Successful translations are saved locally and never include screenshot images or API Keys."
+                 : "New translations will not be saved while history is disabled.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
@@ -118,6 +134,13 @@ struct ProviderSettingsView: View {
         Binding(
             get: { store.selectedProviderID },
             set: { store.selectProvider($0) }
+        )
+    }
+
+    private var historyEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { historyStore.isHistoryEnabled },
+            set: { historyStore.setHistoryEnabled($0) }
         )
     }
 

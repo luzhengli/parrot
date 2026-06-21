@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开 LLM Provider 设置窗口；`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开 LLM Provider 设置窗口；`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -67,10 +67,16 @@
   - Provider 错误统一转成标题、说明和恢复建议；认证错误和服务商错误会清洗换行、截断并脱敏 token-like 内容。
   - Quick Text Translation 失败后新增显式 `Retry` 按钮，截图翻译保留已有 `Retry` 按钮用于网络、超时和 Provider 失败。
   - 已运行 `./init.sh`、`git diff --check`、`feature_list.json` JSON 校验、`Cmd+Shift+T` CGEvent 窗口 smoke，以及从应用源码编译的等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。
+- 添加翻译历史：
+  - `TranslationHistoryStore` 将成功的 Quick Text 和 Screenshot 翻译保存为本地文本记录，默认最多保留最近 50 条。
+  - 历史记录写入 `Application Support/Parrot/translation-history.json`，只保存原文、译文、来源类型和时间，不保存截图图片或 API Key。
+  - 菜单栏新增 `Translation History`，可查看近期原文/译文对照、复制译文、复制原文、清空历史，并支持 `Esc` 关闭。
+  - 设置页新增 `Save translation history` 开关，关闭后不再保存新记录，已有记录保留到用户清空。
+  - 已运行 `./init.sh`、源码链接 E2E `Scripts/translation-history-e2e.swift`、真实 App 状态栏菜单 smoke；`p1.translation-history` 已标记通过。
 
 ## 当前未实现
 
-- P1 翻译历史和自定义快捷键。
+- P1 自定义快捷键。
 
 ## 已知约束
 
@@ -270,3 +276,23 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 已运行 `./init.sh --run`，并通过 CGEvent 验证 `Cmd+Shift+T` 可打开 `Quick Text Translation` 窗口；当前环境的 `System Events` UI 文本读取被 Accessibility 权限拦截（`-10004`）。
 - 已从应用源码临时编译等效集成/E2E 检查，覆盖认证错误脱敏、网络/超时 Retry 指引、无效 HTTPS Base URL 恢复建议，以及空白图片 OCR 的 no-text 失败处理，检查通过。
 - 已更新 `feature_list.json`：`p0.user-facing-errors.passes = true`，`last_verified = 2026-06-22`。
+
+### 2026-06-22 - 实现翻译历史
+
+- 新增 `TranslationHistoryStore` 和 `TranslationHistoryView`，本地保存最近 50 条成功翻译记录，记录包含原文、译文、来源类型和时间。
+- Quick Text Translation 和截图翻译对照窗口在 Provider 流式翻译成功后写入历史；关闭历史或空文本/失败翻译不会写入。
+- 菜单栏新增 `Translation History` 入口，历史窗口支持复制译文、复制原文、清空历史和 `Esc` 关闭。
+- 设置页新增 `Save translation history` 开关；关闭后阻止新增记录，已有历史仍保留到用户清空。
+- 已运行 `./init.sh` 并通过 Debug 构建。
+- 已运行源码链接 E2E：`xcrun swiftc -parse-as-library Parrot/App/TranslationHistory.swift Scripts/translation-history-e2e.swift -o /tmp/parrot-translation-history-e2e && /tmp/parrot-translation-history-e2e`，覆盖本地 JSON 持久化/重载、关闭开关、最多保留条数、清空和系统剪贴板复制。
+- 已运行 `./init.sh --run` 并通过 Accessibility smoke：状态栏 `Parrot > Translation History` 可打开 `Translation History` 窗口。
+- 已更新 `feature_list.json`：`p1.translation-history.passes = true`，`last_verified = 2026-06-22`。
+
+### 2026-06-22 - 修复翻译历史长文本溢出
+
+- 用户反馈多条历史记录中某条译文较长时，文本会超出灰色卡片并覆盖下一条记录。
+- 修复：历史列表卡片改为稳定摘要高度，原文和译文预览最多显示 4 行并裁剪，避免长文本影响后续卡片布局。
+- 新增 `View Details` 详情 sheet，完整原文和完整译文在详情里以双栏可滚动区域展示；列表里的复制按钮仍复制完整文本。
+- 已运行 `./init.sh` 并通过 Debug 构建；已运行 `Scripts/translation-history-e2e.swift` 并通过历史持久化/复制回归检查。
+- 已运行 `./init.sh --run` 打开真实 App，并通过状态栏打开 `Translation History`；截图检查确认长记录摘要不再覆盖下一条记录。
+- 当前环境对 `osascript click at` 触发额外 Accessibility 限制，详情 sheet 的坐标点击验证未完成；详情代码已随 Debug 构建通过。

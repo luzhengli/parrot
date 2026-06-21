@@ -222,9 +222,9 @@
         "Copy previous translations.",
         "Disable history from settings."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Defer until P0 translation flow is stable."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Implemented local text-only translation history. Successful Quick Text and Screenshot translations add records through TranslationHistoryStore when history is enabled. Records are stored as JSON under Application Support/Parrot/translation-history.json, capped to the most recent 50 entries, and never include screenshot images or API Keys. Added a menu-bar Translation History window with recent original/translation pairs, Copy Translation, Copy Original, Clear History, and Esc/Close. Added a Save translation history toggle in Settings; disabling it prevents new records from being saved while leaving existing records available until cleared. Follow-up UI fix keeps each history card at a stable summary height, truncates long original/translation previews, and adds a View Details sheet with scrollable full original and translation text so long content cannot overlap the next record. Verified ./init.sh Debug build, a source-linked E2E executable (Scripts/translation-history-e2e.swift) covering default enablement, JSON persistence/reload, disabled-save behavior, max-count trimming, clear, and NSPasteboard copy, plus real app smoke tests via ./init.sh --run and status menu AX click that opened the Translation History window. A screenshot check with long records confirmed the summary cards no longer overflow into the next record; coordinate-click detail validation was blocked by macOS Accessibility for osascript in this environment."
     },
     {
       "id": "p1.custom-shortcuts",

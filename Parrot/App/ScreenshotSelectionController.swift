@@ -104,6 +104,11 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
                 self?.translatedText += delta
             }
             translatedText = finalTranslation
+            TranslationHistoryStore.shared.addRecord(
+                sourceText: sourceText,
+                translatedText: finalTranslation,
+                sourceType: "Screenshot"
+            )
             statusMessage = "Translation ready."
             isStatusError = false
         } catch {
