@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindowController: NSWindowController?
     private var quickTextWindowController: NSWindowController?
     private var screenshotWindowController: NSWindowController?
+    private var globalShortcutManager: GlobalShortcutManager?
+    private var shortcutsMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -21,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         statusItem.menu = makeStatusMenu()
+        startGlobalShortcuts()
     }
 
     private func makeStatusMenu() -> NSMenu {
@@ -36,6 +39,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             action: #selector(showScreenshotTranslation),
             keyEquivalent: ""
         ))
+        let shortcutsMenuItem = makeMenuItem(
+            title: "Pause Shortcuts",
+            action: #selector(toggleShortcuts),
+            keyEquivalent: ""
+        )
+        self.shortcutsMenuItem = shortcutsMenuItem
+        menu.addItem(shortcutsMenuItem)
         menu.addItem(.separator())
         menu.addItem(makeMenuItem(
             title: "Settings",
@@ -56,6 +66,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
         item.target = self
         return item
+    }
+
+    private func startGlobalShortcuts() {
+        let manager = GlobalShortcutManager { [weak self] action in
+            self?.handleGlobalShortcut(action)
+        }
+        globalShortcutManager = manager
+
+        if !manager.start(), let error = manager.lastRegistrationError {
+            NSLog("Global shortcut registration failed: %@", error)
+        }
+
+        updateShortcutsMenuItem()
+    }
+
+    private func handleGlobalShortcut(_ action: GlobalShortcutAction) {
+        switch action {
+        case .quickTextTranslation:
+            showQuickTextTranslation()
+        case .screenshotTranslation:
+            showScreenshotTranslation()
+        }
+    }
+
+    private func updateShortcutsMenuItem() {
+        guard let shortcutsMenuItem else {
+            return
+        }
+
+        guard let globalShortcutManager else {
+            shortcutsMenuItem.title = "Shortcuts Unavailable"
+            shortcutsMenuItem.isEnabled = false
+            shortcutsMenuItem.toolTip = nil
+            return
+        }
+
+        if let error = globalShortcutManager.lastRegistrationError {
+            shortcutsMenuItem.title = "Shortcuts Unavailable"
+            shortcutsMenuItem.isEnabled = false
+            shortcutsMenuItem.toolTip = error
+        } else if globalShortcutManager.isPaused {
+            shortcutsMenuItem.title = "Resume Shortcuts"
+            shortcutsMenuItem.isEnabled = true
+            shortcutsMenuItem.toolTip = nil
+        } else {
+            shortcutsMenuItem.title = "Pause Shortcuts"
+            shortcutsMenuItem.isEnabled = true
+            shortcutsMenuItem.toolTip = nil
+        }
     }
 
     @objc private func showQuickTextTranslation() {
@@ -80,6 +139,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         presentWindow(&settingsWindowController, title: "Settings", rootView: SettingsPlaceholderView())
+    }
+
+    @objc private func toggleShortcuts() {
+        guard let globalShortcutManager else {
+            updateShortcutsMenuItem()
+            return
+        }
+
+        if globalShortcutManager.isPaused {
+            if !globalShortcutManager.resume(), let error = globalShortcutManager.lastRegistrationError {
+                NSLog("Global shortcut registration failed: %@", error)
+            }
+        } else {
+            globalShortcutManager.pause()
+        }
+
+        updateShortcutsMenuItem()
     }
 
     @objc private func quitParrot() {

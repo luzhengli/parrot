@@ -36,10 +36,14 @@
   - `Parrot/App/AppDelegate.swift` 管理 `NSStatusItem`。
   - 菜单包含快捷文本翻译、截图翻译、设置和退出。
   - 快捷文本翻译、截图翻译和设置目前打开占位窗口，完整功能后续实现。
+- 添加全局快捷键实现：
+  - `Cmd+Shift+T` 触发快捷文本翻译入口。
+  - `Cmd+Shift+2` 触发截图翻译入口。
+  - 菜单栏支持暂停/启用快捷键，并在注册失败时显示不可用状态。
+  - Debug 构建已通过，并已通过自动化 GUI 烟测；`p0.global-shortcuts` 已标记通过。
 
 ## 当前未实现
 
-- 全局快捷键。
 - 截图框选与本地 OCR。
 - 快捷文本翻译小窗。
 - OpenAI-compatible LLM 配置与请求。
@@ -90,3 +94,14 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - `Quick Text Translation`、`Screenshot Translation` 和 `Settings` 会打开 SwiftUI 占位窗口，明确标注对应完整功能尚未实现。
 - 已将 `AppDelegate.swift` 接入 `ParrotApp` 并注册到 Xcode target sources。
 - 已更新 `feature_list.json`：`p0.menu-bar-residency` 通过，后续动作仍由对应 P0 功能继续实现。
+
+### 2026-06-21 - 实现全局快捷键基础能力
+
+- 新增 `GlobalShortcutManager`，使用 Carbon `RegisterEventHotKey` 注册默认快捷键。
+- `Cmd+Shift+T` 会触发现有快捷文本翻译占位窗口，`Cmd+Shift+2` 会触发现有截图翻译占位窗口。
+- 菜单栏新增 `Pause Shortcuts` / `Resume Shortcuts`，并在快捷键注册失败时显示 `Shortcuts Unavailable`。
+- 已将 `GlobalShortcutManager.swift` 加入 Xcode target sources。
+- 已运行 Debug 构建命令并通过：`xcodebuild -scheme Parrot -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`。
+- 已完成自动化 GUI 烟测：Finder 前台时 `Cmd+Shift+T` 打开 `Quick Text Translation`，`Cmd+Shift+2` 打开 `Screenshot Translation`。
+- 已通过 Swift Accessibility `AXPress` 验证菜单栏 `Pause Shortcuts` 会切换为 `Resume Shortcuts`，暂停后两个快捷键不再打开窗口，恢复后两个快捷键重新生效。
+- 已更新 `feature_list.json`：`p0.global-shortcuts.passes = true`。

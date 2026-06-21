@@ -86,9 +86,9 @@
         "Verify shortcuts can be paused or disabled.",
         "Surface an actionable error if required accessibility permissions are missing."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Do not change privacy behavior without updating the PRD and progress file."
+      "passes": true,
+      "last_verified": "2026-06-21",
+      "notes": "Verified with automated GUI smoke test using Swift CGEvent and Accessibility APIs. Finder was frontmost when Cmd+Shift+T opened Quick Text Translation and Cmd+Shift+2 opened Screenshot Translation. AXPress verified Pause Shortcuts changes the menu to Resume Shortcuts and prevents both shortcuts from opening windows, then Resume Shortcuts restores both shortcuts. Debug build succeeded with CODE_SIGNING_ALLOWED=NO. Carbon HotKey registration does not require Accessibility permission for the app itself; Accessibility was only used by the test harness automation."
     },
     {
       "id": "p0.screenshot-selection",
