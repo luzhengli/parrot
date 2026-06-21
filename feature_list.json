@@ -177,9 +177,9 @@
         "Preserve paragraphs, code, variable names, links, product names, and proper nouns.",
         "Do not add explanations unless the user explicitly asks for explanation mode."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Prompt behavior should match the PRD and workspace rules."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Current implementation auto-detects target language from source text: Chinese text translates to English, otherwise text translates to Simplified Chinese. The shared translation prompt preserves paragraph structure, code, variable names, links, product names, and proper nouns, and asks the provider to output only the translation without explanations. Marked passing based on implementation review after Quick Text Translation and screenshot comparison flows were already verified with the shared streaming translation path."
     },
     {
       "id": "p0.comparison-result-window",

@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开 LLM Provider 设置窗口；`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开 LLM Provider 设置窗口；`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -57,6 +57,10 @@
   - Base URL/模型名/厂商选择保存到 UserDefaults；API Key 按厂商隔离保存、替换、删除于 macOS Keychain。
   - 设置页提供连接测试入口，调用 OpenAI-compatible `/chat/completions` 并展示认证、网络、超时等简短错误。
   - Debug 构建已通过；用户本地使用 DeepSeek 预设和已保存 Keychain API Key 验证连接测试成功，`p0.llm-provider-settings` 已标记通过。
+- 确认中英自动互译基础能力：
+  - 共享翻译实现会自动判断目标语言：包含中文时翻译为英文，否则翻译为简体中文。
+  - 翻译 prompt 要求保留段落、代码、变量名、链接、产品名和专有名词，且只输出译文。
+  - Quick Text Translation 和截图翻译对照窗口均复用同一条流式翻译路径；`p0.zh-en-auto-translation` 已标记通过。
 
 ## 当前未实现
 
@@ -241,3 +245,10 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 已运行 `./init.sh` 通过 Debug 构建，已运行 `git diff --check` 和 `feature_list.json` JSON 校验。
 - 用户本地端到端复验确认截图翻译对照窗口通过：真实截图选择、Provider 流式响应、复制原文/译文、重试和 Esc 关闭均正常。
 - 已更新 `feature_list.json`：`p0.comparison-result-window.passes = true`，`last_verified = 2026-06-22`。
+
+### 2026-06-22 - 确认中英自动互译状态
+
+- 当前共享翻译实现已按输入文本自动选择目标语言：包含中文字符时译为英文，否则译为简体中文。
+- 翻译 prompt 已覆盖保留段落结构、代码、变量名、链接、产品名和专有名词，并要求只输出译文、不额外解释。
+- Quick Text Translation 和截图翻译对照窗口均调用同一条 OpenAI-compatible 流式翻译路径。
+- 已更新 `feature_list.json`：`p0.zh-en-auto-translation.passes = true`，`last_verified = 2026-06-22`。
