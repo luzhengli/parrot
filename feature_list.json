@@ -192,9 +192,9 @@
         "Allow retry when translation fails.",
         "Close the result window with Esc."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Prefer native SwiftUI for simple window content and AppKit only where needed."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Implemented screenshot OCR result as a lightweight original/translated comparison window. OCR success now auto-starts OpenAI-compatible streaming translation using the same translateStreaming path as Quick Text Translation, so translated text appears incrementally. The window shows the screenshot preview, original OCR text, translated text, copy translation, copy original, retry, and Esc/Close handling. The text panes use native AppKit read-only NSTextView wrappers to avoid first-render blank result issues seen in the quick translation window. Verified ./init.sh Debug build, git diff --check, and feature_list.json JSON validation. User local E2E verification on 2026-06-22 confirmed the screenshot translation comparison window works with real screenshot selection, configured provider streaming response, copy actions, retry, and Esc close."
     },
     {
       "id": "p0.user-facing-errors",

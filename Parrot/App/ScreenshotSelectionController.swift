@@ -21,6 +21,106 @@ struct ScreenshotPipelineStatus {
     let isSuccess: Bool
 }
 
+@MainActor
+private final class ScreenshotTranslationComparisonStore: ObservableObject {
+    let sourceText: String
+
+    @Published private(set) var translatedText = ""
+    @Published private(set) var statusMessage: String?
+    @Published private(set) var isStatusError = false
+    @Published private(set) var isTranslating = false
+
+    private let keychain: KeychainSecretStore
+    private var hasAttemptedTranslation = false
+
+    init(sourceText: String, keychain: KeychainSecretStore = KeychainSecretStore()) {
+        self.sourceText = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.keychain = keychain
+    }
+
+    var canRetry: Bool {
+        !sourceText.isEmpty && !isTranslating
+    }
+
+    var canCopySource: Bool {
+        !sourceText.isEmpty
+    }
+
+    var canCopyTranslation: Bool {
+        !translatedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func translateIfNeeded() async {
+        guard !hasAttemptedTranslation else {
+            return
+        }
+
+        hasAttemptedTranslation = true
+        await translate()
+    }
+
+    func retryTranslation() {
+        hasAttemptedTranslation = true
+        Task {
+            await translate()
+        }
+    }
+
+    func copySource() {
+        copyToPasteboard(sourceText)
+        statusMessage = "Original text copied."
+        isStatusError = false
+    }
+
+    func copyTranslation() {
+        let text = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            return
+        }
+
+        copyToPasteboard(text)
+        statusMessage = "Translation copied."
+        isStatusError = false
+    }
+
+    private func translate() async {
+        guard !sourceText.isEmpty, !isTranslating else {
+            return
+        }
+
+        isTranslating = true
+        translatedText = ""
+        statusMessage = "Translating recognized text with the configured provider..."
+        isStatusError = false
+
+        do {
+            let settings = LLMProviderSettings.loadSaved()
+            guard let apiKey = try keychain.readAPIKey(providerID: settings.providerID), !apiKey.isEmpty else {
+                throw ProviderSettingsError.missingAPIKey
+            }
+
+            let client = OpenAICompatibleProviderClient(settings: settings, apiKey: apiKey)
+            let finalTranslation = try await client.translateStreaming(sourceText) { [weak self] delta in
+                self?.translatedText += delta
+            }
+            translatedText = finalTranslation
+            statusMessage = "Translation ready."
+            isStatusError = false
+        } catch {
+            translatedText = ""
+            statusMessage = error.localizedDescription
+            isStatusError = true
+        }
+
+        isTranslating = false
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+}
+
 final class ScreenshotOCRPipeline {
     private(set) var lastSelection: ScreenshotSelectionResult?
     private(set) var lastRecognizedText: String?
@@ -73,7 +173,7 @@ final class ScreenshotOCRPipeline {
 
         return ScreenshotPipelineStatus(
             title: "Text recognized locally",
-            message: "OCR completed on this Mac. The screenshot image was not uploaded; only recognized text will be sent to translation in a later feature.",
+            message: "OCR completed on this Mac. The screenshot image was not uploaded; only recognized text is sent to translation.",
             recognizedText: recognizedText,
             isSuccess: true
         )
@@ -403,56 +503,235 @@ final class ScreenshotSelectionView: NSView {
 struct ScreenshotSelectionResultView: View {
     let result: ScreenshotSelectionResult
     let status: ScreenshotPipelineStatus
+    let onClose: () -> Void
+
+    @StateObject private var store: ScreenshotTranslationComparisonStore
+
+    init(result: ScreenshotSelectionResult, status: ScreenshotPipelineStatus, onClose: @escaping () -> Void) {
+        self.result = result
+        self.status = status
+        self.onClose = onClose
+        _store = StateObject(wrappedValue: ScreenshotTranslationComparisonStore(sourceText: status.recognizedText ?? ""))
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: status.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(status.isSuccess ? .green : .orange)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(status.title)
-                        .font(.title3.bold())
-
-                    Text(status.message)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 14) {
+            header
+            preview
+            statusBanner
+            comparison
+            footer
+        }
+        .padding(24)
+        .frame(width: 760)
+        .task {
+            guard status.isSuccess else {
+                return
             }
 
+            await store.translateIfNeeded()
+        }
+        .onExitCommand(perform: onClose)
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            Image(systemName: status.isSuccess ? "text.viewfinder" : "exclamationmark.triangle.fill")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(status.isSuccess ? Color.accentColor : .orange)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Screenshot Translation")
+                    .font(.title3.bold())
+
+                Text("Compare the recognized original text with the streaming translation.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var preview: some View {
+        HStack(alignment: .top, spacing: 12) {
             Image(nsImage: result.image)
                 .resizable()
                 .scaledToFit()
-                .frame(maxHeight: 180)
+                .frame(width: 180, height: 110)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(.secondary.opacity(0.35))
                 }
 
-            Text("Selected region: x \(Int(result.screenRect.minX)), y \(Int(result.screenRect.minY)), \(Int(result.screenRect.width)) x \(Int(result.screenRect.height))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Label(status.title, systemImage: status.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.headline)
+                    .foregroundStyle(status.isSuccess ? .green : .orange)
 
-            if let recognizedText = status.recognizedText {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Recognized text")
-                        .font(.headline)
+                Text(status.message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
 
-                    ScrollView {
-                        Text(recognizedText)
-                            .font(.body)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 180)
-                    .padding(12)
-                    .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
-                }
+                Text("Selected region: x \(Int(result.screenRect.minX)), y \(Int(result.screenRect.minY)), \(Int(result.screenRect.width)) x \(Int(result.screenRect.height))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+
+            Spacer(minLength: 0)
         }
-        .padding(24)
-        .frame(width: 520)
+    }
+
+    @ViewBuilder
+    private var statusBanner: some View {
+        if let statusMessage = store.statusMessage {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: statusIconName)
+                    .foregroundStyle(store.isStatusError ? .orange : .green)
+
+                Text(statusMessage)
+                    .font(.callout)
+                    .foregroundStyle(store.isStatusError ? .primary : .secondary)
+                    .textSelection(.enabled)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    private var comparison: some View {
+        HStack(alignment: .top, spacing: 14) {
+            comparisonColumn(
+                title: "Original",
+                text: store.sourceText,
+                placeholder: status.isSuccess ? "" : "No recognized text to translate."
+            )
+
+            comparisonColumn(
+                title: "Translation",
+                text: store.translatedText,
+                placeholder: translationPlaceholder
+            )
+        }
+    }
+
+    private func comparisonColumn(title: String, text: String, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+
+            ComparisonTextView(text: text, placeholder: placeholder)
+                .frame(height: 240)
+                .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var footer: some View {
+        HStack {
+            Button("Copy Translation") {
+                store.copyTranslation()
+            }
+            .disabled(!store.canCopyTranslation)
+
+            Button("Copy Original") {
+                store.copySource()
+            }
+            .disabled(!store.canCopySource)
+
+            Button("Retry") {
+                store.retryTranslation()
+            }
+            .disabled(!store.canRetry)
+
+            Spacer()
+
+            Button("Close") {
+                onClose()
+            }
+            .keyboardShortcut(.cancelAction)
+        }
+    }
+
+    private var statusIconName: String {
+        if store.isStatusError {
+            return "exclamationmark.triangle.fill"
+        }
+
+        return store.isTranslating ? "arrow.triangle.2.circlepath" : "checkmark.circle.fill"
+    }
+
+    private var translationPlaceholder: String {
+        if store.isTranslating {
+            return "Waiting for translated text..."
+        }
+
+        if store.isStatusError {
+            return "Translation failed. Press Retry after checking settings or network."
+        }
+
+        return status.isSuccess ? "" : "No translation available."
+    }
+}
+
+private struct ComparisonTextView: NSViewRepresentable {
+    let text: String
+    let placeholder: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+
+        let textView = ComparisonPlaceholderTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isRichText = false
+        textView.drawsBackground = false
+        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
+        textView.textContainerInset = NSSize(width: 10, height: 10)
+        textView.textContainer?.widthTracksTextView = true
+        textView.autoresizingMask = [.width]
+        textView.string = text
+        textView.placeholderString = placeholder
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? ComparisonPlaceholderTextView else {
+            return
+        }
+
+        if textView.string != text {
+            textView.string = text
+        }
+        textView.placeholderString = placeholder
+        textView.needsDisplay = true
+    }
+}
+
+private final class ComparisonPlaceholderTextView: NSTextView {
+    var placeholderString = ""
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        guard string.isEmpty, !placeholderString.isEmpty else {
+            return
+        }
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize),
+            .foregroundColor: NSColor.placeholderTextColor
+        ]
+        let inset = textContainerInset
+        placeholderString.draw(
+            at: CGPoint(x: inset.width + 4, y: inset.height),
+            withAttributes: attributes
+        )
     }
 }

@@ -194,9 +194,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleScreenshotSelection(_ result: ScreenshotSelectionResult) {
         let status = screenshotOCRPipeline.receive(result)
-        let view = ScreenshotSelectionResultView(result: result, status: status)
+        let view = ScreenshotSelectionResultView(result: result, status: status) { [weak self] in
+            self?.screenshotWindowController?.close()
+        }
         screenshotWindowController = makeWindowController(title: "Screenshot Translation", rootView: view)
-        screenshotWindowController?.window?.setContentSize(NSSize(width: 520, height: 360))
+        screenshotWindowController?.window?.setContentSize(NSSize(width: 800, height: 620))
 
         NSApp.activate(ignoringOtherApps: true)
         screenshotWindowController?.showWindow(nil)
