@@ -154,8 +154,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showSettings() {
-        presentWindow(&settingsWindowController, title: "Settings", rootView: ProviderSettingsView())
-        settingsWindowController?.window?.setContentSize(NSSize(width: 640, height: 520))
+        let view = ProviderSettingsView { [weak self] in
+            self?.reloadGlobalShortcuts()
+        }
+        presentWindow(&settingsWindowController, title: "Settings", rootView: view)
+        settingsWindowController?.window?.setContentSize(NSSize(width: 680, height: 560))
     }
 
     @objc private func toggleShortcuts() {
@@ -170,6 +173,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } else {
             globalShortcutManager.pause()
+        }
+
+        updateShortcutsMenuItem()
+    }
+
+    private func reloadGlobalShortcuts() {
+        guard let globalShortcutManager else {
+            updateShortcutsMenuItem()
+            return
+        }
+
+        if !globalShortcutManager.reloadShortcuts(), let error = globalShortcutManager.lastRegistrationError {
+            NSLog("Global shortcut registration failed: %@", error)
         }
 
         updateShortcutsMenuItem()

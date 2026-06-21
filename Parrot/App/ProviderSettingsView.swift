@@ -1,72 +1,105 @@
 import SwiftUI
 
 struct ProviderSettingsView: View {
+    enum Section: String, CaseIterable, Identifiable {
+        case model = "Model"
+        case shortcuts = "Shortcuts"
+        case privacy = "Privacy"
+
+        var id: String { rawValue }
+    }
+
     @StateObject private var store = ProviderSettingsStore()
+    @StateObject private var shortcutStore = ShortcutSettingsStore()
     @ObservedObject private var historyStore = TranslationHistoryStore.shared
+    @State private var selectedSection: Section = .model
+
+    let onShortcutsSaved: () -> Void
+
+    init(onShortcutsSaved: @escaping () -> Void = {}) {
+        self.onShortcutsSaved = onShortcutsSaved
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             header
 
-            VStack(alignment: .leading, spacing: 14) {
-                LabeledContent("Provider") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Picker("Provider", selection: providerSelection) {
-                            ForEach(LLMProviderPreset.presets) { preset in
-                                Text(preset.name).tag(preset.id)
-                            }
+            Picker("Settings Section", selection: $selectedSection) {
+                ForEach(Section.allCases) { section in
+                    Text(section.rawValue).tag(section)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+
+            Divider()
+
+            selectedSettingsSection
+        }
+        .padding(24)
+        .frame(width: 600)
+    }
+
+    @ViewBuilder
+    private var selectedSettingsSection: some View {
+        switch selectedSection {
+        case .model:
+            modelSettings
+        case .shortcuts:
+            ShortcutSettingsSection(store: shortcutStore, onSaved: onShortcutsSaved)
+        case .privacy:
+            historySettings
+        }
+    }
+
+    private var modelSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            LabeledContent("Provider") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("Provider", selection: providerSelection) {
+                        ForEach(LLMProviderPreset.presets) { preset in
+                            Text(preset.name).tag(preset.id)
                         }
-                        .labelsHidden()
-                        .pickerStyle(.segmented)
-                        .frame(minWidth: 320)
-
-                        Text(store.selectedPreset.detail)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
-                }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(minWidth: 320)
 
-                LabeledContent("Base URL") {
-                    TextField(store.selectedPreset.baseURLString, text: $store.baseURLString)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(minWidth: 320)
-                }
-
-                LabeledContent("Model") {
-                    TextField(store.selectedPreset.modelName, text: $store.modelName)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(minWidth: 320)
-                }
-
-                LabeledContent("API Key") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        SecureField(apiKeyPlaceholder, text: $store.apiKeyInput)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(minWidth: 320)
-
-                        Text(apiKeyHelpText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(store.selectedPreset.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 
-            Divider()
-            historySettings
+            LabeledContent("Base URL") {
+                TextField(store.selectedPreset.baseURLString, text: $store.baseURLString)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 320)
+            }
+
+            LabeledContent("Model") {
+                TextField(store.selectedPreset.modelName, text: $store.modelName)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 320)
+            }
+
+            LabeledContent("API Key") {
+                VStack(alignment: .leading, spacing: 6) {
+                    SecureField(apiKeyPlaceholder, text: $store.apiKeyInput)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(minWidth: 320)
+
+                    Text(apiKeyHelpText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             if let statusMessage = store.statusMessage {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: store.isStatusError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                        .foregroundStyle(store.isStatusError ? .orange : .green)
-
-                    Text(statusMessage)
-                        .font(.callout)
-                        .foregroundStyle(store.isStatusError ? .primary : .secondary)
-                        .textSelection(.enabled)
-                }
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+                StatusMessageView(
+                    message: statusMessage,
+                    isError: store.isStatusError
+                )
             }
 
             HStack {
@@ -97,8 +130,6 @@ struct ProviderSettingsView: View {
                 .disabled(!store.hasSavedAPIKey)
             }
         }
-        .padding(24)
-        .frame(width: 560)
     }
 
     private var historySettings: some View {
@@ -116,15 +147,15 @@ struct ProviderSettingsView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                Image(systemName: "network")
+                Image(systemName: "gearshape")
                     .font(.system(size: 28, weight: .medium))
                     .foregroundStyle(.tint)
 
-                Text("LLM Provider")
+                Text("Settings")
                     .font(.title2.bold())
             }
 
-            Text("Configure an OpenAI-compatible endpoint. API Keys are stored only in macOS Keychain.")
+            Text("Configure Model, Shortcuts, and Privacy for the current Parrot workflows.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }

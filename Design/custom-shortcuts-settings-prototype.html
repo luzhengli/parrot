@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Parrot Custom Shortcuts Settings Prototype</title>
+  <style>
+    :root {
+      --window: #f5f5f7;
+      --content: #ffffff;
+      --border: rgba(0, 0, 0, 0.12);
+      --separator: rgba(0, 0, 0, 0.10);
+      --text: #1d1d1f;
+      --secondary: #6e6e73;
+      --tertiary: #86868b;
+      --accent: #0a84ff;
+      --accent-soft: rgba(10, 132, 255, 0.13);
+      --warning: #c15f00;
+      --warning-bg: rgba(255, 149, 0, 0.12);
+      --success: #248a3d;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      color-scheme: light;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 900px;
+      background:
+        radial-gradient(circle at 50% 8%, rgba(10, 132, 255, 0.10), transparent 32%),
+        linear-gradient(180deg, #eef1f6 0%, #e7ebf1 100%);
+    }
+
+    .canvas {
+      width: 1100px;
+      height: 900px;
+      position: relative;
+      margin: 0 auto;
+      padding-top: 54px;
+    }
+
+    .caption {
+      width: 560px;
+      margin: 0 auto 18px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .caption strong {
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .caption span {
+      color: var(--secondary);
+      font-size: 12px;
+    }
+
+    .window {
+      width: 560px;
+      margin: 0 auto;
+      border-radius: 15px;
+      overflow: hidden;
+      background: var(--window);
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.20), 0 2px 10px rgba(0, 0, 0, 0.10);
+    }
+
+    .titlebar {
+      height: 38px;
+      display: grid;
+      grid-template-columns: 78px 1fr 78px;
+      align-items: center;
+      border-bottom: 1px solid var(--separator);
+      background: linear-gradient(180deg, #f9f9fa, #ececef);
+    }
+
+    .traffic {
+      display: flex;
+      gap: 8px;
+      padding-left: 16px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+    }
+
+    .red { background: #ff5f57; }
+    .yellow { background: #febc2e; }
+    .green-dot { background: #28c840; }
+
+    .title {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .content {
+      padding: 24px;
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .symbol {
+      width: 31px;
+      height: 31px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      font-size: 25px;
+      line-height: 1;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .description {
+      margin-top: 5px;
+      color: var(--secondary);
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 450px;
+    }
+
+    .tabs {
+      width: 320px;
+      height: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      padding: 2px;
+      margin: 0 0 18px 116px;
+      border-radius: 6px;
+      background: #e9e9ec;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .tab {
+      display: grid;
+      place-items: center;
+      border-radius: 4px;
+      color: #303033;
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .tab.active {
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+      font-weight: 500;
+    }
+
+    .form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 116px 1fr;
+      align-items: start;
+      column-gap: 12px;
+    }
+
+    .label {
+      padding-top: 5px;
+      font-size: 12px;
+      text-align: right;
+    }
+
+    .field-stack {
+      display: grid;
+      gap: 6px;
+    }
+
+    .shortcut-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .key-field {
+      min-height: 23px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: #ffffff;
+      border: 1px solid #d6d6d6;
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+    }
+
+    .key-field.recording {
+      border-color: rgba(10, 132, 255, 0.75);
+      box-shadow: 0 0 0 3px var(--accent-soft), inset 0 1px 1px rgba(0, 0, 0, 0.04);
+    }
+
+    kbd {
+      min-width: 22px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 4px;
+      display: grid;
+      place-items: center;
+      color: #1d1d1f;
+      background: linear-gradient(180deg, #ffffff, #f2f2f4);
+      border: 1px solid #c7c7cc;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .button {
+      height: 23px;
+      min-width: 74px;
+      padding: 0 12px;
+      border-radius: 6px;
+      border: 1px solid #c8c8cc;
+      background: linear-gradient(180deg, #ffffff, #eeeeef);
+      color: #1f1f22;
+      font-size: 12px;
+      line-height: 23px;
+      text-align: center;
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+    }
+
+    .button.primary {
+      color: #ffffff;
+      border-color: #006adc;
+      background: linear-gradient(180deg, #168aff, #006ee6);
+    }
+
+    .button.destructive {
+      color: #9b1c1c;
+    }
+
+    .help {
+      color: var(--secondary);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .status {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.045);
+      color: #3a3a3c;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .status.warning {
+      color: #3a2b14;
+      background: var(--warning-bg);
+    }
+
+    .status .icon {
+      width: 16px;
+      flex: 0 0 16px;
+      color: var(--warning);
+      font-size: 14px;
+      line-height: 1.1;
+    }
+
+    .status.success .icon {
+      color: var(--success);
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--separator);
+      margin: 4px 0 0;
+    }
+
+    .bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .left-actions,
+    .right-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .callouts {
+      width: 560px;
+      margin: 18px auto 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .callout {
+      display: grid;
+      grid-template-columns: 118px 1fr;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    .callout strong {
+      font-size: 12px;
+    }
+
+    .callout span {
+      color: var(--secondary);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <div class="caption">
+      <strong>p1.custom-shortcuts</strong>
+      <span>Aligned with the current single-pane SwiftUI Settings window</span>
+    </div>
+
+    <section class="window" aria-label="Parrot Settings window prototype">
+      <div class="titlebar">
+        <div class="traffic">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green-dot"></span>
+        </div>
+        <div class="title">Settings</div>
+      </div>
+
+      <div class="content">
+        <header class="header">
+          <div class="symbol">⌘</div>
+          <div>
+            <h1>Shortcuts</h1>
+            <div class="description">Customize Parrot's global shortcuts. Changes are saved locally and applied without restarting when possible.</div>
+          </div>
+        </header>
+
+        <nav class="tabs" aria-label="Settings sections">
+          <div class="tab">Model</div>
+          <div class="tab active">Shortcuts</div>
+          <div class="tab">Privacy</div>
+        </nav>
+
+        <section class="form">
+          <div class="row">
+            <div class="label">Quick Text</div>
+            <div class="field-stack">
+              <div class="shortcut-line">
+                <div class="key-field">
+                  <kbd>⌘</kbd>
+                  <kbd>⇧</kbd>
+                  <kbd>T</kbd>
+                </div>
+                <div class="button">Record</div>
+              </div>
+              <div class="help">Open the text translation window from any app.</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="label">Screenshot</div>
+            <div class="field-stack">
+              <div class="shortcut-line">
+                <div class="key-field recording">
+                  <kbd>⌘</kbd>
+                  <kbd>⇧</kbd>
+                  <kbd>2</kbd>
+                </div>
+                <div class="button primary">Recording</div>
+              </div>
+              <div class="help">Start region selection, then use local OCR before translation. Press Esc to cancel recording.</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="label">Validation</div>
+            <div class="field-stack">
+              <div class="status warning">
+                <span class="icon">⚠</span>
+                <span>Cmd Shift T is already used by Quick Text. Choose a different combination before saving.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="label">Defaults</div>
+            <div class="field-stack">
+              <div class="shortcut-line">
+                <div class="status success">
+                  <span class="icon">✓</span>
+                  <span>Valid shortcuts require at least one modifier and one non-modifier key.</span>
+                </div>
+                <div class="button">Reset</div>
+              </div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="bottom">
+            <div class="left-actions">
+              <div class="button primary">Save</div>
+              <div class="button">Test Shortcuts</div>
+            </div>
+            <div class="right-actions">
+              <div class="button destructive">Clear Custom Shortcuts</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="callouts" aria-label="Design notes">
+      <div class="callout">
+        <strong>Existing style</strong>
+        <span>Single narrow Settings window, native controls, subtle separators, and no large sidebar or marketing cards.</span>
+      </div>
+      <div class="callout">
+        <strong>P1 behavior</strong>
+        <span>Record two real shortcuts, validate duplicates or invalid input inline, persist locally, then re-register immediately.</span>
+      </div>
+      <div class="callout">
+        <strong>Scope guard</strong>
+        <span>Only Model, Shortcuts, and Privacy are represented because those settings map to implemented or next-up behavior.</span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -9,7 +9,8 @@
     "Design/quick-text-translation-panel.png",
     "Design/screenshot-translation-result-card.png",
     "Design/settings-window.png",
-    "Design/menu-bar-dropdown.png"
+    "Design/menu-bar-dropdown.png",
+    "Design/custom-shortcuts-settings-prototype.png"
   ],
   "status_values": [
     "passing",
@@ -238,9 +239,9 @@
         "Apply changed shortcuts without restarting when practical.",
         "Expose shortcut preferences from the unified Settings window alongside existing Model and Privacy settings."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Ready to implement now that default global shortcuts work reliably. Implementation should first convert the current Provider-only settings window into a lightweight unified Settings view with Model, Shortcuts, and Privacy sections. Model should reuse existing provider/Base URL/model/API Key/test connection behavior; Privacy should keep the existing Save translation history setting; Shortcuts should add configurable Quick Text Translation and Screenshot Translation global shortcuts with defaults Cmd+Shift+T and Cmd+Shift+2. Do not add inactive General or Translation settings such as launch at login, menu behavior, default language, prompt style, or glossary until those behaviors exist."
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Implemented custom shortcuts for the two existing global actions only: Quick Text Translation and Screenshot Translation. ShortcutPreferences persists Codable keyboard descriptors in UserDefaults with defaults Cmd+Shift+T and Cmd+Shift+2. The unified Settings window now exposes Model, Shortcuts, and Privacy sections; Shortcuts includes native key recording, per-action validation, conflict detection, Restore Defaults, and Save Shortcuts. Saving valid shortcuts calls GlobalShortcutManager.reloadShortcuts() so Carbon hot keys are re-registered without restarting when the Settings window is used. Verified ./init.sh Debug build, git diff --check, feature_list.json JSON validation, source-linked E2E Scripts/custom-shortcuts-e2e.swift for defaults/persistence/conflicts/invalid Shift-only combinations/reset behavior, and a real App smoke test: preloaded Cmd+Option+Y for Quick Text, launched with ./init.sh --run, sent the shortcut while Finder was frontmost, and observed the Quick Text Translation window. Also verified the status menu opens the unified Settings window. The test override was removed after verification."
     }
   ]
 }

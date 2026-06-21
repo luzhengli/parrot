@@ -8,8 +8,8 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开 LLM Provider 设置窗口；`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
-- 设计参考：`Design/` 已保存 4 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
 
@@ -31,6 +31,7 @@
   - `Design/screenshot-translation-result-card.png`
   - `Design/settings-window.png`
   - `Design/menu-bar-dropdown.png`
+  - `Design/custom-shortcuts-settings-prototype.png`
   - `Design/README.md`
 - 添加原生菜单栏常驻入口：
   - `Parrot/App/AppDelegate.swift` 管理 `NSStatusItem`。
@@ -73,10 +74,16 @@
   - 菜单栏新增 `Translation History`，可查看近期原文/译文对照、复制译文、复制原文、清空历史，并支持 `Esc` 关闭。
   - 设置页新增 `Save translation history` 开关，关闭后不再保存新记录，已有记录保留到用户清空。
   - 已运行 `./init.sh`、源码链接 E2E `Scripts/translation-history-e2e.swift`、真实 App 状态栏菜单 smoke；`p1.translation-history` 已标记通过。
+- 添加自定义快捷键：
+  - 新增 `ShortcutPreferences`、`ShortcutSettingsStore` 和原生快捷键录制控件，支持 Quick Text Translation 与 Screenshot Translation 两个真实动作。
+  - 默认快捷键保持 `Cmd+Shift+T` 和 `Cmd+Shift+2`；用户配置保存到 UserDefaults，不写入密钥或截图数据。
+  - Settings 已轻量整理为 `Model`、`Shortcuts`、`Privacy` 三段；`Shortcuts` 支持录制、冲突/无效组合提示、恢复默认和保存。
+  - `GlobalShortcutManager` 改为读取保存的快捷键注册 Carbon HotKey，保存后会重新注册，无需重启 App。
+  - 已运行 `./init.sh`、源码链接 E2E `Scripts/custom-shortcuts-e2e.swift`、真实 App 自定义快捷键 smoke 和状态栏 Settings 打开 smoke；`p1.custom-shortcuts` 已标记通过。
 
 ## 当前未实现
 
-- P1 自定义快捷键：实现前先将当前 Provider-only 设置页轻量整理为统一 Settings，范围限定为 `Model`、`Shortcuts`、`Privacy` 三个已有或即将落地的配置区。
+- P1 多语言目标、翻译风格、术语表、浮窗位置偏好、OCR 文本编辑等后续功能尚未实现。
 
 ## 已知约束
 
@@ -94,12 +101,29 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ## 建议下一步
 
 1. 运行 `./init.sh`，确认当前 scaffold 可构建；调试运行使用 `./init.sh --run`。
-2. 下一项实现 `p1.custom-shortcuts`：先新增统一 Settings 容器，将现有模型配置归入 `Model`，将翻译历史开关归入 `Privacy`，再新增 `Shortcuts` 配置区。
-3. `Shortcuts` 只覆盖当前真实动作：`Quick Text Translation` 和 `Screenshot Translation`；保存默认值 `Cmd+Shift+T`、`Cmd+Shift+2`，支持冲突/无效组合校验、持久化和保存后重新注册。
-4. 暂不加入无真实行为支撑的设置项，例如启动项、菜单栏行为、默认语言、翻译风格、Prompt、术语表或图片上传策略。
-5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
+2. 下一项可从 P1 中选择：多语言目标、翻译风格、浮窗位置偏好或 OCR 文本编辑；实现前先确认对应交互范围。
+3. 暂不加入无真实行为支撑的设置项，例如启动项、菜单栏行为、默认语言、Prompt、术语表或图片上传策略。
+4. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-22 - 实现自定义快捷键
+
+- 新增 `ShortcutSettings.swift`，包含可持久化快捷键描述、默认配置、冲突/无效校验、Settings store、状态提示和 AppKit 快捷键录制控件。
+- `GlobalShortcutManager` 不再硬编码 `Cmd+Shift+T` / `Cmd+Shift+2`，改为从 `ShortcutPreferences` 读取当前配置注册 Carbon HotKey。
+- `ProviderSettingsView` 已轻量整理为统一 Settings：`Model` 复用已有 Provider/API Key/连接测试，`Shortcuts` 配置快捷键，`Privacy` 保留历史记录开关。
+- 保存快捷键后通过 `GlobalShortcutManager.reloadShortcuts()` 重新注册；暂停状态下保存不会强制恢复快捷键。
+- 新增 `Scripts/custom-shortcuts-e2e.swift`，覆盖默认值、UserDefaults 持久化、冲突检测、Shift-only 无效组合和恢复默认。
+- 已运行 `./init.sh`、`git diff --check`、`feature_list.json` JSON 校验和源码链接 E2E；真实 App smoke 将 Quick Text 临时配置为 `Cmd+Option+Y`，在 Finder 前台触发后成功打开 `Quick Text Translation` 窗口，并已清理测试 defaults 覆盖。
+- 已通过状态栏菜单打开 `Settings` 窗口，确认统一 Settings 入口可达；`p1.custom-shortcuts` 已标记通过。
+
+### 2026-06-22 - 添加自定义快捷键设置原型图
+
+- 针对 `p1.custom-shortcuts` 生成高保真产品原型预览图：`Design/custom-shortcuts-settings-prototype.png`。
+- 原型聚焦统一 Settings 的 `Shortcuts` 区，覆盖快捷键录制、冲突提示、无效组合校验、恢复默认和保存后立即生效反馈。
+- 同步新增渲染源文件 `Design/custom-shortcuts-settings-prototype.html`，便于后续迭代同一张预览图。
+- 已更新 `Design/README.md` 和 `feature_list.json` 的设计参考索引。
+- 根据真实 App Settings 复验结果重绘：当前 App 是单栏 SwiftUI 表单风格，不是侧边栏偏好设置；新版原型已统一为窄窗口、系统按钮、segmented control、rounded field、Divider 和 inline 状态提示。
 
 ### 2026-06-22 - 明确自定义快捷键前的 Settings 范围
 

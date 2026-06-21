@@ -4,24 +4,6 @@ import Foundation
 enum GlobalShortcutAction: UInt32, CaseIterable {
     case quickTextTranslation = 1
     case screenshotTranslation = 2
-
-    fileprivate var keyCode: UInt32 {
-        switch self {
-        case .quickTextTranslation:
-            return UInt32(kVK_ANSI_T)
-        case .screenshotTranslation:
-            return UInt32(kVK_ANSI_2)
-        }
-    }
-
-    fileprivate var shortcutDescription: String {
-        switch self {
-        case .quickTextTranslation:
-            return "Cmd+Shift+T"
-        case .screenshotTranslation:
-            return "Cmd+Shift+2"
-        }
-    }
 }
 
 enum GlobalShortcutRegistrationError: Error, CustomStringConvertible {
@@ -33,7 +15,8 @@ enum GlobalShortcutRegistrationError: Error, CustomStringConvertible {
         case .eventHandlerInstallFailed(let status):
             return "Unable to install the global shortcut event handler. Carbon returned status \(status)."
         case .hotKeyRegistrationFailed(let action, let status):
-            return "Unable to register \(action.shortcutDescription). It may already be used by another app or system shortcut. Carbon returned status \(status)."
+            let shortcut = ShortcutPreferences.loadSaved()[action].displayString
+            return "Unable to register \(action.title) shortcut \(shortcut). It may already be used by another app or system shortcut. Carbon returned status \(status)."
         }
     }
 }
@@ -78,6 +61,17 @@ final class GlobalShortcutManager {
     }
 
     @discardableResult
+    func reloadShortcuts() -> Bool {
+        if isPaused {
+            unregisterAll()
+            lastRegistrationError = nil
+            return true
+        }
+
+        return registerAllHotKeys()
+    }
+
+    @discardableResult
     func setPaused(_ paused: Bool) -> Bool {
         if paused {
             pause()
@@ -99,7 +93,10 @@ final class GlobalShortcutManager {
 
         do {
             try installEventHandlerIfNeeded()
-            try GlobalShortcutAction.allCases.forEach(registerHotKey)
+            let preferences = ShortcutPreferences.loadSaved()
+            try GlobalShortcutAction.allCases.forEach { action in
+                try registerHotKey(for: action, shortcut: preferences[action])
+            }
 
             isPaused = false
             lastRegistrationError = nil
@@ -148,17 +145,19 @@ final class GlobalShortcutManager {
         }
     }
 
-    private func registerHotKey(for action: GlobalShortcutAction) throws {
+    private func registerHotKey(
+        for action: GlobalShortcutAction,
+        shortcut: KeyboardShortcutDescriptor
+    ) throws {
         var hotKeyRef: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(
             signature: Self.hotKeySignature,
             id: action.rawValue
         )
-        let modifiers = UInt32(cmdKey | shiftKey)
 
         let status = RegisterEventHotKey(
-            action.keyCode,
-            modifiers,
+            shortcut.keyCode,
+            shortcut.modifiers,
             hotKeyID,
             GetEventDispatcherTarget(),
             0,

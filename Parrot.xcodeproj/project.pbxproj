@@ -17,6 +17,7 @@
 		2F3A6C8D2B10000100A00008 /* ProviderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */; };
 		2F3A6C8D2B10000100A00009 /* QuickTextTranslationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001B /* QuickTextTranslationView.swift */; };
 		2F3A6C8D2B10000100A0000A /* TranslationHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001C /* TranslationHistory.swift */; };
+		2F3A6C8D2B10000100A0000B /* ShortcutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001D /* ShortcutSettings.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 		2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSettingsView.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A0001B /* QuickTextTranslationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickTextTranslationView.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A0001C /* TranslationHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationHistory.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A0001D /* ShortcutSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSettings.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +75,7 @@
 				2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */,
 				2F3A6C8D2B10000100A00019 /* ProviderSettings.swift */,
 				2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */,
+				2F3A6C8D2B10000100A0001D /* ShortcutSettings.swift */,
 				2F3A6C8D2B10000100A0001B /* QuickTextTranslationView.swift */,
 				2F3A6C8D2B10000100A0001C /* TranslationHistory.swift */,
 				2F3A6C8D2B10000100A00012 /* ContentView.swift */,
@@ -180,6 +183,7 @@
 				2F3A6C8D2B10000100A00006 /* ScreenshotSelectionController.swift in Sources */,
 				2F3A6C8D2B10000100A00007 /* ProviderSettings.swift in Sources */,
 				2F3A6C8D2B10000100A00008 /* ProviderSettingsView.swift in Sources */,
+				2F3A6C8D2B10000100A0000B /* ShortcutSettings.swift in Sources */,
 				2F3A6C8D2B10000100A00009 /* QuickTextTranslationView.swift in Sources */,
 				2F3A6C8D2B10000100A0000A /* TranslationHistory.swift in Sources */,
 				2F3A6C8D2B10000100A00002 /* ContentView.swift in Sources */,

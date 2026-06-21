@@ -10,6 +10,7 @@ This directory contains high-fidelity product prototype images for the Parrot ma
 | `screenshot-translation-result-card.png` | View 2: Screenshot Translation Result Card | Screenshot region selection result card with OCR source text, translated output, retry, close, copy translation, copy source, and compact dark appearance. |
 | `settings-window.png` | View 3: Settings Window | Native macOS preferences window with General, Shortcuts, Model, Translation, Privacy, and About tabs, including light and dark appearances. |
 | `menu-bar-dropdown.png` | View 4: Menu Bar Dropdown | Standard `NSMenu` opened from the menu-bar icon with quick translate, screenshot translate, history, shortcut toggle, settings, and quit actions. |
+| `custom-shortcuts-settings-prototype.png` | View 5: Custom Shortcuts Settings | Current-app-aligned single-pane SwiftUI Settings prototype for the P1 custom shortcuts flow: shortcut recording, conflict detection, invalid shortcut guidance, defaults, and immediate apply feedback. |
 
 ## Product Notes
 
