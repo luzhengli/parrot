@@ -71,9 +71,9 @@
         "Trigger screenshot translation from the menu-bar item.",
         "Quit the app from the menu-bar item."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Prefer AppKit status item integration where SwiftUI alone is insufficient."
+      "passes": true,
+      "last_verified": "2026-06-21",
+      "notes": "Added an AppKit NSStatusItem with Quick Text Translation, Screenshot Translation, Settings, and Quit Parrot menu entries. Settings, quick text translation, and screenshot translation open placeholder windows pending their dedicated features."
     },
     {
       "id": "p0.global-shortcuts",

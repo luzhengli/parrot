@@ -32,10 +32,13 @@
   - `Design/settings-window.png`
   - `Design/menu-bar-dropdown.png`
   - `Design/README.md`
+- 添加原生菜单栏常驻入口：
+  - `Parrot/App/AppDelegate.swift` 管理 `NSStatusItem`。
+  - 菜单包含快捷文本翻译、截图翻译、设置和退出。
+  - 快捷文本翻译、截图翻译和设置目前打开占位窗口，完整功能后续实现。
 
 ## 当前未实现
 
-- 菜单栏常驻入口。
 - 全局快捷键。
 - 截图框选与本地 OCR。
 - 快捷文本翻译小窗。
@@ -79,3 +82,11 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 使用语义化文件名区分快捷文本翻译小窗、截图翻译结果卡片、设置窗口、菜单栏下拉菜单。
 - 新增 `Design/README.md`，记录每张原型图对应的产品界面与实现参考。
 - 更新 `feature_list.json` 的 `source_documents`，并新增 `foundation.design-references` 验收项。
+
+### 2026-06-21 - 实现菜单栏常驻入口
+
+- 新增 `AppDelegate`，在应用启动时创建原生 `NSStatusItem`。
+- 菜单项包含 `Quick Text Translation`、`Screenshot Translation`、`Settings` 和 `Quit Parrot`。
+- `Quick Text Translation`、`Screenshot Translation` 和 `Settings` 会打开 SwiftUI 占位窗口，明确标注对应完整功能尚未实现。
+- 已将 `AppDelegate.swift` 接入 `ParrotApp` 并注册到 Xcode target sources。
+- 已更新 `feature_list.json`：`p0.menu-bar-residency` 通过，后续动作仍由对应 P0 功能继续实现。
