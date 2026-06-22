@@ -18,6 +18,9 @@ Carthage/Build/
 # macOS
 .DS_Store
 
+# Distribution artifacts
+Dist/
+
 # Secrets
 *.env
 Secrets.xcconfig
