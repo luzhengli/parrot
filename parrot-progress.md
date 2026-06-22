@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-- 日期：2026-06-22
+- 日期：2026-06-23
 - 项目形态：macOS SwiftUI App scaffold
 - Xcode 工程：`Parrot.xcodeproj`
 - Scheme：`Parrot`
@@ -30,6 +30,7 @@
   - `Docs/release-process.md`：SemVer、Git tag、GitHub Release 资产、unsigned 限制和安全规则。
   - `Scripts/package-release.sh`：从 Release 配置读取版本，构建 unsigned Release，并生成 `.dmg`、`.zip`、`SHA256SUMS.txt` 和 `RELEASE_NOTES.md` 到 `Dist/`。
   - 正式模式要求干净工作区和 `v<MARKETING_VERSION>` tag；`--allow-untagged` 仅用于本地 dev 包验证。
+  - 2026-06-23 修复 `v0.1.2-alpha` DMG 启动时报“Parrot.app 已损坏”：打包脚本现在会在生成 zip/DMG 前对完整 `Parrot.app` 做 ad-hoc app bundle 签名，并用 `codesign --verify --deep --strict` 阻断缺失资源封签的产物。
 - 添加产品高保真原型图：
   - `Design/quick-text-translation-panel.png`
   - `Design/screenshot-translation-result-card.png`
@@ -112,6 +113,13 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-23 - 修复 release DMG 启动被判定为已损坏
+
+- 复现依据：`Dist/v0.1.2-alpha/Parrot-0.1.2-alpha-macos-arm64-unsigned.dmg` 校验和和 DMG 挂载均正常，但包内 `Parrot.app` 执行 `codesign --verify --deep --strict --verbose=4` 失败，报 `code has no resources but signature indicates they must be present`；截图中的“已损坏，无法打开”来自 Gatekeeper 对隔离下载 App 的签名完整性拦截。
+- 根因：发布脚本使用 `CODE_SIGNING_ALLOWED=NO` 构建 Release 后直接打包，主可执行文件只有 linker/ad-hoc 签名，整个 `.app` 没有完整 `_CodeSignature/CodeResources` 资源封签。
+- 修复：`Scripts/package-release.sh` 新增 `codesign` 依赖，在版本校验后、创建 zip/DMG 前执行 `codesign --force --deep --sign - "$APP_PATH"`，并立即执行 `codesign --verify --deep --strict --verbose=4 "$APP_PATH"`；发布说明同步改为“ad-hoc app bundle signature; no Developer ID signature”。
+- 验证：已运行 `bash -n Scripts/package-release.sh`、`git diff --check`、`Scripts/package-release.sh --allow-untagged`，生成 `Dist/dev-5cd9e9b-dirty/`；`shasum -a 256 -c SHA256SUMS.txt` 对 dmg/zip 均通过；挂载新 DMG 后包内 `Parrot.app` 通过 `codesign --verify --deep --strict`，签名信息显示 `Signature=adhoc`、`Sealed Resources version=2`；解压 ZIP 后同样通过签名验证。`spctl` 仍因没有 Developer ID 签名而拒绝，这是 unsigned 内测包的预期限制，不再是资源封签损坏。
 
 ### 2026-06-22 - 修复未配置 API 时 OCR/快速翻译仍弹钥匙串密码窗
 

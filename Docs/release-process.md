@@ -60,8 +60,9 @@ Use this format when creating a GitHub Release:
 - Assets: `.dmg`, `.zip`, and `SHA256SUMS.txt`
 - Body: copy `Dist/vX.Y.Z/RELEASE_NOTES.md`
 
-The current release packages are unsigned and not notarized. Release notes must
-keep the Gatekeeper warning and local testing instructions.
+The current release packages are ad-hoc signed for local bundle integrity, but
+not Developer ID signed or notarized. Release notes must keep the Gatekeeper
+warning and local testing instructions.
 
 ## Generated Assets
 

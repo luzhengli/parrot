@@ -1,7 +1,7 @@
 {
   "project": "Parrot",
   "platform": "macOS",
-  "updated": "2026-06-22",
+  "updated": "2026-06-23",
   "source_documents": [
     "Docs/ai-translation-macos-prd.md",
     "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",
@@ -60,8 +60,8 @@
         "Allow clearly labeled local dev packaging before a release tag exists."
       ],
       "passes": true,
-      "last_verified": "2026-06-22",
-      "notes": "Added Docs/release-process.md and Scripts/package-release.sh. The release process documents SemVer, v<MARKETING_VERSION> tags, GitHub Release assets, unsigned Gatekeeper warnings, checksum verification, and no-retag safety rules. The packaging script reads MARKETING_VERSION and CURRENT_PROJECT_VERSION from Config/Release.xcconfig, enforces SemVer, rejects formal releases from dirty worktrees or non-matching tags, supports local --allow-untagged dev packages, builds unsigned Release with CODE_SIGNING_ALLOWED=NO, verifies app bundle version/build metadata, detects architecture, and creates .dmg, .zip, SHA256SUMS.txt, and RELEASE_NOTES.md under Dist/. Verified bash -n Scripts/package-release.sh, ruby JSON parse for feature_list.json, Scripts/package-release.sh --help, expected formal-mode failure on the dirty worktree, full Scripts/package-release.sh --allow-untagged Release build, dev package regeneration with --allow-untagged --skip-build, artifact listing under Dist/dev-b8b3457-dirty, and shasum -a 256 -c SHA256SUMS.txt for both dmg and zip."
+      "last_verified": "2026-06-23",
+      "notes": "Added Docs/release-process.md and Scripts/package-release.sh. The release process documents SemVer, v<MARKETING_VERSION> tags, GitHub Release assets, Gatekeeper warnings, checksum verification, and no-retag safety rules. The packaging script reads MARKETING_VERSION and CURRENT_PROJECT_VERSION from Config/Release.xcconfig, enforces SemVer, rejects formal releases from dirty worktrees or non-matching tags, supports local --allow-untagged dev packages, builds Release with CODE_SIGNING_ALLOWED=NO, verifies app bundle version/build metadata, ad-hoc signs the full app bundle for local resource-seal integrity, verifies codesign --deep --strict before packaging, detects architecture, and creates .dmg, .zip, SHA256SUMS.txt, and RELEASE_NOTES.md under Dist/. Follow-up fix for v0.1.2-alpha Gatekeeper 'app is damaged' dialog: the previous package had only executable-level ad-hoc/linker signing and no sealed resources, causing codesign verification to fail with 'code has no resources but signature indicates they must be present'. Verified bash -n Scripts/package-release.sh, git diff --check, full Scripts/package-release.sh --allow-untagged Release build, shasum -a 256 -c SHA256SUMS.txt for the generated dmg and zip, mounted the generated DMG and verified Parrot.app with codesign --verify --deep --strict --verbose=4, confirmed the DMG app has Sealed Resources version 2 and CodeResources, confirmed spctl still rejects only because there is no Developer ID signature, and unzipped the ZIP artifact to verify the packaged app signature."
     },
     {
       "id": "foundation.design-references",

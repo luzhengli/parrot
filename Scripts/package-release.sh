@@ -85,6 +85,7 @@ require_command ditto
 require_command shasum
 require_command plutil
 require_command lipo
+require_command codesign
 
 MARKETING_VERSION="$(read_xcconfig_value MARKETING_VERSION)"
 BUILD_VERSION="$(read_xcconfig_value CURRENT_PROJECT_VERSION)"
@@ -192,6 +193,10 @@ if [[ "$BUNDLE_BUILD_VERSION" != "$BUILD_VERSION" ]]; then
   exit 1
 fi
 
+echo "=== Signing app bundle ad-hoc ==="
+codesign --force --deep --sign - "$APP_PATH"
+codesign --verify --deep --strict --verbose=4 "$APP_PATH"
+
 EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/$APP_DISPLAY_NAME"
 ARCHS="$(lipo -archs "$EXECUTABLE_PATH" | tr ' ' '\n' | sort | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
 case "$ARCHS" in
@@ -244,7 +249,8 @@ echo "=== Writing GitHub release notes ==="
 cat > "$NOTES_PATH" <<NOTES
 # $APP_DISPLAY_NAME $RELEASE_LABEL
 
-Unsigned macOS release package for Parrot.
+Unsigned macOS release package for Parrot. The app bundle is ad-hoc signed for
+local bundle integrity, but it is not Developer ID signed or notarized.
 
 ## Assets
 
@@ -281,7 +287,7 @@ xattr -dr com.apple.quarantine /path/to/$APP_NAME
 - Commit: $(git rev-parse HEAD)
 - Worktree: $WORKTREE_STATE
 - Architecture: $ARCH_LABEL
-- Signing: unsigned
+- Signing: ad-hoc app bundle signature; no Developer ID signature
 NOTES
 
 echo
