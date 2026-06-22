@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -97,6 +97,7 @@
 - API Key 只能保存到 macOS Keychain，不能写入配置文件、日志、fixture 或文档。
 - 命令行构建默认使用 `CODE_SIGNING_ALLOWED=NO`，因为当前未配置 `DEVELOPMENT_TEAM`。
 - Release 包当前为 unsigned/unnotarized，仅适合本地或小范围内测；正式对外分发前需要稳定 bundle id、Developer ID 签名和 notarization。
+- unsigned Release 包必须带稳定本地 designated requirement；如果 `codesign -dr - Parrot.app` 只显示 `cdhash H"..."`，录屏 TCC 授权会绑定到单次构建哈希，升级或重复安装后可能在系统设置里出现多个 `Parrot.app` 条目，并导致用户开启了旧条目但当前 App 仍未授权。
 - TCC/录屏权限调试使用 `./init.sh --run`，避免多个系统 DerivedData 副本和旧进程导致权限身份漂移或全局快捷键被占用。验证 release 权限体验时，应从 DMG 安装到 `/Applications/Parrot.app` 后触发 `Cmd+Shift+2`，并用窗口列表确认首轮只出现系统 `universalAccessAuthWarn` 录屏提示，不出现 Parrot 的权限错误窗。
 - 如 `xcodebuild` 使用 Command Line Tools 而非完整 Xcode，需要运行：
 
@@ -113,6 +114,13 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-23 - 修复 v0.1.3-alpha DMG 录屏授权重启后仍失效
+
+- 复现依据：`/Applications/Parrot.app` 为 `0.1.3-alpha` 且从该路径运行，但 `Cmd+Shift+2` 后仍出现系统 `universalAccessAuthWarn name=录屏`；打开系统设置的“录屏与系统录音”后可见两个 `Parrot.app` 录屏条目，一个已开启、一个未开启，当前运行 App 命中未开启条目。
+- 根因：release 脚本对完整 App bundle 做纯 ad-hoc 签名后，`codesign -dr - /Applications/Parrot.app` 的 designated requirement 退化为 `cdhash H"..."`。macOS TCC 会把 Screen Recording 授权绑定到这次构建的哈希，而不是稳定 bundle id；旧 DMG/旧构建残留会生成多个 `Parrot.app` TCC 身份，用户开启旧身份后当前 release 重启仍未授权。
+- 修复：`Scripts/package-release.sh` 现在读取并校验 `PRODUCT_BUNDLE_IDENTIFIER`，用 `codesign --requirements '=designated => identifier "com.example.parrot"'` 生成 ad-hoc app bundle 签名，并在打包前用 `codesign -dr -` 阻断退化为纯 `cdhash` 的产物；`Docs/release-process.md` 和生成的 Release Notes 已记录该 unsigned 本地签名约束。
+- 验证：已运行 `bash -n Scripts/package-release.sh`、`Scripts/package-release.sh --allow-untagged`、`shasum -a 256 -c SHA256SUMS.txt`；构建产物、DMG 内 `Parrot.app` 和 ZIP 解包 `Parrot.app` 均通过 `codesign --verify --deep --strict --verbose=4`，且 `codesign -dr -` 均显示 `designated => identifier "com.example.parrot"`。已从新 DMG 覆盖安装到 `/Applications/Parrot.app` 并确认安装后 App 同样满足该 requirement。真实 UI 检查确认旧包已造成重复 `Parrot.app` 录屏条目；当前环境无法通过无障碍自动切换系统设置开关，因此完整“勾选新条目后重启并框选”需用户或具备系统设置 UI 权限的机器手动复验。若复验机已有重复条目，先执行 `tccutil reset ScreenCapture com.example.parrot` 或删除旧条目后再授权当前 `/Applications/Parrot.app`。
 
 ### 2026-06-23 - 修复 release DMG 启动被判定为已损坏
 

@@ -89,6 +89,7 @@ require_command codesign
 
 MARKETING_VERSION="$(read_xcconfig_value MARKETING_VERSION)"
 BUILD_VERSION="$(read_xcconfig_value CURRENT_PROJECT_VERSION)"
+BUNDLE_IDENTIFIER="$(read_xcconfig_value PRODUCT_BUNDLE_IDENTIFIER)"
 
 if [[ -z "$MARKETING_VERSION" ]]; then
   echo "error: MARKETING_VERSION is missing in Config/Release.xcconfig" >&2
@@ -97,6 +98,11 @@ fi
 
 if [[ -z "$BUILD_VERSION" ]]; then
   echo "error: CURRENT_PROJECT_VERSION is missing in Config/Release.xcconfig" >&2
+  exit 1
+fi
+
+if [[ -z "$BUNDLE_IDENTIFIER" ]]; then
+  echo "error: PRODUCT_BUNDLE_IDENTIFIER is missing in Config/Release.xcconfig" >&2
   exit 1
 fi
 
@@ -180,8 +186,14 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 
 INFO_PLIST="$APP_PATH/Contents/Info.plist"
+BUNDLE_INFO_IDENTIFIER="$(plutil -extract CFBundleIdentifier raw "$INFO_PLIST")"
 BUNDLE_SHORT_VERSION="$(plutil -extract CFBundleShortVersionString raw "$INFO_PLIST")"
 BUNDLE_BUILD_VERSION="$(plutil -extract CFBundleVersion raw "$INFO_PLIST")"
+
+if [[ "$BUNDLE_INFO_IDENTIFIER" != "$BUNDLE_IDENTIFIER" ]]; then
+  echo "error: app bundle identifier mismatch: expected $BUNDLE_IDENTIFIER, got $BUNDLE_INFO_IDENTIFIER" >&2
+  exit 1
+fi
 
 if [[ "$BUNDLE_SHORT_VERSION" != "$MARKETING_VERSION" ]]; then
   echo "error: app bundle version mismatch: expected $MARKETING_VERSION, got $BUNDLE_SHORT_VERSION" >&2
@@ -194,8 +206,15 @@ if [[ "$BUNDLE_BUILD_VERSION" != "$BUILD_VERSION" ]]; then
 fi
 
 echo "=== Signing app bundle ad-hoc ==="
-codesign --force --deep --sign - "$APP_PATH"
+CODE_REQUIREMENT="=designated => identifier \"$BUNDLE_IDENTIFIER\""
+codesign --force --deep --sign - --requirements "$CODE_REQUIREMENT" "$APP_PATH"
 codesign --verify --deep --strict --verbose=4 "$APP_PATH"
+DESIGNATED_REQUIREMENT="$(codesign -dr - "$APP_PATH" 2>&1 | sed -n 's/^designated => //p')"
+if [[ "$DESIGNATED_REQUIREMENT" != "identifier \"$BUNDLE_IDENTIFIER\"" ]]; then
+  echo "error: ad-hoc signature has an unstable designated requirement: $DESIGNATED_REQUIREMENT" >&2
+  echo "       Screen Recording TCC grants must not be tied only to a per-build cdhash." >&2
+  exit 1
+fi
 
 EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/$APP_DISPLAY_NAME"
 ARCHS="$(lipo -archs "$EXECUTABLE_PATH" | tr ' ' '\n' | sort | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
@@ -250,7 +269,8 @@ cat > "$NOTES_PATH" <<NOTES
 # $APP_DISPLAY_NAME $RELEASE_LABEL
 
 Unsigned macOS release package for Parrot. The app bundle is ad-hoc signed for
-local bundle integrity, but it is not Developer ID signed or notarized.
+local bundle integrity and a stable local designated requirement, but it is not
+Developer ID signed or notarized.
 
 ## Assets
 
@@ -287,7 +307,8 @@ xattr -dr com.apple.quarantine /path/to/$APP_NAME
 - Commit: $(git rev-parse HEAD)
 - Worktree: $WORKTREE_STATE
 - Architecture: $ARCH_LABEL
-- Signing: ad-hoc app bundle signature; no Developer ID signature
+- Bundle ID: $BUNDLE_IDENTIFIER
+- Signing: ad-hoc app bundle signature with local stable designated requirement; no Developer ID signature
 NOTES
 
 echo

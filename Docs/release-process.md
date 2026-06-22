@@ -60,9 +60,10 @@ Use this format when creating a GitHub Release:
 - Assets: `.dmg`, `.zip`, and `SHA256SUMS.txt`
 - Body: copy `Dist/vX.Y.Z/RELEASE_NOTES.md`
 
-The current release packages are ad-hoc signed for local bundle integrity, but
-not Developer ID signed or notarized. Release notes must keep the Gatekeeper
-warning and local testing instructions.
+The current release packages are ad-hoc signed for local bundle integrity and a
+stable local designated requirement based on the bundle identifier, but not
+Developer ID signed or notarized. Release notes must keep the Gatekeeper warning
+and local testing instructions.
 
 ## Generated Assets
 
@@ -98,3 +99,20 @@ When a stable bundle identifier, Apple Developer Team, Developer ID
 certificate, and notarization credentials are available, extend the release
 script with a separate signed mode. Keep unsigned packaging available for local
 testing.
+
+## TCC Permissions
+
+macOS Screen Recording permission is tied to the app's code requirement. Pure
+ad-hoc signing can collapse the designated requirement to a per-build `cdhash`,
+which creates duplicate `Parrot.app` entries in System Settings and can make an
+enabled old entry fail to authorize the current release build.
+
+The unsigned release script therefore signs with a local stable designated
+requirement:
+
+```text
+designated => identifier "com.example.parrot"
+```
+
+This is a local testing bridge only. Developer ID signing and notarization should
+replace it before broader distribution.
