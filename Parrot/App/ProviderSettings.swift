@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import LocalAuthentication
 import Security
 
 struct LLMProviderSettings: Codable, Equatable {
@@ -93,6 +94,7 @@ enum ProviderSettingsError: LocalizedError {
     case invalidBaseURL
     case missingModel
     case missingAPIKey
+    case apiKeyRequiresReentry
     case authenticationFailed(String)
     case requestFailed(String)
     case unexpectedResponse
@@ -105,6 +107,8 @@ enum ProviderSettingsError: LocalizedError {
             return "Enter a model name before testing the provider."
         case .missingAPIKey:
             return "Enter an API Key or save one in Keychain before testing."
+        case .apiKeyRequiresReentry:
+            return "The saved API Key cannot be read without showing a system Keychain password prompt."
         case .authenticationFailed(let message):
             return "Authentication failed. \(message)"
         case .requestFailed(let message):
@@ -144,6 +148,10 @@ struct UserFacingErrorPresentation {
             title = "API Key required"
             message = "No API Key is saved for the selected provider."
             recoverySuggestion = "Open Settings, save the API Key to Keychain, then retry."
+        case .apiKeyRequiresReentry:
+            title = "API Key needs to be saved again"
+            message = "macOS requires a Keychain password prompt before this debug build can read the previously saved API Key."
+            recoverySuggestion = "Open Settings and re-enter the API Key. Parrot will not show a system Keychain prompt during translation."
         case .authenticationFailed(let providerMessage):
             let safeProviderMessage = Self.safeMessage(providerMessage)
             title = "Authentication failed"
@@ -232,7 +240,7 @@ final class ProviderSettingsStore: ObservableObject {
         selectedProviderID = settings.providerID
         baseURLString = settings.baseURLString
         modelName = settings.modelName
-        hasSavedAPIKey = (try? keychain.readAPIKey(providerID: settings.providerID)) != nil
+        hasSavedAPIKey = keychain.hasSavedAPIKeyRecord(providerID: settings.providerID)
     }
 
     var selectedPreset: LLMProviderPreset {
@@ -249,7 +257,7 @@ final class ProviderSettingsStore: ObservableObject {
         }
 
         apiKeyInput = ""
-        hasSavedAPIKey = (try? keychain.readAPIKey(providerID: providerID)) != nil
+        hasSavedAPIKey = keychain.hasSavedAPIKeyRecord(providerID: providerID)
         statusMessage = nil
         isStatusError = false
     }
@@ -257,7 +265,7 @@ final class ProviderSettingsStore: ObservableObject {
     func saveSettings() {
         do {
             try persistNonSecretSettings()
-            try saveAPIKeyIfNeeded()
+            _ = try saveAPIKeyIfNeeded()
             statusMessage = hasSavedAPIKey
                 ? "Settings saved. \(selectedPreset.name) API Key is stored in Keychain."
                 : "Settings saved."
@@ -289,9 +297,10 @@ final class ProviderSettingsStore: ObservableObject {
 
         do {
             try persistNonSecretSettings()
-            try saveAPIKeyIfNeeded()
+            let freshlySavedAPIKey = try saveAPIKeyIfNeeded()
 
-            guard let apiKey = try keychain.readAPIKey(providerID: selectedProviderID), !apiKey.isEmpty else {
+            let apiKey = try freshlySavedAPIKey ?? keychain.readAPIKey(providerID: selectedProviderID)
+            guard let apiKey, !apiKey.isEmpty else {
                 throw ProviderSettingsError.missingAPIKey
             }
 
@@ -324,25 +333,74 @@ final class ProviderSettingsStore: ObservableObject {
         userDefaults.set(data, forKey: LLMProviderSettings.storageKey)
     }
 
-    private func saveAPIKeyIfNeeded() throws {
+    private func saveAPIKeyIfNeeded() throws -> String? {
         let trimmedAPIKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedAPIKey.isEmpty else {
-            hasSavedAPIKey = (try? keychain.readAPIKey(providerID: selectedProviderID)) != nil
-            return
+            hasSavedAPIKey = keychain.hasSavedAPIKeyRecord(providerID: selectedProviderID)
+            return nil
         }
 
         try keychain.saveAPIKey(trimmedAPIKey, providerID: selectedProviderID)
         apiKeyInput = ""
         hasSavedAPIKey = true
+        return trimmedAPIKey
+    }
+}
+
+protocol KeychainAccessing {
+    func add(_ query: [String: Any]) -> OSStatus
+    func delete(_ query: [String: Any]) -> OSStatus
+    func copyMatching(_ query: [String: Any], item: inout CFTypeRef?) -> OSStatus
+    func errorMessage(for status: OSStatus) -> String?
+}
+
+struct SystemKeychainAccess: KeychainAccessing {
+    func add(_ query: [String: Any]) -> OSStatus {
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    func delete(_ query: [String: Any]) -> OSStatus {
+        SecItemDelete(query as CFDictionary)
+    }
+
+    func copyMatching(_ query: [String: Any], item: inout CFTypeRef?) -> OSStatus {
+        SecItemCopyMatching(query as CFDictionary, &item)
+    }
+
+    func errorMessage(for status: OSStatus) -> String? {
+        SecCopyErrorMessageString(status, nil) as String?
     }
 }
 
 final class KeychainSecretStore {
+    private struct CacheKey: Hashable {
+        let service: String
+        let providerID: String
+    }
+
+    private static var cachedAPIKeys: [CacheKey: String] = [:]
+    private static let cacheLock = NSLock()
+    private static let savedProviderIDsKey = "SavedAPIKeyProviderIDs"
+
+    static func clearProcessCacheForTesting() {
+        cacheLock.lock()
+        cachedAPIKeys.removeAll()
+        cacheLock.unlock()
+    }
+
     private let service: String
+    private let userDefaults: UserDefaults
+    private let keychainAccess: KeychainAccessing
     private let accountPrefix = "openai-compatible-api-key"
 
-    init(service: String = Bundle.main.bundleIdentifier ?? "com.example.parrot") {
+    init(
+        service: String = Bundle.main.bundleIdentifier ?? "com.example.parrot",
+        userDefaults: UserDefaults = .standard,
+        keychainAccess: KeychainAccessing = SystemKeychainAccess()
+    ) {
         self.service = service
+        self.userDefaults = userDefaults
+        self.keychainAccess = keychainAccess
     }
 
     func saveAPIKey(_ apiKey: String, providerID: String) throws {
@@ -351,36 +409,70 @@ final class KeychainSecretStore {
         query[kSecValueData as String] = data
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 
-        SecItemDelete(baseQuery(providerID: providerID) as CFDictionary)
-        let status = SecItemAdd(query as CFDictionary, nil)
+        _ = keychainAccess.delete(baseQuery(providerID: providerID))
+        let status = keychainAccess.add(query)
         guard status == errSecSuccess else {
             throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: "Unable to save API Key to Keychain."))
         }
+
+        cacheAPIKey(apiKey, providerID: providerID)
+        markAPIKeyRecordSaved(providerID: providerID)
     }
 
     func readAPIKey(providerID: String) throws -> String? {
+        guard hasSavedAPIKeyRecord(providerID: providerID) else {
+            return nil
+        }
+
+        if let cachedAPIKey = cachedAPIKey(providerID: providerID) {
+            return cachedAPIKey
+        }
+
         var query = baseQuery(providerID: providerID)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        query[kSecUseAuthenticationContext as String] = context
+        // LAContext alone does not suppress older Keychain ACL prompts for ad-hoc debug builds.
+        query[kSecUseAuthenticationUI as String] = kSecUseAuthenticationUIFail
 
         var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        let status = keychainAccess.copyMatching(query, item: &item)
         if status == errSecItemNotFound {
+            clearCachedAPIKey(providerID: providerID)
+            markAPIKeyRecordMissing(providerID: providerID)
             return nil
+        }
+
+        if status == errSecInteractionNotAllowed || status == errSecAuthFailed {
+            clearCachedAPIKey(providerID: providerID)
+            markAPIKeyRecordMissing(providerID: providerID)
+            throw ProviderSettingsError.apiKeyRequiresReentry
         }
 
         guard status == errSecSuccess, let data = item as? Data else {
             throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: "Unable to read API Key from Keychain."))
         }
 
-        return String(data: data, encoding: .utf8)
+        let apiKey = String(data: data, encoding: .utf8)
+        if let apiKey {
+            cacheAPIKey(apiKey, providerID: providerID)
+        }
+        return apiKey
+    }
+
+    func hasSavedAPIKeyRecord(providerID: String) -> Bool {
+        savedProviderIDs().contains(providerID)
     }
 
     func deleteAPIKey(providerID: String) throws {
-        let status = SecItemDelete(baseQuery(providerID: providerID) as CFDictionary)
+        let status = keychainAccess.delete(baseQuery(providerID: providerID))
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: "Unable to delete API Key from Keychain."))
         }
+        clearCachedAPIKey(providerID: providerID)
+        markAPIKeyRecordMissing(providerID: providerID)
     }
 
     private func baseQuery(providerID: String) -> [String: Any] {
@@ -392,7 +484,44 @@ final class KeychainSecretStore {
     }
 
     private func keychainMessage(for status: OSStatus, fallback: String) -> String {
-        SecCopyErrorMessageString(status, nil) as String? ?? fallback
+        keychainAccess.errorMessage(for: status) ?? fallback
+    }
+
+    private func cachedAPIKey(providerID: String) -> String? {
+        let key = CacheKey(service: service, providerID: providerID)
+        Self.cacheLock.lock()
+        defer { Self.cacheLock.unlock() }
+        return Self.cachedAPIKeys[key]
+    }
+
+    private func cacheAPIKey(_ apiKey: String, providerID: String) {
+        let key = CacheKey(service: service, providerID: providerID)
+        Self.cacheLock.lock()
+        Self.cachedAPIKeys[key] = apiKey
+        Self.cacheLock.unlock()
+    }
+
+    private func clearCachedAPIKey(providerID: String) {
+        let key = CacheKey(service: service, providerID: providerID)
+        Self.cacheLock.lock()
+        Self.cachedAPIKeys.removeValue(forKey: key)
+        Self.cacheLock.unlock()
+    }
+
+    private func savedProviderIDs() -> Set<String> {
+        Set(userDefaults.stringArray(forKey: Self.savedProviderIDsKey) ?? [])
+    }
+
+    private func markAPIKeyRecordSaved(providerID: String) {
+        var providerIDs = savedProviderIDs()
+        providerIDs.insert(providerID)
+        userDefaults.set(Array(providerIDs).sorted(), forKey: Self.savedProviderIDsKey)
+    }
+
+    private func markAPIKeyRecordMissing(providerID: String) {
+        var providerIDs = savedProviderIDs()
+        providerIDs.remove(providerID)
+        userDefaults.set(Array(providerIDs).sorted(), forKey: Self.savedProviderIDsKey)
     }
 }
 

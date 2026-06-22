@@ -95,6 +95,10 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
 
         do {
             let settings = LLMProviderSettings.loadSaved()
+            guard keychain.hasSavedAPIKeyRecord(providerID: settings.providerID) else {
+                throw ProviderSettingsError.missingAPIKey
+            }
+
             guard let apiKey = try keychain.readAPIKey(providerID: settings.providerID), !apiKey.isEmpty else {
                 throw ProviderSettingsError.missingAPIKey
             }
@@ -222,6 +226,33 @@ private extension CGImage {
     }
 }
 
+struct ScreenCaptureAccessGate {
+    enum Outcome: Equatable {
+        case granted
+        case requestPresented
+        case deniedAfterRequest
+    }
+
+    private var hasPresentedRequest = false
+
+    mutating func evaluate(
+        preflight: () -> Bool = CGPreflightScreenCaptureAccess,
+        request: () -> Bool = CGRequestScreenCaptureAccess
+    ) -> Outcome {
+        if preflight() {
+            hasPresentedRequest = false
+            return .granted
+        }
+
+        guard !hasPresentedRequest else {
+            return .deniedAfterRequest
+        }
+
+        hasPresentedRequest = true
+        return request() ? .granted : .requestPresented
+    }
+}
+
 final class ScreenshotSelectionController: NSObject {
     typealias Completion = (ScreenshotSelectionResult) -> Void
     typealias Failure = (String) -> Void
@@ -231,6 +262,7 @@ final class ScreenshotSelectionController: NSObject {
     private var overlayWindows: [ScreenshotSelectionWindow] = []
     private var selectedRect: CGRect?
     private var screenSnapshots: [CGDirectDisplayID: ScreenSnapshot] = [:]
+    private var screenCaptureAccessGate = ScreenCaptureAccessGate()
 
     init(completion: @escaping Completion, failure: @escaping Failure) {
         self.completion = completion
@@ -240,8 +272,13 @@ final class ScreenshotSelectionController: NSObject {
     func beginSelection() {
         cancelSelection()
 
-        guard ensureScreenCaptureAccess() else {
-            failure("Screen Recording permission is required before screenshot translation can capture other apps.")
+        switch screenCaptureAccessGate.evaluate() {
+        case .granted:
+            break
+        case .requestPresented:
+            return
+        case .deniedAfterRequest:
+            failure("Screen Recording permission is still required before screenshot translation can capture other apps.")
             return
         }
 
@@ -265,14 +302,6 @@ final class ScreenshotSelectionController: NSObject {
         let focusedWindow = overlayWindows.first { $0.frame.contains(mouseLocation) } ?? overlayWindows.first
         focusedWindow?.makeKey()
         focusedWindow?.makeFirstResponder(focusedWindow?.contentView)
-    }
-
-    private func ensureScreenCaptureAccess() -> Bool {
-        if CGPreflightScreenCaptureAccess() {
-            return true
-        }
-
-        return CGRequestScreenCaptureAccess()
     }
 
     private func cancelSelection() {

@@ -54,6 +54,10 @@ struct ProviderSettingsView: View {
 
     private var modelSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if !store.hasSavedAPIKey {
+                setupGuide
+            }
+
             LabeledContent("Provider") {
                 VStack(alignment: .leading, spacing: 6) {
                     Picker("Provider", selection: providerSelection) {
@@ -132,6 +136,28 @@ struct ProviderSettingsView: View {
         }
     }
 
+    private var setupGuide: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "key.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(width: 24, height: 24, alignment: .top)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("API Key setup required")
+                    .font(.headline)
+
+                Text("Save a provider API Key once before translating. Parrot only accesses Keychain when you save, replace, delete, or explicitly test a saved key here; translation windows show in-app setup errors instead of system Keychain password prompts.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
     private var historySettings: some View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle("Save translation history", isOn: historyEnabledBinding)
@@ -181,8 +207,8 @@ struct ProviderSettingsView: View {
 
     private var apiKeyHelpText: String {
         store.hasSavedAPIKey
-            ? "A Keychain API Key is saved. Enter a new key to replace it."
-            : "The API Key is never saved to UserDefaults, project files, or logs."
+            ? "A Keychain API Key is saved. Enter a new key to replace it if macOS asks for Keychain access during debugging."
+            : "The API Key is saved only to Keychain. Parrot keeps only a non-secret setup flag in UserDefaults."
     }
 }
 

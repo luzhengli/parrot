@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -96,7 +96,7 @@
 - API Key 只能保存到 macOS Keychain，不能写入配置文件、日志、fixture 或文档。
 - 命令行构建默认使用 `CODE_SIGNING_ALLOWED=NO`，因为当前未配置 `DEVELOPMENT_TEAM`。
 - Release 包当前为 unsigned/unnotarized，仅适合本地或小范围内测；正式对外分发前需要稳定 bundle id、Developer ID 签名和 notarization。
-- TCC/录屏权限调试使用 `./init.sh --run`，避免多个系统 DerivedData 副本和旧进程导致权限身份漂移或全局快捷键被占用。
+- TCC/录屏权限调试使用 `./init.sh --run`，避免多个系统 DerivedData 副本和旧进程导致权限身份漂移或全局快捷键被占用。验证 release 权限体验时，应从 DMG 安装到 `/Applications/Parrot.app` 后触发 `Cmd+Shift+2`，并用窗口列表确认首轮只出现系统 `universalAccessAuthWarn` 录屏提示，不出现 Parrot 的权限错误窗。
 - 如 `xcodebuild` 使用 Command Line Tools 而非完整 Xcode，需要运行：
 
 ```sh
@@ -112,6 +112,41 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-22 - 修复未配置 API 时 OCR/快速翻译仍弹钥匙串密码窗
+
+- 复现依据：用户在首次启动自动打开 Settings 后没有配置 API Key，直接触发 OCR/快速翻译仍看到系统提示“Parrot 想要使用你储存在钥匙串中的 com.example.parrot 机密信息”；该提示来自翻译路径的 `KeychainSecretStore.readAPIKey()` 进入 `SecItemCopyMatching` 读取旧/不安全 Keychain item。
+- 根因：上次修复只设置了 `LAContext.interactionNotAllowed`，但 macOS 对调试构建签名变化后的 Keychain ACL 授权仍可能弹系统密码窗；并且该旧 provider setup record 没有在“需要系统 UI”失败后清除，导致后续 OCR 和 Quick Text 重试继续进入同一条 Keychain 读取路径。
+- 修复：Quick Text 和截图 OCR 翻译入口现在先检查当前 provider 的 setup record，未配置时直接抛 App 内 `missingAPIKey`，不调用 `readAPIKey()`；`readAPIKey()` 也改为先检查 setup record 再返回进程缓存。翻译读取时同时设置 `kSecUseAuthenticationUIFail` 和非交互 `LAContext`；若 Keychain 返回 `errSecInteractionNotAllowed` 或 `errSecAuthFailed`，立即清除该 provider 的非秘密 setup record 和进程缓存并抛出 App 内重新保存 API Key 错误。下一次 OCR/快速翻译会直接走“未配置 API Key”软件提示，不再访问 Keychain。
+- 验证：`Scripts/keychain-cache-e2e.swift` 新增断言覆盖 setup record 清除后即使存在进程缓存也不能返回 API Key、authentication UI fail 参数、需要系统 UI 的旧记录清理、清理后重试不再调用 `copyMatching`；`keychain-cache-e2e passed`，`./init.sh` Debug 构建通过。
+
+### 2026-06-22 - 优化 API Key 设置和钥匙串弹窗体验
+
+- 复现依据：Quick Text 和截图 OCR 翻译都会在翻译前调用 `KeychainSecretStore.readAPIKey()`；旧实现即使已有进程内缓存，首次读取旧 Keychain item 仍允许 macOS 展示系统钥匙串密码窗。Settings 初始化和 provider 切换也曾通过 Keychain 查询判断是否保存过 API Key。
+- 根因：翻译路径把“是否配置 API Key”和“读取 secret”耦合在一起，并且 Keychain secret 读取没有使用非交互上下文；调试构建的 ad-hoc 身份变化会让 macOS 要求用户重新允许访问旧 item，于是翻译动作被系统级密码窗打断。
+- 修复：`KeychainSecretStore` 现在只把非秘密 provider setup record 写入 UserDefaults 用于缺 Key 判断；保存/删除 API Key 时同步该记录；翻译读取使用进程内缓存，否则通过 `LAContext.interactionNotAllowed = true` 做非交互 Keychain 读取，遇到需要系统交互时抛出 App 内“重新输入 API Key”错误。首次启动若当前 provider 没有 setup record，会自动打开 Settings；Settings Model 区新增 API Key setup guide。Test Connection 对刚输入的新 Key 直接使用内存中的值，不再保存后立刻二次读钥匙串。
+- 验证：`Scripts/keychain-cache-e2e.swift` 覆盖无 setup record 不读 Keychain、Settings 初始化/保存不读 Keychain、保存后走进程缓存、删除清记录，以及 locked Keychain item 使用非交互读取并转为 App 内错误；`./init.sh` Debug 构建通过；`./init.sh --run` 后确认缺 setup record 时自动打开 Settings，触发 Quick Text 并尝试翻译未出现系统钥匙串/Keychain 密码窗。
+
+### 2026-06-22 - 修复录屏权限二次触发静默无响应
+
+- 复现：运行固定 Debug App 后发送两次 `Cmd+Shift+2`；窗口列表显示 `owner=universalAccessAuthWarn name=录屏` 和 `owner=系统设置 name=录屏与系统录音`，但旧逻辑没有 Parrot 框选层或错误窗口。Parrot 的 `Info.plist` 和源码均无麦克风/语音 API，用户看到的“录音”来自 macOS 26 的“录屏与系统录音”隐私页命名，不是 Parrot 请求麦克风。
+- 根因：`ScreenshotSelectionController.ensureScreenCaptureAccess()` 把所有 `CGRequestScreenCaptureAccess() == false` 都当成“系统请求已展示”的中间态并静默返回，导致首次系统权限提示后的后续未授权状态也被吞掉。
+- 修复：新增 `ScreenCaptureAccessGate`，区分 `granted`、`requestPresented` 和 `deniedAfterRequest`；首次请求仍不叠加 Parrot 错误窗，后续仍未授权时显示 `Screenshot Capture Failed` 指引窗口。
+- 验证：`Scripts/screen-capture-access-gate-e2e.swift` 通过首次请求静默、第二次未授权报错、授权后放行和 TCC reset 状态机检查；`./init.sh` Debug 构建通过；`./init.sh --run` 后发送两次 `Cmd+Shift+2`，窗口列表确认系统“录屏”提示仍在，同时出现 `owner=Parrot name=Screenshot Translation` 权限指引窗口。
+
+### 2026-06-22 - 减少翻译时钥匙串重复密码弹窗
+
+- 复现依据：快速翻译和截图 OCR 翻译路径都会在每次翻译前创建/使用 `KeychainSecretStore` 并调用 `SecItemCopyMatching` 读取 API Key；unsigned/ad-hoc App 访问该 Keychain secret 时会反复触发系统“Parrot 想要使用你储存在钥匙串中的机密信息”密码窗。设置页初始化和切换 provider 也曾通过读取 secret 判断是否已有 Key。
+- 根因：API Key 只保存在 Keychain 是正确的，但读取路径没有进程内缓存，同一次 App 启动内每次 Quick Text / Screenshot 翻译都重新请求同一个 Keychain secret。
+- 修复：`KeychainSecretStore` 新增按 service/provider 隔离的进程内 API Key 缓存；首次成功读取或保存后只在内存中复用，App 退出即丢失；删除 API Key 会清缓存。设置页的 `hasSavedAPIKey` 改为 Keychain attribute-only 查询，不读取 secret 数据。
+- 验证：已运行 `./init.sh` 通过 Debug 构建；新增 `Scripts/keychain-cache-e2e.swift`，用 fake Keychain 验证 metadata-only 存在性检查不会读取 secret、首次读取只命中一次底层 secret、后续读取走缓存、删除会清缓存、保存新 Key 会刷新缓存。当前 CLI 沙箱直接访问真实 Keychain 会返回 `100001 UNIX[Operation not permitted]`，因此 E2E 使用注入式 fake Keychain 验证缓存逻辑。
+
+### 2026-06-22 - 修复 unsigned DMG 首轮录屏授权提示叠加
+
+- 复现：安装 `Parrot-0.1.1-alpha-macos-arm64-unsigned.dmg` 到 `/Applications/Parrot.app`，重置 `ScreenCapture` 后启动并触发 `Cmd+Shift+2`，窗口列表同时出现 `owner=universalAccessAuthWarn name=录屏` 和 `owner=Parrot name=Screenshot Translation`。
+- 根因：`CGRequestScreenCaptureAccess()` 可以在已经弹出 macOS 系统录屏授权窗时仍对当前调用返回 `false`；旧逻辑把这个“请求已展示但当前未授权”的中间态当成最终失败，立即显示 Parrot 自己的 `Screenshot Capture Failed` 窗。
+- 修复：`ScreenshotSelectionController.ensureScreenCaptureAccess()` 改为返回 `granted` / `requestPresented`，`requestPresented` 时停止当前截图流程但不调用失败回调，从而只保留系统级授权提示。
+- 验证：已运行 `./init.sh` 通过 Debug 构建；已运行 `Scripts/package-release.sh --allow-untagged` 生成 unsigned dev DMG；已从 DMG 覆盖安装到 `/Applications/Parrot.app`，确认新 `CDHash=ee6fe99df14dee8fe3e38700bcb20d60443b03d2` 且仍为 `Signature=adhoc`；重置 `ScreenCapture com.example.parrot`、启动安装包并触发 `Cmd+Shift+2` 后，相关窗口只剩 `owner=universalAccessAuthWarn name=录屏`，不再出现 Parrot 的 `Screenshot Translation` 错误窗。
 
 ### 2026-06-22 - 落地 unsigned Release 打包流程
 

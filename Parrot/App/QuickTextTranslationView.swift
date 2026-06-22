@@ -42,6 +42,10 @@ final class QuickTextTranslationStore: ObservableObject {
 
         do {
             let settings = LLMProviderSettings.loadSaved()
+            guard keychain.hasSavedAPIKeyRecord(providerID: settings.providerID) else {
+                throw ProviderSettingsError.missingAPIKey
+            }
+
             guard let apiKey = try keychain.readAPIKey(providerID: settings.providerID), !apiKey.isEmpty else {
                 throw ProviderSettingsError.missingAPIKey
             }

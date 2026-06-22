@@ -38,6 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem.menu = makeStatusMenu()
         startGlobalShortcuts()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.showProviderSetupIfNeeded()
+        }
     }
 
     private func makeStatusMenu() -> NSMenu {
@@ -163,6 +167,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         presentWindow(&settingsWindowController, title: "Settings", rootView: view)
         settingsWindowController?.window?.setContentSize(NSSize(width: 680, height: 560))
+    }
+
+    private func showProviderSetupIfNeeded() {
+        let settings = LLMProviderSettings.loadSaved()
+        guard !KeychainSecretStore().hasSavedAPIKeyRecord(providerID: settings.providerID) else {
+            return
+        }
+
+        showSettings()
     }
 
     @objc private func toggleShortcuts() {
