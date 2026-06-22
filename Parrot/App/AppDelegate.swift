@@ -24,11 +24,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.statusItem = statusItem
-        statusItem.length = 64
+        statusItem.length = NSStatusItem.squareLength
 
         if let button = statusItem.button {
-            button.title = "Parrot"
-            button.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+            let image = NSImage(named: "MenuBarIcon")
+            image?.isTemplate = true
+            image?.size = NSSize(width: 20, height: 20)
+            button.image = image
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleProportionallyDown
             button.toolTip = "Parrot"
         }
 
