@@ -1,6 +1,6 @@
 # Project: Parrot
 
-Parrot is a native macOS SwiftUI app scaffold for an AI translation assistant. The product direction is a menu-bar utility with global shortcuts, screenshot OCR translation, quick text translation, and user-configured OpenAI-compatible LLM providers.
+Parrot is a native macOS SwiftUI/AppKit menu-bar translation assistant prototype. It supports global shortcuts, screenshot OCR translation, quick text translation, local translation history, custom shortcuts, and user-configured OpenAI-compatible LLM providers.
 
 ## Commands
 
@@ -14,11 +14,13 @@ Parrot is a native macOS SwiftUI app scaffold for an AI translation assistant. T
 ## Layout
 
 - `Parrot.xcodeproj/` contains the single Xcode project, target, and scheme named `Parrot`.
-- `Parrot/App/ParrotApp.swift` is the SwiftUI app entry point.
-- `Parrot/App/ContentView.swift` is the current starter UI.
-- `Parrot/Resources/Assets.xcassets/` contains app assets and icons.
-- `Config/Debug.xcconfig` and `Config/Release.xcconfig` define bundle ID, version, Swift version, and macOS deployment target.
-- `Docs/ai-translation-macos-prd.md` is the source of product requirements and should guide feature behavior.
+- `Parrot/App/` contains the app entry point, menu-bar shell, global shortcuts, screenshot/OCR flow, translation UI, provider settings, shortcut settings, and translation history.
+- `Parrot/Resources/` contains app assets and icons.
+- `Config/` contains Debug and Release build settings, including bundle ID, version, Swift version, and macOS deployment target.
+- `Docs/` contains product requirements; use `Docs/ai-translation-macos-prd.md` as the source of product behavior.
+- `Design/` contains high-fidelity product references and their index.
+- `Scripts/` contains focused source-linked regression checks for implemented features.
+- `parrot-progress.md` and `feature_list.json` are the handoff and acceptance-tracking files for agent work.
 
 ## Product Constraints
 
@@ -54,7 +56,7 @@ Parrot is a native macOS SwiftUI app scaffold for an AI translation assistant. T
 
 ## Gotchas
 
-- The repository is currently a scaffold; many PRD features are not implemented yet.
+- The P0 MVP path is largely implemented. Remaining planned work is mostly P1/P2, such as multi-language targets, translation style, glossary, floating-window position preferences, and OCR text editing.
 - `DEVELOPMENT_TEAM` is empty in both xcconfig files, so command-line builds should use `CODE_SIGNING_ALLOWED=NO`.
 - Screen Recording permission is TCC-sensitive. For screenshot/global-shortcut debugging, prefer `./init.sh --run` instead of opening arbitrary `DerivedData` app bundles; multiple ad-hoc Debug copies can confuse permission identity and leave old processes holding global shortcuts.
 - The app currently has one target and one scheme, both named `Parrot`.
