@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；`p0.user-facing-errors` 已标记通过。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -26,6 +26,10 @@
   - `init.sh`：新会话启动、工程检查、Debug 构建。
   - `parrot-progress.md`：进度交接日志。
   - `feature_list.json`：结构化功能验收清单。
+- 添加 GitHub 风格 unsigned Release 打包流程：
+  - `Docs/release-process.md`：SemVer、Git tag、GitHub Release 资产、unsigned 限制和安全规则。
+  - `Scripts/package-release.sh`：从 Release 配置读取版本，构建 unsigned Release，并生成 `.dmg`、`.zip`、`SHA256SUMS.txt` 和 `RELEASE_NOTES.md` 到 `Dist/`。
+  - 正式模式要求干净工作区和 `v<MARKETING_VERSION>` tag；`--allow-untagged` 仅用于本地 dev 包验证。
 - 添加产品高保真原型图：
   - `Design/quick-text-translation-panel.png`
   - `Design/screenshot-translation-result-card.png`
@@ -91,6 +95,7 @@
 - 默认使用本地 OCR，仅将识别后的文本发送给 LLM。
 - API Key 只能保存到 macOS Keychain，不能写入配置文件、日志、fixture 或文档。
 - 命令行构建默认使用 `CODE_SIGNING_ALLOWED=NO`，因为当前未配置 `DEVELOPMENT_TEAM`。
+- Release 包当前为 unsigned/unnotarized，仅适合本地或小范围内测；正式对外分发前需要稳定 bundle id、Developer ID 签名和 notarization。
 - TCC/录屏权限调试使用 `./init.sh --run`，避免多个系统 DerivedData 副本和旧进程导致权限身份漂移或全局快捷键被占用。
 - 如 `xcodebuild` 使用 Command Line Tools 而非完整 Xcode，需要运行：
 
@@ -101,11 +106,20 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ## 建议下一步
 
 1. 运行 `./init.sh`，确认当前 scaffold 可构建；调试运行使用 `./init.sh --run`。
-2. 下一项可从 P1 中选择：多语言目标、翻译风格、浮窗位置偏好或 OCR 文本编辑；实现前先确认对应交互范围。
-3. 暂不加入无真实行为支撑的设置项，例如启动项、菜单栏行为、默认语言、Prompt、术语表或图片上传策略。
-4. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
+2. 如需验证发布包，先运行 `Scripts/package-release.sh --allow-untagged`；正式发布前先提交、打 `v<MARKETING_VERSION>` tag，再运行 `Scripts/package-release.sh`。
+3. 下一项可从 P1 中选择：多语言目标、翻译风格、浮窗位置偏好或 OCR 文本编辑；实现前先确认对应交互范围。
+4. 暂不加入无真实行为支撑的设置项，例如启动项、菜单栏行为、默认语言、Prompt、术语表或图片上传策略。
+5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-22 - 落地 unsigned Release 打包流程
+
+- 新增 `Docs/release-process.md`，明确 Parrot 发布使用 SemVer、`v<MARKETING_VERSION>` tag、GitHub Release 标题/资产/正文格式、unsigned Gatekeeper 提示和不移动已发布 tag 的安全规则。
+- 新增 `Scripts/package-release.sh`，正式模式要求干净工作区和匹配 tag，开发验证可用 `--allow-untagged`，dirty dev 包会在目录、文件名和 Release Notes 中标出 `dirty`。
+- 脚本会读取 `Config/Release.xcconfig` 的 `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`，校验 SemVer 和 build number，执行 unsigned Release 构建，验证 app bundle 版本，检测架构，并生成 `.dmg`、`.zip`、`SHA256SUMS.txt` 和 `RELEASE_NOTES.md`。
+- 已更新 `AGENTS.md` 和 `feature_list.json`，使后续 Agent 在 release 任务中优先读取发布流程文档，并把 `foundation.release-packaging` 标记通过。
+- 已验证：`bash -n Scripts/package-release.sh`、`Scripts/package-release.sh --help`、`ruby -rjson` 解析 `feature_list.json`、dirty worktree 下正式模式按预期拒绝、`Scripts/package-release.sh --allow-untagged` 完整 Release 构建成功、`--allow-untagged --skip-build` 复用构建生成 `Dist/dev-b8b3457-dirty/`，且 `shasum -a 256 -c SHA256SUMS.txt` 对 dmg 和 zip 均通过。
 
 ### 2026-06-22 - 实现自定义快捷键
 

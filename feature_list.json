@@ -47,6 +47,23 @@
       "notes": "Initial handoff files are present; keep them updated after feature work. AGENTS.md and parrot-progress.md document ./init.sh --run as the stable local debug entry point: stop old Parrot instances, build into ./.DerivedData, and open that exact app bundle."
     },
     {
+      "id": "foundation.release-packaging",
+      "priority": "P0",
+      "category": "foundation",
+      "description": "The project can produce GitHub-style unsigned macOS Release packages from SemVer-tagged commits.",
+      "acceptance": [
+        "Document the SemVer, Git tag, and GitHub Release asset workflow.",
+        "Provide a repeatable script that builds an unsigned Release app.",
+        "Generate both .dmg and .zip assets under Dist/.",
+        "Generate SHA256SUMS.txt and GitHub-style RELEASE_NOTES.md.",
+        "Reject formal releases when MARKETING_VERSION, the current tag, or the git worktree state is invalid.",
+        "Allow clearly labeled local dev packaging before a release tag exists."
+      ],
+      "passes": true,
+      "last_verified": "2026-06-22",
+      "notes": "Added Docs/release-process.md and Scripts/package-release.sh. The release process documents SemVer, v<MARKETING_VERSION> tags, GitHub Release assets, unsigned Gatekeeper warnings, checksum verification, and no-retag safety rules. The packaging script reads MARKETING_VERSION and CURRENT_PROJECT_VERSION from Config/Release.xcconfig, enforces SemVer, rejects formal releases from dirty worktrees or non-matching tags, supports local --allow-untagged dev packages, builds unsigned Release with CODE_SIGNING_ALLOWED=NO, verifies app bundle version/build metadata, detects architecture, and creates .dmg, .zip, SHA256SUMS.txt, and RELEASE_NOTES.md under Dist/. Verified bash -n Scripts/package-release.sh, ruby JSON parse for feature_list.json, Scripts/package-release.sh --help, expected formal-mode failure on the dirty worktree, full Scripts/package-release.sh --allow-untagged Release build, dev package regeneration with --allow-untagged --skip-build, artifact listing under Dist/dev-b8b3457-dirty, and shasum -a 256 -c SHA256SUMS.txt for both dmg and zip."
+    },
+    {
       "id": "foundation.design-references",
       "priority": "P0",
       "category": "foundation",

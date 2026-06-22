@@ -9,6 +9,8 @@ Parrot is a native macOS SwiftUI/AppKit menu-bar translation assistant prototype
 - Build: `./init.sh`
 - Debug run without Xcode: `./init.sh --run`
 - Reset screenshot permission only when needed: `./init.sh --reset-screen-capture --run`
+- Build unsigned release packages: `Scripts/package-release.sh`
+- Validate unsigned release packaging before tagging: `Scripts/package-release.sh --allow-untagged`
 - If `xcodebuild` uses Command Line Tools instead of full Xcode, tell the user to run `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
 
 ## Layout
@@ -18,6 +20,7 @@ Parrot is a native macOS SwiftUI/AppKit menu-bar translation assistant prototype
 - `Parrot/Resources/` contains app assets and icons.
 - `Config/` contains Debug and Release build settings, including bundle ID, version, Swift version, and macOS deployment target.
 - `Docs/` contains product requirements; use `Docs/ai-translation-macos-prd.md` as the source of product behavior.
+- `Docs/release-process.md` contains the SemVer, Git tag, and GitHub Release packaging workflow.
 - `Design/` contains high-fidelity product references and their index.
 - `Scripts/` contains focused source-linked regression checks for implemented features.
 - `parrot-progress.md` and `feature_list.json` are the handoff and acceptance-tracking files for agent work.
@@ -50,6 +53,8 @@ Parrot is a native macOS SwiftUI/AppKit menu-bar translation assistant prototype
 - For user-facing workflow features such as menu-bar actions, global shortcuts, screenshot selection, OCR, provider settings, and translation windows, run a real user-flow smoke test whenever the environment supports it. Do not mark these features passing based on compile/build success alone.
 - After completing feature work, update `feature_list.json` with the feature status, `last_verified`, and relevant notes. Also update `parrot-progress.md` with completed work, known issues, and next steps.
 - After editing Swift or project settings, run the Debug build command when Xcode is available.
+- For release work, read `Docs/release-process.md` first. Formal releases must use SemVer, a clean worktree, and a Git tag matching `v<MARKETING_VERSION>` before running `Scripts/package-release.sh`.
+- Use `Scripts/package-release.sh --allow-untagged` only for local package validation; do not treat dev packages as formal GitHub releases.
 - Do not change `PRODUCT_BUNDLE_IDENTIFIER`, signing team, deployment target, or app version unless the task requires it.
 - Do not modify generated Xcode project details casually; prefer Xcode-compatible project edits and verify with `xcodebuild`.
 - Do not add dependencies for small native features before checking whether SwiftUI, AppKit, Vision, Security, or Foundation already solve the problem.
@@ -58,6 +63,7 @@ Parrot is a native macOS SwiftUI/AppKit menu-bar translation assistant prototype
 
 - The P0 MVP path is largely implemented. Remaining planned work is mostly P1/P2, such as multi-language targets, translation style, glossary, floating-window position preferences, and OCR text editing.
 - `DEVELOPMENT_TEAM` is empty in both xcconfig files, so command-line builds should use `CODE_SIGNING_ALLOWED=NO`.
+- Release packages are currently unsigned and unnotarized. GitHub-style assets are generated under `Dist/`, which is ignored by git.
 - Screen Recording permission is TCC-sensitive. For screenshot/global-shortcut debugging, prefer `./init.sh --run` instead of opening arbitrary `DerivedData` app bundles; multiple ad-hoc Debug copies can confuse permission identity and leave old processes holding global shortcuts.
 - The app currently has one target and one scheme, both named `Parrot`.
 - The default bundle identifier is `com.example.parrot`; treat it as placeholder unless the user asks to prepare distribution.
