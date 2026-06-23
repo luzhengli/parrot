@@ -1,7 +1,7 @@
 {
   "project": "Parrot",
   "platform": "macOS",
-  "updated": "2026-06-23",
+  "updated": "2026-06-24",
   "source_documents": [
     "Docs/ai-translation-macos-prd.md",
     "Docs/ai-translation-macos-v1-prd.md",
@@ -340,9 +340,9 @@
         "Inject only glossary entries that match the current source text into the translation Prompt.",
         "Verify a matched glossary term changes the translation output or request Prompt while unmatched terms are not sent."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. Keep the glossary local and personal for V1. Do not build team sharing, cloud sync, or large TBX/TMX import in this feature."
+      "passes": true,
+      "last_verified": "2026-06-24",
+      "notes": "Implemented a local personal terminology glossary in Settings > Translation. Glossary entries are stored as JSON under Application Support/Parrot/terminology-glossary.json and contain only source term, target term, optional target language, optional context, and enabled state; no API Keys or screenshot images are stored. The UI supports add, edit, delete, enable/disable, search by source or target term, required source/target validation, optional target-language scoping, optional context, and duplicate prevention for the same normalized source term plus target language. OpenAICompatibleProviderClient now loads the local glossary when building both streaming and non-streaming translation prompts, resolves the current target language, and injects only enabled entries whose source term appears in the current source text and whose target language is either Any or the resolved target language. Built-in and custom Prompt templates receive the same matched glossary text through {glossary}; unmatched entries are not sent. Verified with source-linked E2E Scripts/terminology-glossary-e2e.swift covering local JSON persistence, duplicate rejection, edit/delete/enable/disable, target-language and Any-target matching, disabled/unmatched exclusion, built-in Prompt injection, and custom Prompt {glossary} rendering. Also reran custom Prompt, translation style, and language controls E2Es, ran ./init.sh Debug build/signing, git diff --check, feature_list.json JSON validation, and a real Debug app smoke where ./init.sh --run launched Parrot and Cmd+Option+, opened Settings as confirmed by CGWindowList."
     },
     {
       "id": "p1.ocr-source-text-editing",

@@ -162,6 +162,247 @@ struct TranslationPromptPreferences: Codable, Equatable {
     }
 }
 
+struct TranslationGlossaryEntry: Codable, Equatable, Identifiable {
+    var id: UUID
+    var sourceTerm: String
+    var targetTerm: String
+    var targetLanguage: TranslationLanguage?
+    var context: String
+    var isEnabled: Bool
+
+    init(
+        id: UUID = UUID(),
+        sourceTerm: String = "",
+        targetTerm: String = "",
+        targetLanguage: TranslationLanguage? = nil,
+        context: String = "",
+        isEnabled: Bool = true
+    ) {
+        self.id = id
+        self.sourceTerm = sourceTerm
+        self.targetTerm = targetTerm
+        self.targetLanguage = targetLanguage
+        self.context = context
+        self.isEnabled = isEnabled
+    }
+
+    var trimmedSourceTerm: String {
+        sourceTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var trimmedTargetTerm: String {
+        targetTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var trimmedContext: String {
+        context.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+enum TranslationGlossary {
+    static let emptyPromptText = "No matched glossary entries."
+
+    static func validationMessage(
+        for entry: TranslationGlossaryEntry,
+        existingEntries: [TranslationGlossaryEntry],
+        editingID: UUID? = nil
+    ) -> String? {
+        guard !entry.trimmedSourceTerm.isEmpty else {
+            return "Source term is required."
+        }
+
+        guard !entry.trimmedTargetTerm.isEmpty else {
+            return "Target term is required."
+        }
+
+        if hasDuplicate(entry: entry, in: existingEntries, ignoring: editingID) {
+            return "A glossary entry with the same source term and target language already exists."
+        }
+
+        return nil
+    }
+
+    static func matchedEntries(
+        for text: String,
+        targetLanguage: TranslationLanguage,
+        entries: [TranslationGlossaryEntry]
+    ) -> [TranslationGlossaryEntry] {
+        let sourceText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sourceText.isEmpty else {
+            return []
+        }
+
+        return entries.filter { entry in
+            guard entry.isEnabled,
+                  !entry.trimmedSourceTerm.isEmpty,
+                  entry.targetLanguage == nil || entry.targetLanguage == targetLanguage
+            else {
+                return false
+            }
+
+            return sourceText.range(
+                of: entry.trimmedSourceTerm,
+                options: [.caseInsensitive, .diacriticInsensitive]
+            ) != nil
+        }
+    }
+
+    static func promptText(for entries: [TranslationGlossaryEntry]) -> String {
+        guard !entries.isEmpty else {
+            return emptyPromptText
+        }
+
+        return entries.map { entry in
+            var line = "- \(entry.trimmedSourceTerm) -> \(entry.trimmedTargetTerm)"
+            if let targetLanguage = entry.targetLanguage {
+                line += " (target: \(targetLanguage.promptName))"
+            }
+            if !entry.trimmedContext.isEmpty {
+                line += "; context: \(entry.trimmedContext)"
+            }
+            return line
+        }
+        .joined(separator: "\n")
+    }
+
+    static func hasDuplicate(
+        entry: TranslationGlossaryEntry,
+        in entries: [TranslationGlossaryEntry],
+        ignoring editingID: UUID? = nil
+    ) -> Bool {
+        let sourceKey = normalized(entry.trimmedSourceTerm)
+        let targetLanguage = entry.targetLanguage
+        guard !sourceKey.isEmpty else {
+            return false
+        }
+
+        return entries.contains { existingEntry in
+            if let editingID, existingEntry.id == editingID {
+                return false
+            }
+
+            return normalized(existingEntry.trimmedSourceTerm) == sourceKey
+                && existingEntry.targetLanguage == targetLanguage
+        }
+    }
+
+    private static func normalized(_ term: String) -> String {
+        term.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+    }
+}
+
+@MainActor
+final class TranslationGlossaryStore: ObservableObject {
+    static let shared = TranslationGlossaryStore()
+
+    @Published private(set) var entries: [TranslationGlossaryEntry]
+    @Published private(set) var statusMessage: String?
+    @Published private(set) var isStatusError = false
+
+    private let fileURL: URL
+
+    init(fileURL: URL? = nil) {
+        self.fileURL = fileURL ?? Self.defaultGlossaryFileURL()
+        entries = Self.loadEntries(from: self.fileURL)
+    }
+
+    func save(entry: TranslationGlossaryEntry, editingID: UUID? = nil) -> Bool {
+        guard let validationMessage = TranslationGlossary.validationMessage(
+            for: entry,
+            existingEntries: entries,
+            editingID: editingID
+        ) else {
+            var updatedEntry = entry
+            updatedEntry.sourceTerm = entry.trimmedSourceTerm
+            updatedEntry.targetTerm = entry.trimmedTargetTerm
+            updatedEntry.context = entry.trimmedContext
+
+            if let editingID, let index = entries.firstIndex(where: { $0.id == editingID }) {
+                updatedEntry.id = editingID
+                entries[index] = updatedEntry
+                statusMessage = "Glossary entry updated."
+            } else {
+                entries.insert(updatedEntry, at: 0)
+                statusMessage = "Glossary entry added."
+            }
+
+            isStatusError = false
+            persistEntries()
+            return true
+        }
+
+        statusMessage = validationMessage
+        isStatusError = true
+        return false
+    }
+
+    func setEnabled(_ entry: TranslationGlossaryEntry, isEnabled: Bool) {
+        guard let index = entries.firstIndex(where: { $0.id == entry.id }) else {
+            return
+        }
+
+        entries[index].isEnabled = isEnabled
+        statusMessage = isEnabled ? "Glossary entry enabled." : "Glossary entry disabled."
+        isStatusError = false
+        persistEntries()
+    }
+
+    func delete(_ entry: TranslationGlossaryEntry) {
+        entries.removeAll { $0.id == entry.id }
+        statusMessage = "Glossary entry deleted."
+        isStatusError = false
+        persistEntries()
+    }
+
+    func filteredEntries(searchText: String) -> [TranslationGlossaryEntry] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return entries
+        }
+
+        return entries.filter { entry in
+            entry.sourceTerm.localizedCaseInsensitiveContains(query)
+                || entry.targetTerm.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private func persistEntries() {
+        do {
+            try Self.saveEntries(entries, to: fileURL)
+        } catch {
+            statusMessage = "Unable to save glossary: \(error.localizedDescription)"
+            isStatusError = true
+        }
+    }
+
+    nonisolated static func loadEntries(from fileURL: URL) -> [TranslationGlossaryEntry] {
+        guard let data = try? Data(contentsOf: fileURL),
+              let entries = try? JSONDecoder().decode([TranslationGlossaryEntry].self, from: data)
+        else {
+            return []
+        }
+
+        return entries
+    }
+
+    nonisolated static func saveEntries(_ entries: [TranslationGlossaryEntry], to fileURL: URL) throws {
+        let directory = fileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(entries).write(to: fileURL, options: .atomic)
+    }
+
+    nonisolated static func defaultGlossaryFileURL() -> URL {
+        let baseDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return baseDirectory
+            .appendingPathComponent("Parrot", isDirectory: true)
+            .appendingPathComponent("terminology-glossary.json")
+    }
+}
+
 enum TranslationLanguage: String, CaseIterable, Codable, Identifiable {
     case chinese
     case english
@@ -921,7 +1162,8 @@ struct OpenAICompatibleProviderClient {
         _ text: String,
         preferences: TranslationLanguagePreferences = .defaults,
         style: TranslationStyle = TranslationStyle.loadSaved(),
-        promptPreferences: TranslationPromptPreferences = TranslationPromptPreferences.loadSaved()
+        promptPreferences: TranslationPromptPreferences = TranslationPromptPreferences.loadSaved(),
+        glossaryEntries: [TranslationGlossaryEntry]? = nil
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
@@ -932,7 +1174,8 @@ struct OpenAICompatibleProviderClient {
             for: trimmedText,
             preferences: preferences,
             style: style,
-            promptPreferences: promptPreferences
+            promptPreferences: promptPreferences,
+            glossaryEntries: glossaryEntries
         )
         let completion = try await makeChatCompletion(
             messages: messages,
@@ -953,6 +1196,7 @@ struct OpenAICompatibleProviderClient {
         preferences: TranslationLanguagePreferences = .defaults,
         style: TranslationStyle = TranslationStyle.loadSaved(),
         promptPreferences: TranslationPromptPreferences = TranslationPromptPreferences.loadSaved(),
+        glossaryEntries: [TranslationGlossaryEntry]? = nil,
         onDelta: @escaping @MainActor (String) -> Void
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -964,7 +1208,8 @@ struct OpenAICompatibleProviderClient {
             for: trimmedText,
             preferences: preferences,
             style: style,
-            promptPreferences: promptPreferences
+            promptPreferences: promptPreferences,
+            glossaryEntries: glossaryEntries
         )
         var finalTranslation = ""
 
@@ -1161,14 +1406,23 @@ struct OpenAICompatibleProviderClient {
         for text: String,
         preferences: TranslationLanguagePreferences = .defaults,
         style: TranslationStyle = TranslationStyle.loadSaved(),
-        promptPreferences: TranslationPromptPreferences = TranslationPromptPreferences.loadSaved()
+        promptPreferences: TranslationPromptPreferences = TranslationPromptPreferences.loadSaved(),
+        glossaryEntries: [TranslationGlossaryEntry] = []
     ) throws -> String {
         let resolution = try TranslationLanguageResolver.resolve(text: text, preferences: preferences)
+        let matchedGlossaryText = TranslationGlossary.promptText(
+            for: TranslationGlossary.matchedEntries(
+                for: text,
+                targetLanguage: resolution.targetLanguage,
+                entries: glossaryEntries
+            )
+        )
         return translationPrompt(
             text: text,
             languageResolution: resolution,
             style: style,
-            promptPreferences: promptPreferences
+            promptPreferences: promptPreferences,
+            glossaryText: matchedGlossaryText
         )
     }
 
@@ -1176,9 +1430,18 @@ struct OpenAICompatibleProviderClient {
         for text: String,
         preferences: TranslationLanguagePreferences,
         style: TranslationStyle,
-        promptPreferences: TranslationPromptPreferences
+        promptPreferences: TranslationPromptPreferences,
+        glossaryEntries: [TranslationGlossaryEntry]?
     ) throws -> [OpenAIChatMessage] {
         let resolution = try TranslationLanguageResolver.resolve(text: text, preferences: preferences)
+        let entries = glossaryEntries ?? TranslationGlossaryStore.loadEntries(from: TranslationGlossaryStore.defaultGlossaryFileURL())
+        let matchedGlossaryText = TranslationGlossary.promptText(
+            for: TranslationGlossary.matchedEntries(
+                for: text,
+                targetLanguage: resolution.targetLanguage,
+                entries: entries
+            )
+        )
         if promptPreferences.activeCustomTemplate != nil {
             return [
                 .init(
@@ -1187,7 +1450,8 @@ struct OpenAICompatibleProviderClient {
                         text: text,
                         languageResolution: resolution,
                         style: style,
-                        promptPreferences: promptPreferences
+                        promptPreferences: promptPreferences,
+                        glossaryText: matchedGlossaryText
                     )
                 ),
                 .init(role: "user", content: "Translate the text included in the active Prompt template.")
@@ -1197,7 +1461,11 @@ struct OpenAICompatibleProviderClient {
         return [
             .init(
                 role: "system",
-                content: translationSystemPrompt(languageResolution: resolution, style: style)
+                content: translationSystemPrompt(
+                    languageResolution: resolution,
+                    style: style,
+                    glossaryText: matchedGlossaryText
+                )
             ),
             .init(role: "user", content: text)
         ]
@@ -1207,21 +1475,31 @@ struct OpenAICompatibleProviderClient {
         text: String,
         languageResolution: TranslationLanguageResolution,
         style: TranslationStyle,
-        promptPreferences: TranslationPromptPreferences
+        promptPreferences: TranslationPromptPreferences,
+        glossaryText: String
     ) -> String {
         guard let customTemplate = promptPreferences.activeCustomTemplate else {
-            return translationSystemPrompt(languageResolution: languageResolution, style: style)
+            return translationSystemPrompt(
+                languageResolution: languageResolution,
+                style: style,
+                glossaryText: glossaryText
+            )
         }
 
         return renderPromptTemplate(
             customTemplate,
             text: text,
             languageResolution: languageResolution,
-            style: style
+            style: style,
+            glossaryText: glossaryText
         )
     }
 
-    private func translationSystemPrompt(languageResolution: TranslationLanguageResolution, style: TranslationStyle) -> String {
+    private func translationSystemPrompt(
+        languageResolution: TranslationLanguageResolution,
+        style: TranslationStyle,
+        glossaryText: String
+    ) -> String {
         """
         You are a professional translation assistant. Translate the user's text into \(languageResolution.targetPromptName).
         Source language: \(languageResolution.sourcePromptName).
@@ -1231,8 +1509,12 @@ struct OpenAICompatibleProviderClient {
         1. Preserve paragraph structure.
         2. Preserve code, variable names, links, product names, and proper nouns.
         3. \(style.promptInstruction)
-        4. Do not add information that does not exist in the source text.
-        5. Output only the translation.
+        4. Follow matched glossary entries when provided.
+        5. Do not add information that does not exist in the source text.
+        6. Output only the translation.
+
+        Glossary:
+        \(glossaryText)
         """
     }
 
@@ -1240,13 +1522,14 @@ struct OpenAICompatibleProviderClient {
         _ template: String,
         text: String,
         languageResolution: TranslationLanguageResolution,
-        style: TranslationStyle
+        style: TranslationStyle,
+        glossaryText: String
     ) -> String {
         template
             .replacingOccurrences(of: "{source_language}", with: languageResolution.sourcePromptName)
             .replacingOccurrences(of: "{target_language}", with: languageResolution.targetPromptName)
             .replacingOccurrences(of: "{style}", with: style.promptName)
-            .replacingOccurrences(of: "{glossary}", with: "No matched glossary entries.")
+            .replacingOccurrences(of: "{glossary}", with: glossaryText)
             .replacingOccurrences(of: "{text}", with: text)
     }
 

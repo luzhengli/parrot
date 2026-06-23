@@ -164,11 +164,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showSettings() {
-        let view = ProviderSettingsView { [weak self] in
-            self?.reloadGlobalShortcuts()
-        }
+        let view = ProviderSettingsView(
+            onShortcutsSaved: { [weak self] in
+                self?.reloadGlobalShortcuts()
+            },
+            onSectionChanged: { [weak self] section in
+                self?.resizeSettingsWindow(for: section, animate: true)
+            }
+        )
         presentWindow(&settingsWindowController, title: "Settings", rootView: view)
-        settingsWindowController?.window?.setContentSize(NSSize(width: 680, height: 560))
+        resizeSettingsWindow(for: .model, animate: false)
+    }
+
+    private func resizeSettingsWindow(for section: ProviderSettingsView.Section, animate: Bool) {
+        guard let window = settingsWindowController?.window else {
+            return
+        }
+
+        let contentSize = NSSize(
+            width: ProviderSettingsView.settingsContentWidth,
+            height: section.contentHeight
+        )
+        let targetFrame = window.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize))
+        var frame = window.frame
+        let oldMaxY = frame.maxY
+        frame.size = targetFrame.size
+        frame.origin.y = oldMaxY - targetFrame.height
+        window.setFrame(frame, display: true, animate: animate)
     }
 
     private func showProviderSetupIfNeeded() {

@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct ProviderSettingsView: View {
+    private static let translationSectionHeight: CGFloat = 560
+    static let settingsContentWidth: CGFloat = 600
+
     enum Section: String, CaseIterable, Identifiable {
         case model = "Model"
         case shortcuts = "Shortcuts"
@@ -8,21 +11,43 @@ struct ProviderSettingsView: View {
         case privacy = "Privacy"
 
         var id: String { rawValue }
+
+        var contentHeight: CGFloat {
+            switch self {
+            case .model:
+                return 520
+            case .shortcuts:
+                return 620
+            case .translation:
+                return 760
+            case .privacy:
+                return 360
+            }
+        }
     }
 
     @StateObject private var store = ProviderSettingsStore()
     @StateObject private var shortcutStore = ShortcutSettingsStore()
+    @StateObject private var glossaryStore = TranslationGlossaryStore.shared
     @ObservedObject private var historyStore = TranslationHistoryStore.shared
     @State private var selectedSection: Section = .model
     @State private var translationStyle = TranslationStyle.loadSaved()
     @State private var promptPreferences = TranslationPromptPreferences.loadSaved()
     @State private var promptStatusMessage: String?
     @State private var isPromptStatusError = false
+    @State private var glossaryDraft = TranslationGlossaryEntry()
+    @State private var editingGlossaryID: UUID?
+    @State private var glossarySearchText = ""
 
     let onShortcutsSaved: () -> Void
+    let onSectionChanged: (Section) -> Void
 
-    init(onShortcutsSaved: @escaping () -> Void = {}) {
+    init(
+        onShortcutsSaved: @escaping () -> Void = {},
+        onSectionChanged: @escaping (Section) -> Void = { _ in }
+    ) {
         self.onShortcutsSaved = onShortcutsSaved
+        self.onSectionChanged = onSectionChanged
     }
 
     var body: some View {
@@ -42,7 +67,10 @@ struct ProviderSettingsView: View {
             selectedSettingsSection
         }
         .padding(24)
-        .frame(width: 600)
+        .frame(width: Self.settingsContentWidth, height: selectedSection.contentHeight, alignment: .top)
+        .onChange(of: selectedSection) { newSection in
+            onSectionChanged(newSection)
+        }
     }
 
     @ViewBuilder
@@ -178,85 +206,204 @@ struct ProviderSettingsView: View {
     }
 
     private var translationSettings: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            LabeledContent("Style") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Picker("Translation Style", selection: translationStyleBinding) {
-                        ForEach(TranslationStyle.allCases) { style in
-                            Text(style.displayName).tag(style)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .frame(minWidth: 360)
-
-                    Text(translationStyle.detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            Text("Style is applied to Quick Text and Screenshot translation prompts. Use Again or Retry in an open translation window to retranslate with the latest style.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Divider()
-
-            LabeledContent("Default Prompt") {
-                VStack(alignment: .leading, spacing: 6) {
-                    TextEditor(text: .constant(TranslationPromptPreferences.defaultPromptTemplate))
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(minHeight: 180)
-                        .scrollContentBackground(.hidden)
-                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
-                        .disabled(true)
-
-                    Text("This is the built-in Prompt structure. Parrot sends source text only to the configured provider during translation.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            Toggle("Enable custom Prompt template", isOn: $promptPreferences.isCustomPromptEnabled)
-
-            if promptPreferences.isCustomPromptEnabled {
-                LabeledContent("Custom Prompt") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                LabeledContent("Style") {
                     VStack(alignment: .leading, spacing: 6) {
-                        TextEditor(text: $promptPreferences.customPromptTemplate)
-                            .font(.system(.caption, design: .monospaced))
-                            .frame(minHeight: 160)
-                            .scrollContentBackground(.hidden)
-                            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                        Picker("Translation Style", selection: translationStyleBinding) {
+                            ForEach(TranslationStyle.allCases) { style in
+                                Text(style.displayName).tag(style)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .frame(minWidth: 360)
 
-                        Text("Required variables: {target_language}, {text}. Supported variables: \(TranslationPromptPreferences.supportedVariables.joined(separator: ", ")).")
+                        Text(translationStyle.detail)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+
+                Text("Style is applied to Quick Text and Screenshot translation prompts. Use Again or Retry in an open translation window to retranslate with the latest style.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Divider()
+
+                LabeledContent("Default Prompt") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextEditor(text: .constant(TranslationPromptPreferences.defaultPromptTemplate))
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(minHeight: 180)
+                            .scrollContentBackground(.hidden)
+                            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                            .disabled(true)
+
+                        Text("This is the built-in Prompt structure. Parrot sends source text only to the configured provider during translation.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Toggle("Enable custom Prompt template", isOn: $promptPreferences.isCustomPromptEnabled)
+
+                if promptPreferences.isCustomPromptEnabled {
+                    LabeledContent("Custom Prompt") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            TextEditor(text: $promptPreferences.customPromptTemplate)
+                                .font(.system(.caption, design: .monospaced))
+                                .frame(minHeight: 160)
+                                .scrollContentBackground(.hidden)
+                                .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+
+                            Text("Required variables: {target_language}, {text}. Supported variables: \(TranslationPromptPreferences.supportedVariables.joined(separator: ", ")).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+
+                if let promptValidationMessage {
+                    StatusMessageView(message: promptValidationMessage, isError: true)
+                } else if let promptStatusMessage {
+                    StatusMessageView(message: promptStatusMessage, isError: isPromptStatusError)
+                }
+
+                HStack {
+                    Button("Save Prompt") {
+                        savePromptPreferences()
+                    }
+                    .disabled(promptValidationMessage != nil)
+
+                    Button("Restore Default") {
+                        restoreDefaultPrompt()
+                    }
+
+                    Spacer()
+                }
+
+                Divider()
+
+                glossarySettings
+            }
+            .padding(.trailing, 4)
+        }
+        .frame(height: Self.translationSectionHeight)
+    }
+
+    private var glossarySettings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Terminology Glossary")
+                    .font(.headline)
+
+                Text("Entries stay local. During translation, Parrot only sends enabled terms that appear in the current source text and match the target language.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            if let promptValidationMessage {
-                StatusMessageView(message: promptValidationMessage, isError: true)
-            } else if let promptStatusMessage {
-                StatusMessageView(message: promptStatusMessage, isError: isPromptStatusError)
+            glossaryEditor
+
+            if let statusMessage = glossaryStore.statusMessage {
+                StatusMessageView(message: statusMessage, isError: glossaryStore.isStatusError)
+            }
+
+            TextField("Search source or target term", text: $glossarySearchText)
+                .textFieldStyle(.roundedBorder)
+
+            let visibleEntries = glossaryStore.filteredEntries(searchText: glossarySearchText)
+            if visibleEntries.isEmpty {
+                Text(glossarySearchText.isEmpty ? "No glossary entries yet." : "No matching glossary entries.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 18)
+            } else {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(visibleEntries) { entry in
+                        GlossaryEntryRow(
+                            entry: entry,
+                            onToggle: { isEnabled in glossaryStore.setEnabled(entry, isEnabled: isEnabled) },
+                            onEdit: { beginEditingGlossary(entry) },
+                            onDelete: { glossaryStore.delete(entry) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private var glossaryEditor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Source Term")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("Parrot", text: $glossaryDraft.sourceTerm)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Target Term")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("Parrot", text: $glossaryDraft.targetTerm)
+                        .textFieldStyle(.roundedBorder)
+                }
+            }
+
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Target Language")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("Target Language", selection: glossaryTargetLanguageBinding) {
+                        Text("Any").tag("")
+                        ForEach(TranslationLanguage.allCases) { language in
+                            Text(language.displayName).tag(language.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 150, alignment: .leading)
+                }
+
+                Toggle("Enabled", isOn: $glossaryDraft.isEnabled)
+                    .padding(.top, 22)
+
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Context")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField("Optional note, product area, or usage hint", text: $glossaryDraft.context)
+                    .textFieldStyle(.roundedBorder)
             }
 
             HStack {
-                Button("Save Prompt") {
-                    savePromptPreferences()
+                Button(editingGlossaryID == nil ? "Add Entry" : "Save Entry") {
+                    saveGlossaryDraft()
                 }
-                .disabled(promptValidationMessage != nil)
 
-                Button("Restore Default") {
-                    restoreDefaultPrompt()
+                if editingGlossaryID != nil {
+                    Button("Cancel") {
+                        resetGlossaryDraft()
+                    }
                 }
 
                 Spacer()
             }
         }
+        .padding(12)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private var header: some View {
@@ -300,6 +447,15 @@ struct ProviderSettingsView: View {
         )
     }
 
+    private var glossaryTargetLanguageBinding: Binding<String> {
+        Binding(
+            get: { glossaryDraft.targetLanguage?.rawValue ?? "" },
+            set: { rawValue in
+                glossaryDraft.targetLanguage = rawValue.isEmpty ? nil : TranslationLanguage(rawValue: rawValue)
+            }
+        )
+    }
+
     private var promptValidationMessage: String? {
         guard promptPreferences.isCustomPromptEnabled else {
             return nil
@@ -328,6 +484,22 @@ struct ProviderSettingsView: View {
         isPromptStatusError = false
     }
 
+    private func saveGlossaryDraft() {
+        if glossaryStore.save(entry: glossaryDraft, editingID: editingGlossaryID) {
+            resetGlossaryDraft()
+        }
+    }
+
+    private func beginEditingGlossary(_ entry: TranslationGlossaryEntry) {
+        glossaryDraft = entry
+        editingGlossaryID = entry.id
+    }
+
+    private func resetGlossaryDraft() {
+        glossaryDraft = TranslationGlossaryEntry()
+        editingGlossaryID = nil
+    }
+
     private var apiKeyPlaceholder: String {
         store.hasSavedAPIKey ? "Leave blank to keep saved Keychain API Key" : "sk-..."
     }
@@ -336,6 +508,62 @@ struct ProviderSettingsView: View {
         store.hasSavedAPIKey
             ? "A Keychain API Key is saved. Enter a new key to replace it if macOS asks for Keychain access during debugging."
             : "The API Key is saved only to Keychain. Parrot keeps only a non-secret setup flag in UserDefaults."
+    }
+}
+
+private struct GlossaryEntryRow: View {
+    let entry: TranslationGlossaryEntry
+    let onToggle: (Bool) -> Void
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(entry.sourceTerm)
+                    .font(.headline)
+
+                Image(systemName: "arrow.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text(entry.targetTerm)
+                    .font(.headline)
+
+                Spacer()
+
+                Toggle("Enabled", isOn: enabledBinding)
+                    .labelsHidden()
+            }
+
+            HStack(spacing: 8) {
+                Text(entry.targetLanguage?.displayName ?? "Any target")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if !entry.trimmedContext.isEmpty {
+                    Text(entry.trimmedContext)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            HStack {
+                Button("Edit", action: onEdit)
+                Button("Delete", role: .destructive, action: onDelete)
+                Spacer()
+            }
+        }
+        .padding(12)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { entry.isEnabled },
+            set: { onToggle($0) }
+        )
     }
 }
 
