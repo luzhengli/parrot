@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`；V1 翻译偏好规划见 `Docs/ai-translation-macos-v1-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译；语言选择栏已改为紧凑原生风格，并通过真实窗口截图检查。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。2026-06-23 修复 `./init.sh --run` Debug App 录屏授权身份漂移：Debug App 现在会在构建后 ad-hoc 签名为稳定本地 designated requirement `identifier "com.example.parrot"`，与已安装 `/Applications/Parrot.app` 对齐。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。设置全局快捷键已作为第三个可配置动作接入 Shortcuts，默认 `Cmd+Option+,`，并通过源码链接 E2E 与 Finder 前台真实全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。语言选择与一键互换已接入 Quick Text 和截图翻译结果窗口，并进入真实 Provider prompt，已通过源码链接 E2E、Debug 构建和真实 Quick Text 窗口 smoke；`p1.translation-language-controls` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。2026-06-23 新增 V1 翻译偏好 PRD，并在 `feature_list.json` 中拆分 translation style、custom Prompt、glossary、OCR source editing 和 floating-window position preferences，均保持 `passes: false` 等待实现验收。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建、签名并启动同一个 Debug App bundle。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Translation`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译；语言选择栏已改为紧凑原生风格，并通过真实窗口截图检查。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。2026-06-23 修复 `./init.sh --run` Debug App 录屏授权身份漂移：Debug App 现在会在构建后 ad-hoc 签名为稳定本地 designated requirement `identifier "com.example.parrot"`，与已安装 `/Applications/Parrot.app` 对齐。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。设置全局快捷键已作为第三个可配置动作接入 Shortcuts，默认 `Cmd+Option+,`，并通过源码链接 E2E 与 Finder 前台真实全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。语言选择与一键互换已接入 Quick Text 和截图翻译结果窗口，并进入真实 Provider prompt，已通过源码链接 E2E、Debug 构建和真实 Quick Text 窗口 smoke；`p1.translation-language-controls` 已标记通过。翻译风格已接入 Translation 设置区和真实 Provider prompt，支持 Accurate、Natural、Professional、Concise，并通过源码链接 E2E、Debug 构建和真实 Settings 窗口 smoke；`p1.translation-style` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。2026-06-23 新增 V1 翻译偏好 PRD，并在 `feature_list.json` 中拆分 custom Prompt、glossary、OCR source editing 和 floating-window position preferences，均保持 `passes: false` 等待实现验收。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建、签名并启动同一个 Debug App bundle。
 - 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -101,7 +101,7 @@
 
 ## 当前未实现
 
-- P1/P2 V1 翻译偏好功能尚未实现：翻译风格、自定义 Prompt、术语表、OCR 原文编辑和浮窗位置偏好。
+- P1/P2 V1 翻译偏好功能尚未实现：自定义 Prompt、术语表、OCR 原文编辑和浮窗位置偏好。
 
 ## 已知约束
 
@@ -123,11 +123,21 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 1. 运行 `./init.sh`，确认当前 scaffold 可构建；调试运行使用 `./init.sh --run`。
 2. 如需验证发布包，先运行 `Scripts/package-release.sh --allow-untagged`；正式发布前先提交、打 `v<MARKETING_VERSION>` tag，再运行 `Scripts/package-release.sh`。
-3. 下一项建议从 `Docs/ai-translation-macos-v1-prd.md` 中选择 P1：优先实现 `p1.translation-style`。
+3. 下一项建议从 `Docs/ai-translation-macos-v1-prd.md` 中选择 P1：优先实现 `p1.custom-translation-prompt`。
 4. 语言、Prompt、术语等设置必须接入真实翻译链路后再标记通过，不要只添加空壳设置项。
 5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-23 - 实现翻译风格
+
+- 新增 `TranslationStyle` 偏好，默认 `Accurate`，支持 `Natural`、`Professional`、`Concise`，保存到 UserDefaults，不涉及 API Key、截图图片或 Provider 配置。
+- Settings 新增 `Translation` 分段，展示风格选择和说明；现有 `Model`、`Shortcuts`、`Privacy` 保持原功能。
+- `OpenAICompatibleProviderClient` 的非流式与流式翻译消息都会读取最新保存风格，并在 system prompt 中加入风格名称和对应指令；Quick Text 的 `Again` 与截图结果的 `Retry` 会在不重新输入文本/不重新截图的情况下使用最新风格重新请求。
+- 新增源码链接 E2E `Scripts/translation-style-e2e.swift`，覆盖默认值、持久化、非法值回退、四种风格 prompt 指令、语言/核心要求保留，以及同一文本改风格后重译 prompt 变化。
+- 验证：已运行 `xcrun swiftc -parse-as-library Parrot/App/ProviderSettings.swift Scripts/translation-style-e2e.swift -o /tmp/parrot-translation-style-e2e && /tmp/parrot-translation-style-e2e`、`xcrun swiftc -parse-as-library Parrot/App/ProviderSettings.swift Scripts/translation-language-controls-e2e.swift -o /tmp/parrot-translation-language-controls-e2e && /tmp/parrot-translation-language-controls-e2e`、`git diff --check`、`./init.sh`、`ruby -rjson -e 'JSON.parse(File.read("feature_list.json"))'`。
+- 真实 smoke：`./init.sh --run` 启动固定 Debug App 后，用 CGEvent 在 Finder 前台发送 `Cmd+Option+,`，窗口列表出现 `owner=Parrot name=Settings`。AppleScript/System Events 路径被当前会话辅助功能权限拦截，未作为验证依据。
+- 已更新 `feature_list.json`：`p1.translation-style.passes = true`，`last_verified = 2026-06-23`。
 
 ### 2026-06-23 - 修复 Debug OCR 权限身份漂移并优化语言栏
 

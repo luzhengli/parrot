@@ -4,6 +4,7 @@ struct ProviderSettingsView: View {
     enum Section: String, CaseIterable, Identifiable {
         case model = "Model"
         case shortcuts = "Shortcuts"
+        case translation = "Translation"
         case privacy = "Privacy"
 
         var id: String { rawValue }
@@ -13,6 +14,7 @@ struct ProviderSettingsView: View {
     @StateObject private var shortcutStore = ShortcutSettingsStore()
     @ObservedObject private var historyStore = TranslationHistoryStore.shared
     @State private var selectedSection: Section = .model
+    @State private var translationStyle = TranslationStyle.loadSaved()
 
     let onShortcutsSaved: () -> Void
 
@@ -47,6 +49,8 @@ struct ProviderSettingsView: View {
             modelSettings
         case .shortcuts:
             ShortcutSettingsSection(store: shortcutStore, onSaved: onShortcutsSaved)
+        case .translation:
+            translationSettings
         case .privacy:
             historySettings
         }
@@ -170,6 +174,32 @@ struct ProviderSettingsView: View {
         }
     }
 
+    private var translationSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            LabeledContent("Style") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("Translation Style", selection: translationStyleBinding) {
+                        ForEach(TranslationStyle.allCases) { style in
+                            Text(style.displayName).tag(style)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(minWidth: 360)
+
+                    Text(translationStyle.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Text("Style is applied to Quick Text and Screenshot translation prompts. Use Again or Retry in an open translation window to retranslate with the latest style.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
@@ -181,7 +211,7 @@ struct ProviderSettingsView: View {
                     .font(.title2.bold())
             }
 
-            Text("Configure Model, Shortcuts, and Privacy for the current Parrot workflows.")
+            Text("Configure Model, Shortcuts, Translation, and Privacy for the current Parrot workflows.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -198,6 +228,16 @@ struct ProviderSettingsView: View {
         Binding(
             get: { historyStore.isHistoryEnabled },
             set: { historyStore.setHistoryEnabled($0) }
+        )
+    }
+
+    private var translationStyleBinding: Binding<TranslationStyle> {
+        Binding(
+            get: { translationStyle },
+            set: { newValue in
+                translationStyle = newValue
+                newValue.save()
+            }
         )
     }
 

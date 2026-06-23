@@ -3,6 +3,84 @@ import Foundation
 import LocalAuthentication
 import Security
 
+enum TranslationStyle: String, CaseIterable, Codable, Identifiable {
+    case accurate
+    case natural
+    case professional
+    case concise
+
+    var id: String { rawValue }
+
+    static let storageKey = "TranslationStylePreference"
+    static let `default`: TranslationStyle = .accurate
+
+    var displayName: String {
+        switch self {
+        case .accurate:
+            return "Accurate"
+        case .natural:
+            return "Natural"
+        case .professional:
+            return "Professional"
+        case .concise:
+            return "Concise"
+        }
+    }
+
+    var promptName: String {
+        switch self {
+        case .accurate:
+            return "Accurate"
+        case .natural:
+            return "Natural"
+        case .professional:
+            return "Professional"
+        case .concise:
+            return "Concise"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .accurate:
+            return "Faithful to the original meaning for reading, debugging, and reference material."
+        case .natural:
+            return "Smoother everyday wording for chat and casual writing."
+        case .professional:
+            return "Formal, consistent wording for docs, email, and product material."
+        case .concise:
+            return "Compressed wording for quick understanding and summary-like translation."
+        }
+    }
+
+    var promptInstruction: String {
+        switch self {
+        case .accurate:
+            return "Stay faithful to the original meaning and keep nuance."
+        case .natural:
+            return "Use fluent, natural wording while preserving the original meaning."
+        case .professional:
+            return "Use formal, professional wording and keep terminology consistent."
+        case .concise:
+            return "Use concise wording and remove redundancy without losing key meaning."
+        }
+    }
+
+    static func loadSaved(from userDefaults: UserDefaults = .standard) -> TranslationStyle {
+        guard let rawValue = userDefaults.string(forKey: storageKey),
+              let style = TranslationStyle(rawValue: rawValue)
+        else {
+            return .default
+        }
+
+        return style
+    }
+
+    func save(to userDefaults: UserDefaults = .standard) {
+        userDefaults.set(rawValue, forKey: Self.storageKey)
+    }
+}
+
 enum TranslationLanguage: String, CaseIterable, Codable, Identifiable {
     case chinese
     case english
@@ -760,7 +838,8 @@ struct OpenAICompatibleProviderClient {
 
     func translate(
         _ text: String,
-        preferences: TranslationLanguagePreferences = .defaults
+        preferences: TranslationLanguagePreferences = .defaults,
+        style: TranslationStyle = TranslationStyle.loadSaved()
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
@@ -772,7 +851,7 @@ struct OpenAICompatibleProviderClient {
             messages: [
                 .init(
                     role: "system",
-                    content: translationSystemPrompt(languageResolution: languageResolution)
+                    content: translationSystemPrompt(languageResolution: languageResolution, style: style)
                 ),
                 .init(role: "user", content: trimmedText)
             ],
@@ -791,6 +870,7 @@ struct OpenAICompatibleProviderClient {
     func translateStreaming(
         _ text: String,
         preferences: TranslationLanguagePreferences = .defaults,
+        style: TranslationStyle = TranslationStyle.loadSaved(),
         onDelta: @escaping @MainActor (String) -> Void
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -798,7 +878,7 @@ struct OpenAICompatibleProviderClient {
             throw ProviderSettingsError.requestFailed("Enter text to translate.")
         }
 
-        let messages = try translationMessages(for: trimmedText, preferences: preferences)
+        let messages = try translationMessages(for: trimmedText, preferences: preferences, style: style)
         var finalTranslation = ""
 
         try await makeChatCompletionStream(
@@ -992,36 +1072,40 @@ struct OpenAICompatibleProviderClient {
 
     func translationDebugPrompt(
         for text: String,
-        preferences: TranslationLanguagePreferences = .defaults
+        preferences: TranslationLanguagePreferences = .defaults,
+        style: TranslationStyle = TranslationStyle.loadSaved()
     ) throws -> String {
         let resolution = try TranslationLanguageResolver.resolve(text: text, preferences: preferences)
-        return translationSystemPrompt(languageResolution: resolution)
+        return translationSystemPrompt(languageResolution: resolution, style: style)
     }
 
     private func translationMessages(
         for text: String,
-        preferences: TranslationLanguagePreferences
+        preferences: TranslationLanguagePreferences,
+        style: TranslationStyle
     ) throws -> [OpenAIChatMessage] {
         let resolution = try TranslationLanguageResolver.resolve(text: text, preferences: preferences)
         return [
             .init(
                 role: "system",
-                content: translationSystemPrompt(languageResolution: resolution)
+                content: translationSystemPrompt(languageResolution: resolution, style: style)
             ),
             .init(role: "user", content: text)
         ]
     }
 
-    private func translationSystemPrompt(languageResolution: TranslationLanguageResolution) -> String {
+    private func translationSystemPrompt(languageResolution: TranslationLanguageResolution, style: TranslationStyle) -> String {
         """
         You are a professional translation assistant. Translate the user's text into \(languageResolution.targetPromptName).
         Source language: \(languageResolution.sourcePromptName).
         Target language: \(languageResolution.targetPromptName).
+        Translation style: \(style.promptName).
         Requirements:
         1. Preserve paragraph structure.
         2. Preserve code, variable names, links, product names, and proper nouns.
-        3. Do not add information that does not exist in the source text.
-        4. Output only the translation.
+        3. \(style.promptInstruction)
+        4. Do not add information that does not exist in the source text.
+        5. Output only the translation.
         """
     }
 

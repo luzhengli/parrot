@@ -306,9 +306,9 @@
         "Apply the selected style to both Quick Text and Screenshot translation prompts.",
         "Allow retranslation after changing style without requiring users to re-enter text or retake a screenshot."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. Keep this as a low-friction preference before exposing raw Prompt editing to most users."
+      "passes": true,
+      "last_verified": "2026-06-23",
+      "notes": "Implemented TranslationStyle with Accurate default plus Natural, Professional, and Concise options stored in UserDefaults. Settings now has a Translation section exposing the style segmented control and guidance that open translation windows can use Again or Retry after changing style. OpenAICompatibleProviderClient now loads the latest saved style when creating translation messages for both non-streaming and streaming translation paths, so Quick Text and Screenshot translation prompts include Translation style plus style-specific instructions without changing Provider settings or privacy behavior. Verified with source-linked E2E Scripts/translation-style-e2e.swift covering default/persistence/invalid fallback, all four prompt instructions, preservation of language/core prompt requirements, and same-text retranslation using the latest saved style. Also verified existing language prompt behavior with Scripts/translation-language-controls-e2e.swift, ran ./init.sh Debug build/signing, git diff --check, and a real Debug app smoke where Cmd+Option+, opened the Settings window while Finder was frontmost."
     },
     {
       "id": "p1.custom-translation-prompt",
