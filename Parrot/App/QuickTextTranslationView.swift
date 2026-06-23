@@ -4,6 +4,8 @@ import SwiftUI
 @MainActor
 final class QuickTextTranslationStore: ObservableObject {
     @Published var sourceText = ""
+    @Published var languagePreferences = TranslationLanguagePreferences.loadSaved()
+    @Published private(set) var latestDetectedSource: TranslationLanguage?
     @Published private(set) var translatedText = ""
     @Published private(set) var statusMessage: String?
     @Published private(set) var isStatusError = false
@@ -17,7 +19,9 @@ final class QuickTextTranslationStore: ObservableObject {
     }
 
     var canTranslate: Bool {
-        !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isTranslating
+        !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && languagePreferences.validationMessage == nil
+            && !isTranslating
     }
 
     var canCopyTranslation: Bool {
@@ -28,6 +32,15 @@ final class QuickTextTranslationStore: ObservableObject {
         isStatusError && canTranslate
     }
 
+    var languageValidationMessage: String? {
+        languagePreferences.validationMessage
+    }
+
+    func swapLanguages() {
+        languagePreferences.swapLanguages(recentDetectedSource: latestDetectedSource)
+        languagePreferences.save()
+    }
+
     func translate() async {
         let text = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isTranslating else {
@@ -35,6 +48,8 @@ final class QuickTextTranslationStore: ObservableObject {
         }
 
         isTranslating = true
+        latestDetectedSource = TranslationLanguageResolver.detectSourceLanguage(in: text)
+        languagePreferences.save()
         translatedText = ""
         statusMessage = "Translating with the configured provider..."
         isStatusError = false
@@ -51,7 +66,7 @@ final class QuickTextTranslationStore: ObservableObject {
             }
 
             let client = OpenAICompatibleProviderClient(settings: settings, apiKey: apiKey)
-            let finalTranslation = try await client.translateStreaming(text) { [weak self] delta in
+            let finalTranslation = try await client.translateStreaming(text, preferences: languagePreferences) { [weak self] delta in
                 self?.translatedText += delta
             }
             translatedText = finalTranslation
@@ -104,6 +119,7 @@ struct QuickTextTranslationView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+            languageControls
 
             QuickTextEditor(
                 text: $store.sourceText,
@@ -120,7 +136,10 @@ struct QuickTextTranslationView: View {
             footer
         }
         .padding(20)
-        .frame(width: 560)
+        .frame(width: 620)
+        .onChange(of: store.languagePreferences) { _, newValue in
+            newValue.save()
+        }
         .onExitCommand(perform: onClose)
     }
 
@@ -139,6 +158,18 @@ struct QuickTextTranslationView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var languageControls: some View {
+        TranslationLanguageControls(
+            preferences: $store.languagePreferences,
+            latestDetectedSource: store.latestDetectedSource,
+            validationMessage: store.languageValidationMessage,
+            isTranslating: store.isTranslating,
+            canRetranslate: store.canTranslate,
+            onSwap: store.swapLanguages,
+            onRetranslate: startTranslation
+        )
     }
 
     @ViewBuilder
@@ -220,6 +251,111 @@ struct QuickTextTranslationView: View {
                 onClose()
             }
         }
+    }
+}
+
+struct TranslationLanguageControls: View {
+    @Binding var preferences: TranslationLanguagePreferences
+    let latestDetectedSource: TranslationLanguage?
+    let validationMessage: String?
+    let isTranslating: Bool
+    let canRetranslate: Bool
+    let onSwap: () -> Void
+    let onRetranslate: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            languagePicker(title: "Source", selection: $preferences.sourceLanguage)
+
+            Button {
+                onSwap()
+            } label: {
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .background(.quaternary.opacity(0.7), in: Circle())
+            .help("Swap source and target languages")
+            .disabled(isTranslating)
+
+            languagePicker(title: "Target", selection: $preferences.targetLanguage)
+
+            Spacer(minLength: 4)
+
+            Button {
+                onRetranslate()
+            } label: {
+                Label("Again", systemImage: "arrow.clockwise")
+                    .labelStyle(.titleAndIcon)
+            }
+            .controlSize(.small)
+            .disabled(!canRetranslate)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.quaternary.opacity(0.28), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(alignment: .bottomLeading) {
+            languageHint
+                .offset(x: 12, y: 18)
+        }
+        .padding(.bottom, validationMessage == nil ? 14 : 22)
+    }
+
+    private func languagePicker(
+        title: String,
+        selection: Binding<TranslationSourceSelection>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            Picker(title, selection: selection) {
+                ForEach(TranslationSourceSelection.allCases) { language in
+                    Text(language.displayName).tag(language)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.small)
+            .frame(width: 132)
+        }
+    }
+
+    private func languagePicker(
+        title: String,
+        selection: Binding<TranslationTargetSelection>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            Picker(title, selection: selection) {
+                ForEach(TranslationTargetSelection.allCases) { language in
+                    Text(language.displayName).tag(language)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.small)
+            .frame(width: 148)
+        }
+    }
+
+    @ViewBuilder
+    private var languageHint: some View {
+        HStack(spacing: 6) {
+            Image(systemName: validationMessage == nil ? "sparkle.magnifyingglass" : "exclamationmark.triangle.fill")
+                .font(.system(size: 10, weight: .semibold))
+
+            Text(validationMessage ?? "Detected: \(latestDetectedSource?.displayName ?? "waiting for input")")
+                .font(.system(size: 11))
+                .lineLimit(1)
+        }
+        .foregroundStyle(validationMessage == nil ? Color.secondary : Color.orange)
     }
 }
 

@@ -25,6 +25,8 @@ struct ScreenshotPipelineStatus {
 private final class ScreenshotTranslationComparisonStore: ObservableObject {
     let sourceText: String
 
+    @Published var languagePreferences = TranslationLanguagePreferences.loadSaved()
+    @Published private(set) var latestDetectedSource: TranslationLanguage?
     @Published private(set) var translatedText = ""
     @Published private(set) var statusMessage: String?
     @Published private(set) var isStatusError = false
@@ -39,7 +41,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
     }
 
     var canRetry: Bool {
-        !sourceText.isEmpty && !isTranslating
+        !sourceText.isEmpty && languagePreferences.validationMessage == nil && !isTranslating
     }
 
     var canCopySource: Bool {
@@ -48,6 +50,15 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
 
     var canCopyTranslation: Bool {
         !translatedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var languageValidationMessage: String? {
+        languagePreferences.validationMessage
+    }
+
+    func swapLanguages() {
+        languagePreferences.swapLanguages(recentDetectedSource: latestDetectedSource)
+        languagePreferences.save()
     }
 
     func translateIfNeeded() async {
@@ -89,6 +100,8 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         }
 
         isTranslating = true
+        latestDetectedSource = TranslationLanguageResolver.detectSourceLanguage(in: sourceText)
+        languagePreferences.save()
         translatedText = ""
         statusMessage = "Translating recognized text with the configured provider..."
         isStatusError = false
@@ -104,7 +117,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
             }
 
             let client = OpenAICompatibleProviderClient(settings: settings, apiKey: apiKey)
-            let finalTranslation = try await client.translateStreaming(sourceText) { [weak self] delta in
+            let finalTranslation = try await client.translateStreaming(sourceText, preferences: languagePreferences) { [weak self] delta in
                 self?.translatedText += delta
             }
             translatedText = finalTranslation
@@ -559,12 +572,16 @@ struct ScreenshotSelectionResultView: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             preview
+            languageControls
             statusBanner
             comparison
             footer
         }
         .padding(24)
-        .frame(width: 760)
+        .frame(width: 780)
+        .onChange(of: store.languagePreferences) { _, newValue in
+            newValue.save()
+        }
         .task {
             guard status.isSuccess else {
                 return
@@ -573,6 +590,18 @@ struct ScreenshotSelectionResultView: View {
             await store.translateIfNeeded()
         }
         .onExitCommand(perform: onClose)
+    }
+
+    private var languageControls: some View {
+        TranslationLanguageControls(
+            preferences: $store.languagePreferences,
+            latestDetectedSource: store.latestDetectedSource,
+            validationMessage: store.languageValidationMessage,
+            isTranslating: store.isTranslating,
+            canRetranslate: store.canRetry,
+            onSwap: store.swapLanguages,
+            onRetranslate: store.retryTranslation
+        )
     }
 
     private var header: some View {

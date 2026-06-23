@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`；V1 翻译偏好规划见 `Docs/ai-translation-macos-v1-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。设置全局快捷键已作为第三个可配置动作接入 Shortcuts，默认 `Cmd+Option+,`，并通过源码链接 E2E 与 Finder 前台真实全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。2026-06-23 新增 V1 翻译偏好 PRD，并在 `feature_list.json` 中拆分 language controls、translation style、custom Prompt、glossary、OCR source editing 和 floating-window position preferences，均保持 `passes: false` 等待实现验收。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译；语言选择栏已改为紧凑原生风格，并通过真实窗口截图检查。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。2026-06-23 修复 `./init.sh --run` Debug App 录屏授权身份漂移：Debug App 现在会在构建后 ad-hoc 签名为稳定本地 designated requirement `identifier "com.example.parrot"`，与已安装 `/Applications/Parrot.app` 对齐。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。设置全局快捷键已作为第三个可配置动作接入 Shortcuts，默认 `Cmd+Option+,`，并通过源码链接 E2E 与 Finder 前台真实全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。语言选择与一键互换已接入 Quick Text 和截图翻译结果窗口，并进入真实 Provider prompt，已通过源码链接 E2E、Debug 构建和真实 Quick Text 窗口 smoke；`p1.translation-language-controls` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。2026-06-23 新增 V1 翻译偏好 PRD，并在 `feature_list.json` 中拆分 translation style、custom Prompt、glossary、OCR source editing 和 floating-window position preferences，均保持 `passes: false` 等待实现验收。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建、签名并启动同一个 Debug App bundle。
 - 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -93,10 +93,15 @@
   - 继续保留菜单栏 `Settings` 入口；保存快捷键后复用现有热重载逻辑，无需重启 App。
   - 旧版仅包含两个快捷键的 `ShortcutPreferences` 会保留原有自定义配置，并自动补齐 Open Settings 默认快捷键。
   - 已运行 `./init.sh`、源码链接 E2E `Scripts/custom-shortcuts-e2e.swift`、`git diff --check`、`feature_list.json` JSON 校验和真实 Debug App 全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。
+- 实现语言选择与一键互换：
+  - Quick Text Translation 和 Screenshot Translation 结果窗口都显示源语言、目标语言、互换和重新翻译控制。
+  - 支持 `Auto`、`Auto Opposite` 以及中文、英文、日文、韩文、法文、西班牙文显式选择；同一显式源/目标语言会禁用翻译并显示提示。
+  - 语言选择持久化到 UserDefaults，不保存 API Key 或截图图片；翻译时会进入真实 Provider system prompt。
+  - 已运行 `./init.sh`、源码链接 E2E `Scripts/translation-language-controls-e2e.swift`、`git diff --check` 和真实 Debug App Quick Text 窗口 smoke；`p1.translation-language-controls` 已标记通过。
 
 ## 当前未实现
 
-- P1/P2 V1 翻译偏好功能尚未实现：语言选择与互换、翻译风格、自定义 Prompt、术语表、OCR 原文编辑和浮窗位置偏好。
+- P1/P2 V1 翻译偏好功能尚未实现：翻译风格、自定义 Prompt、术语表、OCR 原文编辑和浮窗位置偏好。
 
 ## 已知约束
 
@@ -107,6 +112,7 @@
 - Release 包当前为 unsigned/unnotarized，仅适合本地或小范围内测；正式对外分发前需要稳定 bundle id、Developer ID 签名和 notarization。
 - unsigned Release 包必须带稳定本地 designated requirement；如果 `codesign -dr - Parrot.app` 只显示 `cdhash H"..."`，录屏 TCC 授权会绑定到单次构建哈希，升级或重复安装后可能在系统设置里出现多个 `Parrot.app` 条目，并导致用户开启了旧条目但当前 App 仍未授权。
 - TCC/录屏权限调试使用 `./init.sh --run`，避免多个系统 DerivedData 副本和旧进程导致权限身份漂移或全局快捷键被占用。验证 release 权限体验时，应从 DMG 安装到 `/Applications/Parrot.app` 后触发 `Cmd+Shift+2`，并用窗口列表确认首轮只出现系统 `universalAccessAuthWarn` 录屏提示，不出现 Parrot 的权限错误窗。
+- `./init.sh --run` 会在 `CODE_SIGNING_ALLOWED=NO` 构建后对 Debug-only dylib 和 `Parrot.app` 做本地 ad-hoc 签名，并阻断 `codesign -dr - ./.DerivedData/Build/Products/Debug/Parrot.app` 退化为纯 `cdhash`。如果本机已有旧调试构建或旧 DMG 造成的重复录屏条目，先运行 `tccutil reset ScreenCapture com.example.parrot` 后重新启动当前 Debug App 并授权。
 - 如 `xcodebuild` 使用 Command Line Tools 而非完整 Xcode，需要运行：
 
 ```sh
@@ -117,11 +123,30 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 1. 运行 `./init.sh`，确认当前 scaffold 可构建；调试运行使用 `./init.sh --run`。
 2. 如需验证发布包，先运行 `Scripts/package-release.sh --allow-untagged`；正式发布前先提交、打 `v<MARKETING_VERSION>` tag，再运行 `Scripts/package-release.sh`。
-3. 下一项建议从 `Docs/ai-translation-macos-v1-prd.md` 中选择 P1：优先实现 `p1.translation-language-controls`。
+3. 下一项建议从 `Docs/ai-translation-macos-v1-prd.md` 中选择 P1：优先实现 `p1.translation-style`。
 4. 语言、Prompt、术语等设置必须接入真实翻译链路后再标记通过，不要只添加空壳设置项。
 5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-23 - 修复 Debug OCR 权限身份漂移并优化语言栏
+
+- 根因 1：`./init.sh --run` 使用 `CODE_SIGNING_ALLOWED=NO` 构建 Debug App，构建产物只有 linker/ad-hoc 可执行签名，`codesign -dr - ./.DerivedData/Build/Products/Debug/Parrot.app` 显示纯 `cdhash`；而已安装的 `/Applications/Parrot.app` 是稳定 `identifier "com.example.parrot"`，因此 Screen Recording TCC 授权可能命中正式包身份而不是当前 Debug App。
+- 修复 1：`init.sh` 在 Debug 构建后先签 `Parrot.debug.dylib` 和 `__preview.dylib`，再用本地 ad-hoc 签名给 `Parrot.app` 写入稳定 designated requirement `identifier "com.example.parrot"`，并用 `codesign --verify --deep --strict` 和 `codesign -dr -` 阻断退化为纯 `cdhash` 的 Debug 产物。
+- 根因 2：语言栏 UI 直接把默认 `.menu` Picker、文字标签和操作按钮平铺在大灰色卡片里，和 Quick Text 现有原生轻量层级不一致，导致控件显得重、散、突兀。
+- 修复 2：`TranslationLanguageControls` 改为紧凑双字段布局：小号 uppercase 标签、small control picker、圆形互换图标按钮、轻量 `Again` 重译按钮和更低存在感的检测提示，保留原有持久化、互换和同语种校验逻辑。
+- 验证：已运行 `./init.sh` 和 `./init.sh --run`；Debug App 与 `/Applications/Parrot.app` 均验证为 `designated => identifier "com.example.parrot"`；`codesign --verify --deep --strict` 通过；`Scripts/translation-language-controls-e2e.swift` 和 `Scripts/screen-capture-access-gate-e2e.swift` 源码链接 E2E 通过；`git diff --check`、`bash -n init.sh`、`feature_list.json` JSON 校验通过。
+- 真实 smoke：`./init.sh --run` 后发送 `Cmd+Shift+T` 打开 Quick Text Translation，截图 `/tmp/parrot-quick-text-after.png` 确认语言栏视觉已收敛到更轻的原生控件风格；发送 `Cmd+Shift+2` 后本机仍显示权限指引窗口，因为当前机器没有给 Parrot 录屏授权，但当前 Debug App 的 TCC 身份已与已安装 App 对齐。若用户机器已有旧重复条目，运行 `tccutil reset ScreenCapture com.example.parrot` 后重新授权当前 Parrot。
+
+### 2026-06-23 - 实现语言选择与一键互换
+
+- 新增 `TranslationLanguagePreferences`、语言选择枚举和 `TranslationLanguageResolver`，默认保持 `Auto` -> `Auto Opposite` 的中英自动互译：中文默认译英文，英文默认译简体中文。
+- Quick Text Translation 和截图翻译结果窗口新增共享语言栏，包含源语言、目标语言、互换按钮和 `Retranslate`；支持中文、英文、日文、韩文、法文、西班牙文显式选择。
+- 互换逻辑覆盖显式语言对调、`Auto` + 显式目标转为显式源 + `Auto Opposite`，以及基于最近一次检测语言的 `Auto Opposite` 互换。
+- `OpenAICompatibleProviderClient` 的流式和非流式翻译入口现在接收语言偏好，真实 system prompt 会写入 resolved source/target language；同一显式源/目标语言会在发请求前阻断。
+- 新增 `Scripts/translation-language-controls-e2e.swift`，覆盖默认值、UserDefaults 持久化、默认中英方向、显式日文到西班牙文 prompt、同语种阻断、互换后 prompt 改变。
+- 验证：已运行 `xcrun swiftc -parse-as-library Parrot/App/ProviderSettings.swift Scripts/translation-language-controls-e2e.swift -o /tmp/parrot-translation-language-controls-e2e && /tmp/parrot-translation-language-controls-e2e`、`./init.sh`、`git diff --check`、`ruby -rjson` 解析 `feature_list.json`；真实 smoke 使用 `./init.sh --run` 启动 Debug App 后在 Finder 前台发送 `Cmd+Shift+T`，窗口列表出现 `Quick Text Translation`。
+- 已更新 `feature_list.json`：`p1.translation-language-controls.passes = true`，`last_verified = 2026-06-23`。
 
 ### 2026-06-23 - 实现设置全局快捷键
 

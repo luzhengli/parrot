@@ -121,8 +121,8 @@
         "Pass the selected image region to the OCR pipeline."
       ],
       "passes": true,
-      "last_verified": "2026-06-22",
-      "notes": "Added a native AppKit full-screen overlay for region selection. Follow-up fixes made the app an LSUIElement menu-bar utility, removed the default launch WindowGroup, and changed screenshot capture to snapshot every screen before the overlay appears, then crop the selected region from that cached screenshot. Added Screen Recording preflight/request before snapshotting, because macOS can return a desktop-only image when permission is missing. A release-package regression showed CGRequestScreenCaptureAccess can present the macOS Screen Recording prompt while returning false for the current attempt; the app now suppresses the Parrot error window only for the first request-presented state, then shows Parrot's actionable permission guidance on a later attempt if Screen Recording is still not granted. Verified ./init.sh Debug build, screen-capture access gate E2E, and a real Debug app smoke where two Cmd+Shift+2 attempts with Screen Recording still missing left the system '录屏' prompt visible and opened Parrot's Screenshot Translation permission guidance window."
+      "last_verified": "2026-06-23",
+      "notes": "Added a native AppKit full-screen overlay for region selection. Follow-up fixes made the app an LSUIElement menu-bar utility, removed the default launch WindowGroup, and changed screenshot capture to snapshot every screen before the overlay appears, then crop the selected region from that cached screenshot. Added Screen Recording preflight/request before snapshotting, because macOS can return a desktop-only image when permission is missing. A release-package regression showed CGRequestScreenCaptureAccess can present the macOS Screen Recording prompt while returning false for the current attempt; the app now suppresses the Parrot error window only for the first request-presented state, then shows Parrot's actionable permission guidance on a later attempt if Screen Recording is still not granted. Follow-up Debug workflow fix: ./init.sh now ad-hoc signs the built Debug app bundle with the same stable designated requirement as the unsigned release package, identifier \"com.example.parrot\", after signing Debug-only nested dylibs. This prevents ./init.sh --run builds from using per-build cdhash TCC identities that do not match /Applications/Parrot.app. Verified ./init.sh Debug build/signing, codesign --verify --deep --strict, codesign -dr - reporting identifier \"com.example.parrot\" for both the Debug app and installed /Applications/Parrot.app, source-linked screen-capture access gate E2E, and a real Debug app smoke where Cmd+Shift+2 opened the Screenshot Translation permission window only because this machine has not granted Screen Recording to Parrot."
     },
     {
       "id": "p0.local-ocr",
@@ -290,9 +290,9 @@
         "Support one-click source-target swap and use the swapped direction for retry or retranslate.",
         "Prevent saving or translating with the same explicit source and target language."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. This replaces the hidden hard-coded Chinese-English target detection with explicit TranslationPreferences that still defaults to the current behavior. Verification must prove the selected direction changes the actual prompt sent to the provider."
+      "passes": true,
+      "last_verified": "2026-06-23",
+      "notes": "Implemented TranslationLanguagePreferences with Auto source, Auto Opposite target, explicit Chinese/English/Japanese/Korean/French/Spanish choices, persistence in UserDefaults, validation that blocks same explicit source/target, and swap rules for explicit pairs, Auto -> explicit target, and Auto Opposite using the latest detected source. Quick Text Translation and Screenshot Translation result windows now show the shared language controls and pass the active preferences into OpenAICompatibleProviderClient, so the actual system prompt includes the resolved source and target language. Verified ./init.sh Debug build, source-linked E2E Scripts/translation-language-controls-e2e.swift covering defaults, persistence, prompt contents, invalid same-language rejection, and swap behavior, git diff --check, and a real Debug app smoke where Cmd+Shift+T opened the Quick Text Translation window after ./init.sh --run."
     },
     {
       "id": "p1.translation-style",

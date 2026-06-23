@@ -57,7 +57,8 @@ Debug workflow:
 
 The debug workflow always builds into ./.DerivedData and opens that exact app bundle
 to avoid multiple DerivedData copies confusing macOS Screen Recording permissions or
-Carbon global shortcut registration.
+Carbon global shortcut registration. The Debug app is ad-hoc signed with a stable
+local designated requirement so Screen Recording grants can survive rebuilds.
 USAGE
       exit 0
       ;;
@@ -145,6 +146,49 @@ elif [[ "$RUN_APP" == true ]]; then
 else
   echo
   echo "Skipping build because --skip-build was provided."
+fi
+
+sign_debug_app_for_local_tcc() {
+  local app_path="$1"
+  local info_plist="$app_path/Contents/Info.plist"
+
+  if [[ ! -d "$app_path" ]]; then
+    return
+  fi
+
+  local app_bundle_identifier
+  app_bundle_identifier="$(plutil -extract CFBundleIdentifier raw "$info_plist")"
+  if [[ "$app_bundle_identifier" != "$BUNDLE_IDENTIFIER" ]]; then
+    echo "error: app bundle identifier mismatch: expected $BUNDLE_IDENTIFIER, got $app_bundle_identifier" >&2
+    exit 1
+  fi
+
+  echo
+  echo "=== Signing Debug app for local TCC identity ==="
+  local debug_dylib="$app_path/Contents/MacOS/Parrot.debug.dylib"
+  local preview_dylib="$app_path/Contents/MacOS/__preview.dylib"
+  if [[ -f "$debug_dylib" ]]; then
+    codesign --force --sign - "$debug_dylib"
+  fi
+  if [[ -f "$preview_dylib" ]]; then
+    codesign --force --sign - "$preview_dylib"
+  fi
+
+  local code_requirement="=designated => identifier \"$BUNDLE_IDENTIFIER\""
+  codesign --force --sign - --requirements "$code_requirement" "$app_path"
+  codesign --verify --deep --strict --verbose=2 "$app_path"
+
+  local designated_requirement
+  designated_requirement="$(codesign -dr - "$app_path" 2>&1 | sed -n 's/^designated => //p')"
+  if [[ "$designated_requirement" != "identifier \"$BUNDLE_IDENTIFIER\"" ]]; then
+    echo "error: Debug app has an unstable designated requirement: $designated_requirement" >&2
+    echo "       Screen Recording TCC grants must not be tied only to a per-build cdhash." >&2
+    exit 1
+  fi
+}
+
+if [[ "$SKIP_BUILD" == false && "$ALLOW_SIGNING" == false ]]; then
+  sign_debug_app_for_local_tcc "$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME"
 fi
 
 if [[ "$RUN_APP" == true ]]; then

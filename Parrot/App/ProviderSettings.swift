@@ -3,6 +3,221 @@ import Foundation
 import LocalAuthentication
 import Security
 
+enum TranslationLanguage: String, CaseIterable, Codable, Identifiable {
+    case chinese
+    case english
+    case japanese
+    case korean
+    case french
+    case spanish
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .chinese:
+            return "Chinese"
+        case .english:
+            return "English"
+        case .japanese:
+            return "Japanese"
+        case .korean:
+            return "Korean"
+        case .french:
+            return "French"
+        case .spanish:
+            return "Spanish"
+        }
+    }
+
+    var promptName: String {
+        switch self {
+        case .chinese:
+            return "Simplified Chinese"
+        case .english:
+            return "English"
+        case .japanese:
+            return "Japanese"
+        case .korean:
+            return "Korean"
+        case .french:
+            return "French"
+        case .spanish:
+            return "Spanish"
+        }
+    }
+}
+
+enum TranslationSourceSelection: String, CaseIterable, Codable, Identifiable {
+    case auto
+    case chinese
+    case english
+    case japanese
+    case korean
+    case french
+    case spanish
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        explicitLanguage?.displayName ?? "Auto"
+    }
+
+    var explicitLanguage: TranslationLanguage? {
+        TranslationLanguage(rawValue: rawValue)
+    }
+
+    init(language: TranslationLanguage) {
+        self = TranslationSourceSelection(rawValue: language.rawValue) ?? .auto
+    }
+}
+
+enum TranslationTargetSelection: String, CaseIterable, Codable, Identifiable {
+    case autoOpposite
+    case chinese
+    case english
+    case japanese
+    case korean
+    case french
+    case spanish
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        explicitLanguage?.displayName ?? "Auto Opposite"
+    }
+
+    var explicitLanguage: TranslationLanguage? {
+        TranslationLanguage(rawValue: rawValue)
+    }
+
+    init(language: TranslationLanguage) {
+        self = TranslationTargetSelection(rawValue: language.rawValue) ?? .autoOpposite
+    }
+}
+
+struct TranslationLanguagePreferences: Codable, Equatable {
+    var sourceLanguage: TranslationSourceSelection
+    var targetLanguage: TranslationTargetSelection
+
+    static let storageKey = "TranslationLanguagePreferences"
+    static let defaults = TranslationLanguagePreferences(sourceLanguage: .auto, targetLanguage: .autoOpposite)
+
+    var validationMessage: String? {
+        guard let source = sourceLanguage.explicitLanguage,
+              let target = targetLanguage.explicitLanguage,
+              source == target
+        else {
+            return nil
+        }
+
+        return "Source and target languages must be different."
+    }
+
+    static func loadSaved(from userDefaults: UserDefaults = .standard) -> TranslationLanguagePreferences {
+        guard let data = userDefaults.data(forKey: storageKey),
+              let preferences = try? JSONDecoder().decode(TranslationLanguagePreferences.self, from: data)
+        else {
+            return .defaults
+        }
+
+        return preferences
+    }
+
+    func save(to userDefaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(self) else {
+            return
+        }
+
+        userDefaults.set(data, forKey: Self.storageKey)
+    }
+
+    mutating func swapLanguages(recentDetectedSource: TranslationLanguage?) {
+        if let source = sourceLanguage.explicitLanguage,
+           let target = targetLanguage.explicitLanguage {
+            sourceLanguage = TranslationSourceSelection(language: target)
+            targetLanguage = TranslationTargetSelection(language: source)
+            return
+        }
+
+        if sourceLanguage == .auto,
+           let target = targetLanguage.explicitLanguage {
+            sourceLanguage = TranslationSourceSelection(language: target)
+            targetLanguage = .autoOpposite
+            return
+        }
+
+        if targetLanguage == .autoOpposite {
+            let effectiveSource = sourceLanguage.explicitLanguage ?? recentDetectedSource
+            guard let effectiveSource else {
+                return
+            }
+
+            sourceLanguage = TranslationSourceSelection(language: Self.oppositeLanguage(for: effectiveSource))
+            targetLanguage = TranslationTargetSelection(language: effectiveSource)
+        }
+    }
+
+    static func oppositeLanguage(for language: TranslationLanguage) -> TranslationLanguage {
+        switch language {
+        case .chinese:
+            return .english
+        case .english:
+            return .chinese
+        case .japanese, .korean, .french, .spanish:
+            return .chinese
+        }
+    }
+
+}
+
+struct TranslationLanguageResolution: Equatable {
+    let sourceLanguage: TranslationLanguage
+    let targetLanguage: TranslationLanguage
+    let sourcePromptName: String
+    let targetPromptName: String
+}
+
+enum TranslationLanguageResolver {
+    static func resolve(
+        text: String,
+        preferences: TranslationLanguagePreferences
+    ) throws -> TranslationLanguageResolution {
+        if let validationMessage = preferences.validationMessage {
+            throw ProviderSettingsError.requestFailed(validationMessage)
+        }
+
+        let detectedSource = detectSourceLanguage(in: text)
+        let sourceLanguage = preferences.sourceLanguage.explicitLanguage ?? detectedSource
+        let targetLanguage = preferences.targetLanguage.explicitLanguage ?? TranslationLanguagePreferences.oppositeLanguage(for: sourceLanguage)
+
+        return TranslationLanguageResolution(
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            sourcePromptName: preferences.sourceLanguage.explicitLanguage == nil ? "Auto-detected \(sourceLanguage.promptName)" : sourceLanguage.promptName,
+            targetPromptName: targetLanguage.promptName
+        )
+    }
+
+    static func detectSourceLanguage(in text: String) -> TranslationLanguage {
+        let scalars = text.unicodeScalars
+
+        if scalars.contains(where: { (0x4E00...0x9FFF).contains(Int($0.value)) }) {
+            return .chinese
+        }
+
+        if scalars.contains(where: { (0x3040...0x30FF).contains(Int($0.value)) }) {
+            return .japanese
+        }
+
+        if scalars.contains(where: { (0xAC00...0xD7AF).contains(Int($0.value)) }) {
+            return .korean
+        }
+
+        return .english
+    }
+}
+
 struct LLMProviderSettings: Codable, Equatable {
     var providerID: String
     var baseURLString: String
@@ -543,25 +758,21 @@ struct OpenAICompatibleProviderClient {
         return reply?.isEmpty == false ? "Provider replied: \(reply!)." : "Provider accepted the test request."
     }
 
-    func translate(_ text: String) async throws -> String {
+    func translate(
+        _ text: String,
+        preferences: TranslationLanguagePreferences = .defaults
+    ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
             throw ProviderSettingsError.requestFailed("Enter text to translate.")
         }
 
-        let targetLanguage = detectedTargetLanguage(for: trimmedText)
+        let languageResolution = try TranslationLanguageResolver.resolve(text: trimmedText, preferences: preferences)
         let completion = try await makeChatCompletion(
             messages: [
                 .init(
                     role: "system",
-                    content: """
-                    You are a professional translation assistant. Translate the user's text into \(targetLanguage).
-                    Requirements:
-                    1. Preserve paragraph structure.
-                    2. Preserve code, variable names, links, product names, and proper nouns.
-                    3. Do not add information that does not exist in the source text.
-                    4. Output only the translation.
-                    """
+                    content: translationSystemPrompt(languageResolution: languageResolution)
                 ),
                 .init(role: "user", content: trimmedText)
             ],
@@ -579,6 +790,7 @@ struct OpenAICompatibleProviderClient {
 
     func translateStreaming(
         _ text: String,
+        preferences: TranslationLanguagePreferences = .defaults,
         onDelta: @escaping @MainActor (String) -> Void
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -586,8 +798,7 @@ struct OpenAICompatibleProviderClient {
             throw ProviderSettingsError.requestFailed("Enter text to translate.")
         }
 
-        let targetLanguage = detectedTargetLanguage(for: trimmedText)
-        let messages = translationMessages(for: trimmedText, targetLanguage: targetLanguage)
+        let messages = try translationMessages(for: trimmedText, preferences: preferences)
         var finalTranslation = ""
 
         try await makeChatCompletionStream(
@@ -779,28 +990,39 @@ struct OpenAICompatibleProviderClient {
         return url
     }
 
-    private func translationMessages(for text: String, targetLanguage: String) -> [OpenAIChatMessage] {
-        [
+    func translationDebugPrompt(
+        for text: String,
+        preferences: TranslationLanguagePreferences = .defaults
+    ) throws -> String {
+        let resolution = try TranslationLanguageResolver.resolve(text: text, preferences: preferences)
+        return translationSystemPrompt(languageResolution: resolution)
+    }
+
+    private func translationMessages(
+        for text: String,
+        preferences: TranslationLanguagePreferences
+    ) throws -> [OpenAIChatMessage] {
+        let resolution = try TranslationLanguageResolver.resolve(text: text, preferences: preferences)
+        return [
             .init(
                 role: "system",
-                content: """
-                You are a professional translation assistant. Translate the user's text into \(targetLanguage).
-                Requirements:
-                1. Preserve paragraph structure.
-                2. Preserve code, variable names, links, product names, and proper nouns.
-                3. Do not add information that does not exist in the source text.
-                4. Output only the translation.
-                """
+                content: translationSystemPrompt(languageResolution: resolution)
             ),
             .init(role: "user", content: text)
         ]
     }
 
-    private func detectedTargetLanguage(for text: String) -> String {
-        let hasChinese = text.unicodeScalars.contains { scalar in
-            (0x4E00...0x9FFF).contains(Int(scalar.value))
-        }
-        return hasChinese ? "English" : "Simplified Chinese"
+    private func translationSystemPrompt(languageResolution: TranslationLanguageResolution) -> String {
+        """
+        You are a professional translation assistant. Translate the user's text into \(languageResolution.targetPromptName).
+        Source language: \(languageResolution.sourcePromptName).
+        Target language: \(languageResolution.targetPromptName).
+        Requirements:
+        1. Preserve paragraph structure.
+        2. Preserve code, variable names, links, product names, and proper nouns.
+        3. Do not add information that does not exist in the source text.
+        4. Output only the translation.
+        """
     }
 
     private func data(from bytes: URLSession.AsyncBytes) async throws -> Data {
