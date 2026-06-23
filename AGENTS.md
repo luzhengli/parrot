@@ -19,7 +19,7 @@ Parrot is a native macOS SwiftUI/AppKit menu-bar translation assistant prototype
 - `Parrot/App/` contains the app entry point, menu-bar shell, global shortcuts, screenshot/OCR flow, translation UI, provider settings, shortcut settings, and translation history.
 - `Parrot/Resources/` contains app assets and icons.
 - `Config/` contains Debug and Release build settings, including bundle ID, version, Swift version, and macOS deployment target.
-- `Docs/` contains product requirements; use `Docs/ai-translation-macos-prd.md` as the source of product behavior.
+- `Docs/` contains product requirements; use `Docs/ai-translation-macos-prd.md` as the MVP source of product behavior and `Docs/ai-translation-macos-v1-prd.md` for planned V1 translation preferences.
 - `Docs/release-process.md` contains the SemVer, Git tag, and GitHub Release packaging workflow.
 - `Design/` contains high-fidelity product references and their index.
 - `Scripts/` contains focused source-linked regression checks for implemented features.
@@ -47,7 +47,7 @@ Parrot is a native macOS SwiftUI/AppKit menu-bar translation assistant prototype
 
 - For non-trivial tasks, start by reading the harness handoff files: `parrot-progress.md` for current state and `feature_list.json` for prioritized acceptance criteria.
 - Use `./init.sh` as the default fresh-session bootstrap and verification command. Use `./init.sh --skip-build` when only project metadata is needed, `./init.sh --open` when opening Xcode is useful, and `./init.sh --run` for TCC-sensitive local debugging because it stops old Parrot instances, builds into `./.DerivedData`, and opens that exact app bundle.
-- Before larger changes, read `Docs/ai-translation-macos-prd.md` and align behavior with the MVP scope.
+- Before larger changes, read `Docs/ai-translation-macos-prd.md` and align behavior with the MVP scope. For planned language controls, translation style, custom Prompt, glossary, OCR source editing, settings shortcut, or floating-window position preferences, also read `Docs/ai-translation-macos-v1-prd.md`.
 - When implementing product functionality, choose a high-priority feature with `passes: false` from `feature_list.json` unless the user explicitly asks for different work.
 - Building successfully is only the baseline verification. Before marking any feature as `passes: true`, verify the feature against its `acceptance` criteria with an end-to-end or equivalent integration/manual acceptance check. Record the verification method and result in `feature_list.json` notes and update `parrot-progress.md`. If full end-to-end verification is not possible in the current environment, keep `passes: false` or mark the feature as blocked/failing with clear notes instead of treating a build-only check as feature completion.
 - For user-facing workflow features such as menu-bar actions, global shortcuts, screenshot selection, OCR, provider settings, and translation windows, run a real user-flow smoke test whenever the environment supports it. Do not mark these features passing based on compile/build success alone.
@@ -61,7 +61,7 @@ Parrot is a native macOS SwiftUI/AppKit menu-bar translation assistant prototype
 
 ## Gotchas
 
-- The P0 MVP path is largely implemented. Remaining planned work is mostly P1/P2, such as multi-language targets, translation style, glossary, floating-window position preferences, and OCR text editing.
+- The P0 MVP path is largely implemented. Remaining planned work is mostly P1/P2 and is tracked in `Docs/ai-translation-macos-v1-prd.md`, including settings shortcut, language controls, translation style, custom Prompt, glossary, OCR source editing, and floating-window position preferences.
 - `DEVELOPMENT_TEAM` is empty in both xcconfig files, so command-line builds should use `CODE_SIGNING_ALLOWED=NO`.
 - Release packages are currently unsigned and unnotarized. GitHub-style assets are generated under `Dist/`, which is ignored by git.
 - Screen Recording permission is TCC-sensitive. For screenshot/global-shortcut debugging, prefer `./init.sh --run` instead of opening arbitrary `DerivedData` app bundles; multiple ad-hoc Debug copies can confuse permission identity and leave old processes holding global shortcuts.

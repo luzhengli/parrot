@@ -4,6 +4,7 @@
   "updated": "2026-06-23",
   "source_documents": [
     "Docs/ai-translation-macos-prd.md",
+    "Docs/ai-translation-macos-v1-prd.md",
     "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",
     "Design/README.md",
     "Design/quick-text-translation-panel.png",
@@ -259,6 +260,121 @@
       "passes": true,
       "last_verified": "2026-06-22",
       "notes": "Implemented custom shortcuts for the two existing global actions only: Quick Text Translation and Screenshot Translation. ShortcutPreferences persists Codable keyboard descriptors in UserDefaults with defaults Cmd+Shift+T and Cmd+Shift+2. The unified Settings window now exposes Model, Shortcuts, and Privacy sections; Shortcuts includes native key recording, per-action validation, conflict detection, Restore Defaults, and Save Shortcuts. Saving valid shortcuts calls GlobalShortcutManager.reloadShortcuts() so Carbon hot keys are re-registered without restarting when the Settings window is used. Verified ./init.sh Debug build, git diff --check, feature_list.json JSON validation, source-linked E2E Scripts/custom-shortcuts-e2e.swift for defaults/persistence/conflicts/invalid Shift-only combinations/reset behavior, and a real App smoke test: preloaded Cmd+Option+Y for Quick Text, launched with ./init.sh --run, sent the shortcut while Finder was frontmost, and observed the Quick Text Translation window. Also verified the status menu opens the unified Settings window. The test override was removed after verification."
+    },
+    {
+      "id": "p1.settings-global-shortcut",
+      "priority": "P1",
+      "category": "settings",
+      "description": "Users can open the Settings window from a dedicated global shortcut.",
+      "acceptance": [
+        "Expose Open Settings as a configurable action in the Shortcuts settings section.",
+        "Provide a default shortcut recommendation of Cmd+Option+, without removing the existing menu-bar Settings entry.",
+        "Persist the shortcut preference and detect conflicts with Quick Text Translation, Screenshot Translation, and invalid combinations.",
+        "Apply the changed settings shortcut without restarting when practical.",
+        "Verify the shortcut opens Settings while another app is frontmost."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. Extends the existing custom shortcut system from two global actions to three. Do not mark passing until a real global shortcut smoke test confirms Settings opens from another frontmost app."
+    },
+    {
+      "id": "p1.translation-language-controls",
+      "priority": "P1",
+      "category": "translation",
+      "description": "Users can choose source and target languages in Quick Text and Screenshot translation surfaces, then swap them with one action.",
+      "acceptance": [
+        "Show a lightweight source language and target language control in Quick Text Translation.",
+        "Show the same language controls in the Screenshot Translation result window.",
+        "Support Auto source language and Auto Opposite target language while preserving the current Chinese-English default behavior.",
+        "Support at least Chinese, English, Japanese, Korean, French, and Spanish as explicit language choices.",
+        "Support one-click source-target swap and use the swapped direction for retry or retranslate.",
+        "Prevent saving or translating with the same explicit source and target language."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. This replaces the hidden hard-coded Chinese-English target detection with explicit TranslationPreferences that still defaults to the current behavior. Verification must prove the selected direction changes the actual prompt sent to the provider."
+    },
+    {
+      "id": "p1.translation-style",
+      "priority": "P1",
+      "category": "translation",
+      "description": "Users can choose a translation style such as accurate, natural, professional, or concise.",
+      "acceptance": [
+        "Expose translation style in the Translation settings section.",
+        "Default the style to Accurate to preserve current MVP behavior.",
+        "Support Accurate, Natural, Professional, and Concise style options.",
+        "Apply the selected style to both Quick Text and Screenshot translation prompts.",
+        "Allow retranslation after changing style without requiring users to re-enter text or retake a screenshot."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. Keep this as a low-friction preference before exposing raw Prompt editing to most users."
+    },
+    {
+      "id": "p1.custom-translation-prompt",
+      "priority": "P1",
+      "category": "translation",
+      "description": "Users can view the default translation Prompt and optionally enable a custom Prompt template.",
+      "acceptance": [
+        "Show the full default translation Prompt in the Translation settings section.",
+        "Allow users to enable or disable a custom Prompt template.",
+        "Validate that custom templates include required variables for target language and text before saving.",
+        "Provide a Restore Default action that returns translation to the built-in Prompt behavior.",
+        "Fall back to the default Prompt if the saved custom Prompt becomes invalid.",
+        "Verify Quick Text and Screenshot translation both use the active Prompt template."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. The initial required variables are {target_language} and {text}; supported variables also include {source_language}, {style}, and {glossary}. Do not log Prompt contents if they may contain private user wording."
+    },
+    {
+      "id": "p1.terminology-glossary",
+      "priority": "P1",
+      "category": "translation",
+      "description": "Users can maintain a local personal terminology glossary that translation prompts obey when source text matches a term.",
+      "acceptance": [
+        "Provide a local glossary UI in the Translation settings section.",
+        "Support adding, editing, deleting, enabling, and disabling glossary entries.",
+        "Require source term and target term fields, with optional target language and context fields.",
+        "Prevent duplicate source terms for the same target language.",
+        "Inject only glossary entries that match the current source text into the translation Prompt.",
+        "Verify a matched glossary term changes the translation output or request Prompt while unmatched terms are not sent."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. Keep the glossary local and personal for V1. Do not build team sharing, cloud sync, or large TBX/TMX import in this feature."
+    },
+    {
+      "id": "p1.ocr-source-text-editing",
+      "priority": "P1",
+      "category": "screenshot-translation",
+      "description": "Users can edit OCR-recognized source text before retranslating a screenshot result.",
+      "acceptance": [
+        "Show the OCR-recognized text in an editable state from the Screenshot Translation result window.",
+        "Allow users to edit the recognized text and retranslate without taking a new screenshot.",
+        "Use the edited text, not the original OCR text, for the provider request.",
+        "Save the edited source text in translation history when history is enabled.",
+        "Keep screenshot images local and do not add image persistence."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md and aligned with the original MVP PRD's OCR failure recovery path. This should be implemented after language controls so retranslation uses the same shared translation request model."
+    },
+    {
+      "id": "p2.floating-window-position-preferences",
+      "priority": "P2",
+      "category": "translation-ui",
+      "description": "Users can choose where lightweight translation windows appear.",
+      "acceptance": [
+        "Expose floating window position preference in Settings after the Translation settings foundation exists.",
+        "Support Screen Center, Mouse Nearby, and Last Position options.",
+        "Keep Quick Text Translation defaulting to Screen Center.",
+        "Keep Screenshot Translation preferring the screenshot region nearby when space allows, with a visible-screen fallback.",
+        "Persist the preference without changing privacy behavior or storing screenshot images."
+      ],
+      "passes": false,
+      "last_verified": null,
+      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. Lower priority than settings shortcut, language controls, Prompt, glossary, and OCR text editing because it affects comfort more than translation correctness."
     }
   ]
 }
