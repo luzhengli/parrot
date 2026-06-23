@@ -323,9 +323,9 @@
         "Fall back to the default Prompt if the saved custom Prompt becomes invalid.",
         "Verify Quick Text and Screenshot translation both use the active Prompt template."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. The initial required variables are {target_language} and {text}; supported variables also include {source_language}, {style}, and {glossary}. Do not log Prompt contents if they may contain private user wording."
+      "passes": true,
+      "last_verified": "2026-06-24",
+      "notes": "Implemented TranslationPromptPreferences with built-in default Prompt display, custom Prompt enablement, required-variable validation for {target_language} and {text}, supported variables {source_language}, {target_language}, {style}, {glossary}, and {text}, Restore Default, and invalid-custom fallback to the built-in Prompt. Settings > Translation now shows the full default Prompt, custom Prompt editor, Save Prompt, validation messages, and Restore Default. OpenAICompatibleProviderClient now loads the latest saved Prompt preferences for both non-streaming and streaming translation paths; Quick Text and Screenshot translation both already call the shared translateStreaming path, so valid custom templates affect both flows while invalid enabled templates fall back to built-in behavior. Prompt contents are not logged. Verified source-linked E2E Scripts/custom-translation-prompt-e2e.swift for default display variables, validation, persistence, active custom rendering, invalid fallback, restore default, and default saved preference loading; reran translation-style and translation-language-controls E2Es; ran ./init.sh Debug build/signing; launched the real Debug app with ./init.sh --run and verified Cmd+Option+, opens the Settings window."
     },
     {
       "id": "p1.terminology-glossary",

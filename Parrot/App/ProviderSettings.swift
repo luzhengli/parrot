@@ -81,6 +81,87 @@ enum TranslationStyle: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+struct TranslationPromptPreferences: Codable, Equatable {
+    var isCustomPromptEnabled: Bool
+    var customPromptTemplate: String
+
+    static let storageKey = "TranslationPromptPreferences"
+    static let defaults = TranslationPromptPreferences(isCustomPromptEnabled: false, customPromptTemplate: defaultPromptTemplate)
+    static let requiredVariables = ["{target_language}", "{text}"]
+    static let supportedVariables = ["{source_language}", "{target_language}", "{style}", "{glossary}", "{text}"]
+
+    static let defaultPromptTemplate = """
+    System:
+    You are a professional translation assistant. Translate the user's text into {target_language}.
+    Source language: {source_language}.
+    Target language: {target_language}.
+    Translation style: {style}.
+    Requirements:
+    1. Preserve paragraph structure.
+    2. Preserve code, variable names, links, product names, and proper nouns.
+    3. Follow the selected translation style.
+    4. Follow matched glossary entries when provided.
+    5. Do not add information that does not exist in the source text.
+    6. Output only the translation.
+
+    Glossary:
+    {glossary}
+
+    User:
+    {text}
+    """
+
+    static func loadSaved(from userDefaults: UserDefaults = .standard) -> TranslationPromptPreferences {
+        guard let data = userDefaults.data(forKey: storageKey),
+              let preferences = try? JSONDecoder().decode(TranslationPromptPreferences.self, from: data)
+        else {
+            return .defaults
+        }
+
+        return preferences
+    }
+
+    func save(to userDefaults: UserDefaults = .standard) throws {
+        if isCustomPromptEnabled, let validationMessage = Self.validationMessage(for: customPromptTemplate) {
+            throw ProviderSettingsError.requestFailed(validationMessage)
+        }
+
+        guard let data = try? JSONEncoder().encode(self) else {
+            throw ProviderSettingsError.requestFailed("Unable to save custom Prompt settings.")
+        }
+
+        userDefaults.set(data, forKey: Self.storageKey)
+    }
+
+    static func restoreDefault(to userDefaults: UserDefaults = .standard) {
+        userDefaults.removeObject(forKey: storageKey)
+    }
+
+    static func validationMessage(for template: String) -> String? {
+        let trimmedTemplate = template.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTemplate.isEmpty else {
+            return "Custom Prompt cannot be empty."
+        }
+
+        let missingVariables = requiredVariables.filter { !trimmedTemplate.contains($0) }
+        guard missingVariables.isEmpty else {
+            return "Custom Prompt must include \(missingVariables.joined(separator: " and "))."
+        }
+
+        return nil
+    }
+
+    var activeCustomTemplate: String? {
+        guard isCustomPromptEnabled,
+              Self.validationMessage(for: customPromptTemplate) == nil
+        else {
+            return nil
+        }
+
+        return customPromptTemplate
+    }
+}
+
 enum TranslationLanguage: String, CaseIterable, Codable, Identifiable {
     case chinese
     case english
@@ -839,22 +920,22 @@ struct OpenAICompatibleProviderClient {
     func translate(
         _ text: String,
         preferences: TranslationLanguagePreferences = .defaults,
-        style: TranslationStyle = TranslationStyle.loadSaved()
+        style: TranslationStyle = TranslationStyle.loadSaved(),
+        promptPreferences: TranslationPromptPreferences = TranslationPromptPreferences.loadSaved()
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
             throw ProviderSettingsError.requestFailed("Enter text to translate.")
         }
 
-        let languageResolution = try TranslationLanguageResolver.resolve(text: trimmedText, preferences: preferences)
+        let messages = try translationMessages(
+            for: trimmedText,
+            preferences: preferences,
+            style: style,
+            promptPreferences: promptPreferences
+        )
         let completion = try await makeChatCompletion(
-            messages: [
-                .init(
-                    role: "system",
-                    content: translationSystemPrompt(languageResolution: languageResolution, style: style)
-                ),
-                .init(role: "user", content: trimmedText)
-            ],
+            messages: messages,
             maxTokens: 2_000,
             timeoutMessage: "Translation timed out. Check the provider or network connection.",
             failurePrefix: "Translation failed"
@@ -871,6 +952,7 @@ struct OpenAICompatibleProviderClient {
         _ text: String,
         preferences: TranslationLanguagePreferences = .defaults,
         style: TranslationStyle = TranslationStyle.loadSaved(),
+        promptPreferences: TranslationPromptPreferences = TranslationPromptPreferences.loadSaved(),
         onDelta: @escaping @MainActor (String) -> Void
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -878,7 +960,12 @@ struct OpenAICompatibleProviderClient {
             throw ProviderSettingsError.requestFailed("Enter text to translate.")
         }
 
-        let messages = try translationMessages(for: trimmedText, preferences: preferences, style: style)
+        let messages = try translationMessages(
+            for: trimmedText,
+            preferences: preferences,
+            style: style,
+            promptPreferences: promptPreferences
+        )
         var finalTranslation = ""
 
         try await makeChatCompletionStream(
@@ -1073,18 +1160,40 @@ struct OpenAICompatibleProviderClient {
     func translationDebugPrompt(
         for text: String,
         preferences: TranslationLanguagePreferences = .defaults,
-        style: TranslationStyle = TranslationStyle.loadSaved()
+        style: TranslationStyle = TranslationStyle.loadSaved(),
+        promptPreferences: TranslationPromptPreferences = TranslationPromptPreferences.loadSaved()
     ) throws -> String {
         let resolution = try TranslationLanguageResolver.resolve(text: text, preferences: preferences)
-        return translationSystemPrompt(languageResolution: resolution, style: style)
+        return translationPrompt(
+            text: text,
+            languageResolution: resolution,
+            style: style,
+            promptPreferences: promptPreferences
+        )
     }
 
     private func translationMessages(
         for text: String,
         preferences: TranslationLanguagePreferences,
-        style: TranslationStyle
+        style: TranslationStyle,
+        promptPreferences: TranslationPromptPreferences
     ) throws -> [OpenAIChatMessage] {
         let resolution = try TranslationLanguageResolver.resolve(text: text, preferences: preferences)
+        if promptPreferences.activeCustomTemplate != nil {
+            return [
+                .init(
+                    role: "system",
+                    content: translationPrompt(
+                        text: text,
+                        languageResolution: resolution,
+                        style: style,
+                        promptPreferences: promptPreferences
+                    )
+                ),
+                .init(role: "user", content: "Translate the text included in the active Prompt template.")
+            ]
+        }
+
         return [
             .init(
                 role: "system",
@@ -1092,6 +1201,24 @@ struct OpenAICompatibleProviderClient {
             ),
             .init(role: "user", content: text)
         ]
+    }
+
+    private func translationPrompt(
+        text: String,
+        languageResolution: TranslationLanguageResolution,
+        style: TranslationStyle,
+        promptPreferences: TranslationPromptPreferences
+    ) -> String {
+        guard let customTemplate = promptPreferences.activeCustomTemplate else {
+            return translationSystemPrompt(languageResolution: languageResolution, style: style)
+        }
+
+        return renderPromptTemplate(
+            customTemplate,
+            text: text,
+            languageResolution: languageResolution,
+            style: style
+        )
     }
 
     private func translationSystemPrompt(languageResolution: TranslationLanguageResolution, style: TranslationStyle) -> String {
@@ -1107,6 +1234,20 @@ struct OpenAICompatibleProviderClient {
         4. Do not add information that does not exist in the source text.
         5. Output only the translation.
         """
+    }
+
+    private func renderPromptTemplate(
+        _ template: String,
+        text: String,
+        languageResolution: TranslationLanguageResolution,
+        style: TranslationStyle
+    ) -> String {
+        template
+            .replacingOccurrences(of: "{source_language}", with: languageResolution.sourcePromptName)
+            .replacingOccurrences(of: "{target_language}", with: languageResolution.targetPromptName)
+            .replacingOccurrences(of: "{style}", with: style.promptName)
+            .replacingOccurrences(of: "{glossary}", with: "No matched glossary entries.")
+            .replacingOccurrences(of: "{text}", with: text)
     }
 
     private func data(from bytes: URLSession.AsyncBytes) async throws -> Data {

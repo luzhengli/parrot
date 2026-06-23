@@ -15,6 +15,9 @@ struct ProviderSettingsView: View {
     @ObservedObject private var historyStore = TranslationHistoryStore.shared
     @State private var selectedSection: Section = .model
     @State private var translationStyle = TranslationStyle.loadSaved()
+    @State private var promptPreferences = TranslationPromptPreferences.loadSaved()
+    @State private var promptStatusMessage: String?
+    @State private var isPromptStatusError = false
 
     let onShortcutsSaved: () -> Void
 
@@ -197,6 +200,62 @@ struct ProviderSettingsView: View {
             Text("Style is applied to Quick Text and Screenshot translation prompts. Use Again or Retry in an open translation window to retranslate with the latest style.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            Divider()
+
+            LabeledContent("Default Prompt") {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextEditor(text: .constant(TranslationPromptPreferences.defaultPromptTemplate))
+                        .font(.system(.caption, design: .monospaced))
+                        .frame(minHeight: 180)
+                        .scrollContentBackground(.hidden)
+                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                        .disabled(true)
+
+                    Text("This is the built-in Prompt structure. Parrot sends source text only to the configured provider during translation.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Toggle("Enable custom Prompt template", isOn: $promptPreferences.isCustomPromptEnabled)
+
+            if promptPreferences.isCustomPromptEnabled {
+                LabeledContent("Custom Prompt") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextEditor(text: $promptPreferences.customPromptTemplate)
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(minHeight: 160)
+                            .scrollContentBackground(.hidden)
+                            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+
+                        Text("Required variables: {target_language}, {text}. Supported variables: \(TranslationPromptPreferences.supportedVariables.joined(separator: ", ")).")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            if let promptValidationMessage {
+                StatusMessageView(message: promptValidationMessage, isError: true)
+            } else if let promptStatusMessage {
+                StatusMessageView(message: promptStatusMessage, isError: isPromptStatusError)
+            }
+
+            HStack {
+                Button("Save Prompt") {
+                    savePromptPreferences()
+                }
+                .disabled(promptValidationMessage != nil)
+
+                Button("Restore Default") {
+                    restoreDefaultPrompt()
+                }
+
+                Spacer()
+            }
         }
     }
 
@@ -239,6 +298,34 @@ struct ProviderSettingsView: View {
                 newValue.save()
             }
         )
+    }
+
+    private var promptValidationMessage: String? {
+        guard promptPreferences.isCustomPromptEnabled else {
+            return nil
+        }
+
+        return TranslationPromptPreferences.validationMessage(for: promptPreferences.customPromptTemplate)
+    }
+
+    private func savePromptPreferences() {
+        do {
+            try promptPreferences.save()
+            promptStatusMessage = promptPreferences.isCustomPromptEnabled
+                ? "Custom Prompt saved. Use Again or Retry in an open translation window to apply it."
+                : "Custom Prompt disabled. Translation uses the built-in Prompt."
+            isPromptStatusError = false
+        } catch {
+            promptStatusMessage = error.userFacingMessage
+            isPromptStatusError = true
+        }
+    }
+
+    private func restoreDefaultPrompt() {
+        TranslationPromptPreferences.restoreDefault()
+        promptPreferences = .defaults
+        promptStatusMessage = "Default Prompt restored. Translation uses the built-in Prompt behavior."
+        isPromptStatusError = false
     }
 
     private var apiKeyPlaceholder: String {
