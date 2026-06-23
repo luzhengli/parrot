@@ -273,9 +273,9 @@
         "Apply the changed settings shortcut without restarting when practical.",
         "Verify the shortcut opens Settings while another app is frontmost."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. Extends the existing custom shortcut system from two global actions to three. Do not mark passing until a real global shortcut smoke test confirms Settings opens from another frontmost app."
+      "passes": true,
+      "last_verified": "2026-06-23",
+      "notes": "Implemented Open Settings as the third configurable GlobalShortcutAction with default Cmd+Option+,. The Shortcuts settings section now exposes Quick Text Translation, Screenshot Translation, and Open Settings with the existing recorder, persistence, conflict/invalid validation, Restore Defaults, and save-time hot-key reload path. Existing two-action ShortcutPreferences decode with the new Open Settings default so older user custom shortcuts are preserved. Verified ./init.sh Debug build, git diff --check, feature_list.json JSON validation, source-linked Scripts/custom-shortcuts-e2e.swift covering defaults/persistence/conflicts/invalid combinations/reset/legacy migration, and a real Debug app smoke: launched via ./init.sh --run, confirmed no Parrot windows, activated Finder, sent Cmd+Option+, via CGEvent, and observed owner=Parrot name=Settings."
     },
     {
       "id": "p1.translation-language-controls",

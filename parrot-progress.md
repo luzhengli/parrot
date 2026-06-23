@@ -8,7 +8,7 @@
 - Scheme：`Parrot`
 - 产品依据：`Docs/ai-translation-macos-prd.md`；V1 翻译偏好规划见 `Docs/ai-translation-macos-v1-prd.md`
 - 初始化入口：`./init.sh`
-- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。2026-06-23 新增 V1 翻译偏好 PRD，并在 `feature_list.json` 中拆分 settings shortcut、language controls、translation style、custom Prompt、glossary、OCR source editing 和 floating-window position preferences，均保持 `passes: false` 等待实现验收。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
+- 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。设置全局快捷键已作为第三个可配置动作接入 Shortcuts，默认 `Cmd+Option+,`，并通过源码链接 E2E 与 Finder 前台真实全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。2026-06-23 新增 V1 翻译偏好 PRD，并在 `feature_list.json` 中拆分 language controls、translation style、custom Prompt、glossary、OCR source editing 和 floating-window position preferences，均保持 `passes: false` 等待实现验收。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建产物启动。
 - 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -88,10 +88,15 @@
 - 添加 V1 翻译偏好规划：
   - 新增 `Docs/ai-translation-macos-v1-prd.md`，覆盖设置快捷键、语言选择与互换、翻译风格、自定义 Prompt、术语表、OCR 原文编辑和浮窗位置偏好。
   - 已更新 `feature_list.json` 的 `source_documents`，并新增 7 个未实现 feature，均保持 `passes: false` 和 `last_verified: null`。
+- 实现设置全局快捷键：
+  - `Open Settings` 已作为第三个可配置全局动作接入 `Shortcuts` 设置区，默认快捷键为 `Cmd+Option+,`。
+  - 继续保留菜单栏 `Settings` 入口；保存快捷键后复用现有热重载逻辑，无需重启 App。
+  - 旧版仅包含两个快捷键的 `ShortcutPreferences` 会保留原有自定义配置，并自动补齐 Open Settings 默认快捷键。
+  - 已运行 `./init.sh`、源码链接 E2E `Scripts/custom-shortcuts-e2e.swift`、`git diff --check`、`feature_list.json` JSON 校验和真实 Debug App 全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。
 
 ## 当前未实现
 
-- P1/P2 V1 翻译偏好功能尚未实现：设置快捷键、语言选择与互换、翻译风格、自定义 Prompt、术语表、OCR 原文编辑和浮窗位置偏好。
+- P1/P2 V1 翻译偏好功能尚未实现：语言选择与互换、翻译风格、自定义 Prompt、术语表、OCR 原文编辑和浮窗位置偏好。
 
 ## 已知约束
 
@@ -112,11 +117,20 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 1. 运行 `./init.sh`，确认当前 scaffold 可构建；调试运行使用 `./init.sh --run`。
 2. 如需验证发布包，先运行 `Scripts/package-release.sh --allow-untagged`；正式发布前先提交、打 `v<MARKETING_VERSION>` tag，再运行 `Scripts/package-release.sh`。
-3. 下一项建议从 `Docs/ai-translation-macos-v1-prd.md` 中选择 P1：优先实现 `p1.settings-global-shortcut` 或 `p1.translation-language-controls`。
+3. 下一项建议从 `Docs/ai-translation-macos-v1-prd.md` 中选择 P1：优先实现 `p1.translation-language-controls`。
 4. 语言、Prompt、术语等设置必须接入真实翻译链路后再标记通过，不要只添加空壳设置项。
 5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-06-23 - 实现设置全局快捷键
+
+- 新增 `GlobalShortcutAction.openSettings`，默认快捷键为 `Cmd+Option+,`，触发后打开现有统一 `Settings` 窗口。
+- `Shortcuts` 设置区新增 `Open Settings` 行，复用现有快捷键录制、保存、恢复默认、无效组合校验、冲突提示和保存后热重载流程。
+- `ShortcutPreferences` 新增兼容解码逻辑：旧版只保存 Quick Text 与 Screenshot 两个快捷键时，不丢弃已有自定义配置，并自动补齐 Open Settings 默认快捷键。
+- 扩展 `Scripts/custom-shortcuts-e2e.swift`，覆盖三动作默认值、持久化、冲突检测、Shift-only 无效组合、恢复默认和旧配置迁移。
+- 验证：已运行 `./init.sh`、源码链接 E2E `xcrun swiftc -parse-as-library Parrot/App/GlobalShortcutManager.swift Parrot/App/ShortcutSettings.swift Scripts/custom-shortcuts-e2e.swift -o /tmp/parrot-custom-shortcuts-e2e && /tmp/parrot-custom-shortcuts-e2e`、`git diff --check`、`ruby -rjson` 解析 `feature_list.json`；真实烟测使用 `./init.sh --run` 启动 Debug App，确认无 Parrot 窗口后切到 Finder，发送 `Cmd+Option+,`，窗口列表出现 `owner=Parrot name=Settings`。
+- 已更新 `feature_list.json`：`p1.settings-global-shortcut.passes = true`，`last_verified = 2026-06-23`。
 
 ### 2026-06-23 - 新增 V1 翻译偏好 PRD 和 feature 拆分
 

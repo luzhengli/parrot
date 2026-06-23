@@ -4,6 +4,7 @@ import Foundation
 enum GlobalShortcutAction: UInt32, CaseIterable {
     case quickTextTranslation = 1
     case screenshotTranslation = 2
+    case openSettings = 3
 }
 
 enum GlobalShortcutRegistrationError: Error, CustomStringConvertible {

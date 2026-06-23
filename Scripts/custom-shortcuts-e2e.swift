@@ -39,6 +39,10 @@ struct CustomShortcutsE2E {
             "Screenshot should default to Cmd+Shift+2."
         )
         try require(
+            loadedDefaults[.openSettings].displayString == "Cmd+Option+,",
+            "Open Settings should default to Cmd+Option+,."
+        )
+        try require(
             loadedDefaults.validationMessages().isEmpty,
             "Default shortcuts should be valid."
         )
@@ -59,16 +63,20 @@ struct CustomShortcutsE2E {
             reloadedCustom[.screenshotTranslation].displayString == "Cmd+Shift+2",
             "Unchanged Screenshot shortcut should remain persisted."
         )
+        try require(
+            reloadedCustom[.openSettings].displayString == "Cmd+Option+,",
+            "Unchanged Open Settings shortcut should remain persisted."
+        )
 
         var conflicting = reloadedCustom
-        conflicting[.screenshotTranslation] = conflicting[.quickTextTranslation]
+        conflicting[.openSettings] = conflicting[.quickTextTranslation]
         try require(
             conflicting.validationMessages()[.quickTextTranslation] != nil,
             "Conflicting Quick Text shortcut should be rejected."
         )
         try require(
-            conflicting.validationMessages()[.screenshotTranslation] != nil,
-            "Conflicting Screenshot shortcut should be rejected."
+            conflicting.validationMessages()[.openSettings] != nil,
+            "Conflicting Open Settings shortcut should be rejected."
         )
 
         var invalid = reloadedCustom
@@ -95,8 +103,34 @@ struct CustomShortcutsE2E {
             store.preferences[.screenshotTranslation].displayString == "Cmd+Shift+2",
             "Restore Defaults should reset Screenshot shortcut."
         )
+        try require(
+            store.preferences[.openSettings].displayString == "Cmd+Option+,",
+            "Restore Defaults should reset Open Settings shortcut."
+        )
+
+        let legacyData = """
+        {
+          "quickTextTranslation": {
+            "keyCode": \(kVK_ANSI_Y),
+            "modifiers": \(cmdKey | optionKey)
+          },
+          "screenshotTranslation": {
+            "keyCode": \(kVK_ANSI_2),
+            "modifiers": \(cmdKey | shiftKey)
+          }
+        }
+        """.data(using: .utf8)!
+        defaults.set(legacyData, forKey: ShortcutPreferences.storageKey)
+        let migrated = ShortcutPreferences.loadSaved(from: defaults)
+        try require(
+            migrated[.quickTextTranslation].displayString == "Cmd+Option+Y",
+            "Legacy saved Quick Text shortcut should be preserved."
+        )
+        try require(
+            migrated[.openSettings].displayString == "Cmd+Option+,",
+            "Legacy preferences should receive the default Open Settings shortcut."
+        )
 
         print("custom-shortcuts-e2e passed")
     }
 }
-

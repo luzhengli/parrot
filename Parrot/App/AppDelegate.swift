@@ -110,6 +110,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showQuickTextTranslation()
         case .screenshotTranslation:
             showScreenshotTranslation()
+        case .openSettings:
+            showSettings()
         }
     }
 

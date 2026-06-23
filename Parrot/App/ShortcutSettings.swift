@@ -14,6 +14,10 @@ struct KeyboardShortcutDescriptor: Codable, Equatable, Hashable {
         keyCode: UInt32(kVK_ANSI_2),
         modifiers: UInt32(cmdKey | shiftKey)
     )
+    static let openSettingsDefault = KeyboardShortcutDescriptor(
+        keyCode: UInt32(kVK_ANSI_Comma),
+        modifiers: UInt32(cmdKey | optionKey)
+    )
 
     var displayString: String {
         guard let keyName = Self.keyName(for: keyCode) else {
@@ -145,11 +149,45 @@ struct ShortcutPreferences: Codable, Equatable {
     static let storageKey = "ShortcutPreferences"
     static let defaults = ShortcutPreferences(
         quickTextTranslation: .quickTextDefault,
-        screenshotTranslation: .screenshotDefault
+        screenshotTranslation: .screenshotDefault,
+        openSettings: .openSettingsDefault
     )
 
     var quickTextTranslation: KeyboardShortcutDescriptor
     var screenshotTranslation: KeyboardShortcutDescriptor
+    var openSettings: KeyboardShortcutDescriptor
+
+    private enum CodingKeys: String, CodingKey {
+        case quickTextTranslation
+        case screenshotTranslation
+        case openSettings
+    }
+
+    init(
+        quickTextTranslation: KeyboardShortcutDescriptor,
+        screenshotTranslation: KeyboardShortcutDescriptor,
+        openSettings: KeyboardShortcutDescriptor
+    ) {
+        self.quickTextTranslation = quickTextTranslation
+        self.screenshotTranslation = screenshotTranslation
+        self.openSettings = openSettings
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        quickTextTranslation = try container.decode(
+            KeyboardShortcutDescriptor.self,
+            forKey: .quickTextTranslation
+        )
+        screenshotTranslation = try container.decode(
+            KeyboardShortcutDescriptor.self,
+            forKey: .screenshotTranslation
+        )
+        openSettings = try container.decodeIfPresent(
+            KeyboardShortcutDescriptor.self,
+            forKey: .openSettings
+        ) ?? .openSettingsDefault
+    }
 
     subscript(action: GlobalShortcutAction) -> KeyboardShortcutDescriptor {
         get {
@@ -158,6 +196,8 @@ struct ShortcutPreferences: Codable, Equatable {
                 return quickTextTranslation
             case .screenshotTranslation:
                 return screenshotTranslation
+            case .openSettings:
+                return openSettings
             }
         }
         set {
@@ -166,6 +206,8 @@ struct ShortcutPreferences: Codable, Equatable {
                 quickTextTranslation = newValue
             case .screenshotTranslation:
                 screenshotTranslation = newValue
+            case .openSettings:
+                openSettings = newValue
             }
         }
     }
@@ -189,10 +231,13 @@ struct ShortcutPreferences: Codable, Equatable {
             }
         }
 
-        if quickTextTranslation == screenshotTranslation {
-            let message = "This shortcut is already used by another Parrot action."
-            messages[.quickTextTranslation] = message
-            messages[.screenshotTranslation] = message
+        for action in GlobalShortcutAction.allCases {
+            let conflicts = GlobalShortcutAction.allCases.contains { otherAction in
+                otherAction != action && self[otherAction] == self[action]
+            }
+            if conflicts {
+                messages[action] = "This shortcut is already used by another Parrot action."
+            }
         }
 
         return messages
@@ -219,6 +264,8 @@ extension GlobalShortcutAction {
             return "Quick Text Translation"
         case .screenshotTranslation:
             return "Screenshot Translation"
+        case .openSettings:
+            return "Open Settings"
         }
     }
 }
@@ -299,6 +346,12 @@ struct ShortcutSettingsSection: View {
                 title: GlobalShortcutAction.screenshotTranslation.title,
                 detail: "Start screen region selection for OCR translation.",
                 action: .screenshotTranslation
+            )
+
+            settingsRow(
+                title: GlobalShortcutAction.openSettings.title,
+                detail: "Open the unified Settings window.",
+                action: .openSettings
             )
 
             if let statusMessage = store.statusMessage {
