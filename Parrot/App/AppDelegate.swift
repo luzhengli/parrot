@@ -164,15 +164,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func showQuickTextTranslation() {
-        let view = QuickTextTranslationView { [weak self] in
-            self?.quickTextWindowController?.close()
-        }
+        let view = QuickTextTranslationView(
+            onClose: { [weak self] in
+                self?.quickTextWindowController?.close()
+            },
+            onOpenHistory: { [weak self] in
+                self?.showTranslationHistory()
+            },
+            onOpenSettings: { [weak self] in
+                self?.showSettings()
+            }
+        )
         presentFloatingWindow(
             &quickTextWindowController,
             title: "Quick Text Translation",
             rootView: view,
-            contentSize: NSSize(width: 760, height: 600),
-            placement: .quickText
+            contentSize: NSSize(width: 900, height: 640),
+            placement: .quickText,
+            usesIntegratedTitleBar: true
         )
     }
 
@@ -207,7 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self?.showTranslationHistory()
             }
         )
-        presentWindow(&settingsWindowController, title: "Settings", rootView: view)
+        presentWindow(&settingsWindowController, title: "Settings", rootView: view, usesIntegratedTitleBar: true)
         resizeSettingsWindow(for: .model, animate: false)
     }
 
@@ -274,10 +283,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func presentWindow<Content: View>(
         _ controller: inout NSWindowController?,
         title: String,
-        rootView: Content
+        rootView: Content,
+        usesIntegratedTitleBar: Bool = false
     ) {
         if controller == nil {
-            controller = makeWindowController(title: title, rootView: rootView)
+            controller = makeWindowController(
+                title: title,
+                rootView: rootView,
+                usesIntegratedTitleBar: usesIntegratedTitleBar
+            )
         }
 
         NSApp.setActivationPolicy(.accessory)
@@ -291,10 +305,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         title: String,
         rootView: Content,
         contentSize: NSSize,
-        placement: FloatingWindowWorkflow
+        placement: FloatingWindowWorkflow,
+        usesIntegratedTitleBar: Bool = false
     ) {
         if controller == nil {
-            controller = makeWindowController(title: title, rootView: rootView)
+            controller = makeWindowController(
+                title: title,
+                rootView: rootView,
+                usesIntegratedTitleBar: usesIntegratedTitleBar
+            )
         }
 
         guard let window = controller?.window else {
@@ -314,12 +333,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
-    private func makeWindowController<Content: View>(title: String, rootView: Content) -> NSWindowController {
+    private func makeWindowController<Content: View>(
+        title: String,
+        rootView: Content,
+        usesIntegratedTitleBar: Bool = false
+    ) -> NSWindowController {
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = title
         window.setContentSize(NSSize(width: 420, height: 240))
         window.styleMask = [.titled, .closable, .miniaturizable]
+        if usesIntegratedTitleBar {
+            window.styleMask.insert(.fullSizeContentView)
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.isMovableByWindowBackground = true
+        }
         window.isReleasedWhenClosed = false
         window.center()
 
@@ -418,6 +447,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             onRetrySelection: { [weak self] in
                 self?.screenshotWindowController?.close()
                 self?.showScreenshotTranslation()
+            },
+            onOpenHistory: { [weak self] in
+                self?.showTranslationHistory()
+            },
+            onOpenSettings: { [weak self] in
+                self?.showSettings()
             }
         )
         screenshotWindowController?.close()
@@ -426,8 +461,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             &screenshotWindowController,
             title: "Screenshot Translation",
             rootView: view,
-            contentSize: NSSize(width: 900, height: 680),
-            placement: .screenshotResult(result.screenRect)
+            contentSize: NSSize(width: 1024, height: 720),
+            placement: .screenshotResult(result.screenRect),
+            usesIntegratedTitleBar: true
         )
     }
 
@@ -451,8 +487,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             &screenshotWindowController,
             title: "Screenshot Translation",
             rootView: view,
-            contentSize: NSSize(width: 560, height: 360),
-            placement: .screenshotError
+            contentSize: NSSize(width: 580, height: 400),
+            placement: .screenshotError,
+            usesIntegratedTitleBar: true
         )
     }
 
@@ -576,6 +613,8 @@ struct ScreenshotCaptureErrorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ParrotWindowTitleBar(title: "Screenshot Translation")
+
             VStack(alignment: .leading, spacing: 14) {
                 ParrotSurfaceHeader(
                     systemImageName: "exclamationmark.triangle.fill",
@@ -612,7 +651,7 @@ struct ScreenshotCaptureErrorView: View {
                 .keyboardShortcut(.cancelAction)
             }
         }
-        .frame(width: 560, height: 360, alignment: .top)
+        .frame(width: 580, height: 400, alignment: .top)
         .onExitCommand(perform: onClose)
     }
 }

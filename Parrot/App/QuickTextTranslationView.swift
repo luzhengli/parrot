@@ -115,23 +115,42 @@ final class QuickTextTranslationStore: ObservableObject {
 struct QuickTextTranslationView: View {
     @StateObject private var store = QuickTextTranslationStore()
     let onClose: () -> Void
+    let onOpenHistory: () -> Void
+    let onOpenSettings: () -> Void
+
+    init(
+        onClose: @escaping () -> Void,
+        onOpenHistory: @escaping () -> Void = {},
+        onOpenSettings: @escaping () -> Void = {}
+    ) {
+        self.onClose = onClose
+        self.onOpenHistory = onOpenHistory
+        self.onOpenSettings = onOpenSettings
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 14) {
+            ParrotWindowTitleBar(title: "Quick Text Translation") {
+                HStack(spacing: 8) {
+                    ParrotTitleBarIconButton(systemName: "clock.arrow.circlepath", title: "Translation History", action: onOpenHistory)
+                    ParrotTitleBarIconButton(systemName: "gearshape", title: "Settings", action: onOpenSettings)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 20) {
                 header
-                languageControls
                 inputView
                 statusView
                 resultView
             }
-            .padding(20)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 28)
 
             Spacer(minLength: 0)
 
             footer
         }
-        .frame(width: 760, height: 600, alignment: .top)
+        .frame(width: 900, height: 640, alignment: .top)
         .onChange(of: store.languagePreferences) { _, newValue in
             newValue.save()
         }
@@ -140,27 +159,20 @@ struct QuickTextTranslationView: View {
 
     private var header: some View {
         ParrotSurfaceHeader(
-            systemImageName: "text.cursor",
+            systemImageName: "translate",
             title: "Quick Text Translation",
             subtitle: "Enter translates, Cmd+Enter copies the translation and closes, Esc closes."
         )
     }
 
-    private var languageControls: some View {
-        TranslationLanguageControls(
-            preferences: $store.languagePreferences,
-            latestDetectedSource: store.latestDetectedSource,
-            validationMessage: store.languageValidationMessage,
-            isTranslating: store.isTranslating,
-            canRetranslate: store.canTranslate,
-            onSwap: store.swapLanguages,
-            onRetranslate: startTranslation
-        )
-    }
-
     @ViewBuilder
     private var statusView: some View {
-        if let error = store.errorPresentation {
+        if let validationMessage = store.languageValidationMessage {
+            ParrotStatusBanner(
+                kind: .warning,
+                message: validationMessage
+            )
+        } else if let error = store.errorPresentation {
             ParrotStatusBanner(
                 kind: .error,
                 title: error.title,
@@ -181,7 +193,22 @@ struct QuickTextTranslationView: View {
 
     private var inputView: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ParrotFieldLabel(title: "Input Text")
+            HStack(alignment: .center, spacing: 10) {
+                ParrotFieldLabel(title: "Input Text")
+
+                Spacer()
+
+                if let latestDetectedSource = store.latestDetectedSource {
+                    Text("Detected: \(latestDetectedSource.displayName)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                SourceLanguageMenu(
+                    selection: $store.languagePreferences.sourceLanguage,
+                    isDisabled: store.isTranslating
+                )
+            }
 
             QuickTextEditor(
                 text: $store.sourceText,
@@ -191,7 +218,7 @@ struct QuickTextTranslationView: View {
                 onClear: store.clear,
                 onCancel: onClose
             )
-            .frame(height: 116)
+            .frame(height: 128)
             .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
     }
@@ -199,13 +226,43 @@ struct QuickTextTranslationView: View {
     @ViewBuilder
     private var resultView: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ParrotFieldLabel(title: "Translation")
+            HStack(alignment: .center, spacing: 8) {
+                ParrotFieldLabel(title: "Translation")
+
+                Spacer()
+
+                Button {
+                    store.swapLanguages()
+                } label: {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help("Swap source and target languages")
+                .disabled(store.isTranslating)
+
+                TargetLanguageMenu(
+                    selection: $store.languagePreferences.targetLanguage,
+                    isDisabled: store.isTranslating
+                )
+
+                Button {
+                    startTranslation()
+                } label: {
+                    Label("Again", systemImage: "arrow.clockwise")
+                        .labelStyle(.titleAndIcon)
+                }
+                .controlSize(.small)
+                .disabled(!store.canTranslate)
+            }
 
             ReadOnlyTranslationTextView(
                 text: store.translatedText,
                 placeholder: translationPlaceholder
             )
-            .frame(height: 136)
+            .frame(height: 128)
             .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
     }
@@ -375,6 +432,86 @@ struct TranslationLanguageControls: View {
                 .lineLimit(1)
         }
         .foregroundStyle(validationMessage == nil ? Color.secondary : Color.orange)
+    }
+}
+
+struct SourceLanguageMenu: View {
+    @Binding var selection: TranslationSourceSelection
+    var isDisabled = false
+
+    var body: some View {
+        Menu {
+            ForEach(TranslationSourceSelection.allCases) { language in
+                Button {
+                    selection = language
+                } label: {
+                    menuItem(language.displayName, isSelected: selection == language)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(selection.displayName)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.tint)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(isDisabled)
+        .help("Choose source language")
+        .accessibilityLabel("Source language")
+    }
+
+    @ViewBuilder
+    private func menuItem(_ title: String, isSelected: Bool) -> some View {
+        if isSelected {
+            Label(title, systemImage: "checkmark")
+        } else {
+            Text(title)
+        }
+    }
+}
+
+struct TargetLanguageMenu: View {
+    @Binding var selection: TranslationTargetSelection
+    var isDisabled = false
+
+    var body: some View {
+        Menu {
+            ForEach(TranslationTargetSelection.allCases) { language in
+                Button {
+                    selection = language
+                } label: {
+                    menuItem(language.displayName, isSelected: selection == language)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(selection.displayName)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.tint)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(isDisabled)
+        .help("Choose target language")
+        .accessibilityLabel("Target language")
+    }
+
+    @ViewBuilder
+    private func menuItem(_ title: String, isSelected: Bool) -> some View {
+        if isSelected {
+            Label(title, systemImage: "checkmark")
+        } else {
+            Text(title)
+        }
     }
 }
 

@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ProviderSettingsView: View {
     private static let translationSectionHeight: CGFloat = 660
-    static let settingsContentWidth: CGFloat = 900
+    static let settingsContentWidth: CGFloat = 980
 
     enum Section: String, CaseIterable, Identifiable {
         case model = "Model"
@@ -16,13 +16,13 @@ struct ProviderSettingsView: View {
         var contentHeight: CGFloat {
             switch self {
             case .model:
-                return 620
+                return 700
             case .shortcuts:
-                return 660
+                return 740
             case .translation:
-                return 860
+                return 900
             case .privacy:
-                return 430
+                return 520
             }
         }
 
@@ -77,18 +77,23 @@ struct ProviderSettingsView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Divider()
+        VStack(spacing: 0) {
+            ParrotWindowTitleBar(title: "Settings", height: 52)
 
-            VStack(alignment: .leading, spacing: 18) {
-                header
+            HStack(spacing: 0) {
+                sidebar
+                Divider()
 
-                selectedSettingsSection
+                VStack(alignment: .leading, spacing: 28) {
+                    header
+
+                    selectedSettingsSection
+                }
+                .padding(.horizontal, 34)
+                .padding(.vertical, 34)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color(nsColor: .windowBackgroundColor))
             }
-            .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(width: Self.settingsContentWidth, height: selectedSection.contentHeight, alignment: .top)
         .onChange(of: selectedSection) { _, newSection in
@@ -97,48 +102,44 @@ struct ProviderSettingsView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Parrot")
-                    .font(.headline)
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text("Native Translation")
-                    .font(.caption)
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 24)
-            .padding(.bottom, 8)
+            .padding(.leading, 46)
+            .padding(.trailing, 16)
+            .padding(.top, 28)
+            .padding(.bottom, 16)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 6) {
                 sidebarAction(title: "Quick Text", systemImageName: "text.cursor", action: onOpenQuickText)
                 sidebarAction(title: "Screenshot", systemImageName: "text.viewfinder", action: onOpenScreenshot)
                 sidebarAction(title: "History", systemImageName: "clock.arrow.circlepath", action: onOpenHistory)
             }
 
-            Divider()
-                .padding(.horizontal, 14)
-                .padding(.vertical, 2)
+            VStack(alignment: .leading, spacing: 5) {
+                sidebarSettingsHeader
 
-            VStack(alignment: .leading, spacing: 3) {
-                Label("Settings", systemImage: "gearshape")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-
-                ForEach(Section.allCases) { section in
-                    sidebarSectionButton(section)
-                        .padding(.leading, 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Section.allCases) { section in
+                        sidebarSectionButton(section)
+                    }
                 }
+                .padding(.leading, 44)
+                .padding(.trailing, 16)
             }
 
             Spacer(minLength: 0)
         }
-        .frame(width: 198, alignment: .topLeading)
+        .frame(width: 208, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.45))
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.36))
     }
 
     private func sidebarAction(
@@ -151,7 +152,7 @@ struct ProviderSettingsView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 6)
                 .contentShape(Rectangle())
         }
@@ -159,15 +160,24 @@ struct ProviderSettingsView: View {
         .help(title)
     }
 
+    private var sidebarSettingsHeader: some View {
+        Label("Settings", systemImage: "gearshape")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+    }
+
     private func sidebarSectionButton(_ section: Section) -> some View {
         Button {
             selectedSection = section
         } label: {
-            Label(section.rawValue, systemImage: section.iconName)
+            Text(section.rawValue)
                 .font(.system(size: 13, weight: selectedSection == section ? .semibold : .regular))
                 .foregroundStyle(selectedSection == section ? Color.accentColor : Color.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 5)
                 .background {
                     if selectedSection == section {
@@ -196,65 +206,74 @@ struct ProviderSettingsView: View {
     }
 
     private var modelSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if !store.hasSavedAPIKey {
-                setupGuide
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 24) {
+                if !store.hasSavedAPIKey {
+                    setupGuide
+                }
 
-            LabeledContent("Provider") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Picker("Provider", selection: providerSelection) {
-                        ForEach(LLMProviderPreset.presets) { preset in
-                            Text(preset.name).tag(preset.id)
+                SettingsFormRow("Provider") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Picker("Provider", selection: providerSelection) {
+                            ForEach(LLMProviderPreset.presets) { preset in
+                                Text(preset.name).tag(preset.id)
+                            }
                         }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .frame(width: 420)
+
+                        Text(store.selectedPreset.detail)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
                     }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .frame(minWidth: 320)
-
-                    Text(store.selectedPreset.detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-            }
 
-            LabeledContent("Base URL") {
-                TextField(store.selectedPreset.baseURLString, text: $store.baseURLString)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 320)
-            }
-
-            LabeledContent("Model") {
-                TextField(store.selectedPreset.modelName, text: $store.modelName)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 320)
-            }
-
-            LabeledContent("API Key") {
-                VStack(alignment: .leading, spacing: 6) {
-                    SecureField(apiKeyPlaceholder, text: $store.apiKeyInput)
+                SettingsFormRow("Base URL") {
+                    TextField(store.selectedPreset.baseURLString, text: $store.baseURLString)
                         .textFieldStyle(.roundedBorder)
-                        .frame(minWidth: 320)
+                        .frame(maxWidth: .infinity)
+                }
 
-                    Text(apiKeyHelpText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                SettingsFormRow("Model") {
+                    TextField(store.selectedPreset.modelName, text: $store.modelName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: .infinity)
+                }
+
+                SettingsFormRow("API Key", alignment: .top, labelTopPadding: 7) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        SecureField(apiKeyPlaceholder, text: $store.apiKeyInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: .infinity)
+
+                        Label(apiKeyHelpText, systemImage: "info.circle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                if let statusMessage = store.statusMessage {
+                    StatusMessageView(
+                        message: statusMessage,
+                        isError: store.isStatusError
+                    )
+                    .padding(.leading, 134)
                 }
             }
+            .frame(maxWidth: 650, alignment: .leading)
 
-            if let statusMessage = store.statusMessage {
-                StatusMessageView(
-                    message: statusMessage,
-                    isError: store.isStatusError
-                )
-            }
+            Spacer(minLength: 24)
+
+            Divider()
 
             HStack {
                 Button("Save") {
                     store.saveSettings()
                 }
                 .keyboardShortcut("s", modifiers: [.command])
-                .buttonStyle(.borderedProminent)
+                .frame(minWidth: 80)
 
                 Button {
                     Task {
@@ -277,7 +296,9 @@ struct ProviderSettingsView: View {
                 }
                 .disabled(!store.hasSavedAPIKey)
             }
+            .padding(.top, 18)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var setupGuide: some View {
@@ -561,11 +582,28 @@ struct ProviderSettingsView: View {
     }
 
     private var header: some View {
-        ParrotSurfaceHeader(
-            systemImageName: "gearshape",
-            title: "Settings",
-            subtitle: "Configure Model, Shortcuts, Translation, and Privacy for the current Parrot workflows."
-        )
+        HStack(alignment: .center, spacing: 16) {
+            Image(systemName: "gearshape")
+                .font(.system(size: 27, weight: .semibold))
+                .foregroundStyle(.tint.opacity(0.86))
+                .frame(width: 48, height: 48)
+                .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(0.12), lineWidth: 1)
+                }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Settings")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text("Configure Model, Shortcuts, Translation, and Privacy for the current Parrot workflows.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private var providerSelection: Binding<String> {
@@ -676,6 +714,38 @@ struct ProviderSettingsView: View {
         store.hasSavedAPIKey
             ? "A Keychain API Key is saved. Enter a new key to replace it if macOS asks for Keychain access during debugging."
             : "The API Key is saved only to Keychain. Parrot keeps only a non-secret setup flag in UserDefaults."
+    }
+}
+
+private struct SettingsFormRow<Content: View>: View {
+    let label: String
+    var alignment: VerticalAlignment = .center
+    var labelTopPadding: CGFloat = 0
+    private let content: Content
+
+    init(
+        _ label: String,
+        alignment: VerticalAlignment = .center,
+        labelTopPadding: CGFloat = 0,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.label = label
+        self.alignment = alignment
+        self.labelTopPadding = labelTopPadding
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(alignment: alignment, spacing: 20) {
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 112, alignment: .trailing)
+                .padding(.top, labelTopPadding)
+
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 

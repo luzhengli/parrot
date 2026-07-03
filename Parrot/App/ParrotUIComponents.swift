@@ -28,7 +28,7 @@ enum ParrotStatusKind {
         case .info, .progress:
             return .accentColor
         case .success:
-            return .green
+            return .accentColor
         case .warning:
             return .orange
         case .error:
@@ -68,6 +68,79 @@ struct ParrotSurfaceHeader: View {
 
             Spacer(minLength: 0)
         }
+    }
+}
+
+struct ParrotWindowTitleBar<Trailing: View>: View {
+    let title: String
+    var height: CGFloat = 44
+    private let trailing: Trailing
+
+    init(
+        title: String,
+        height: CGFloat = 44,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
+        self.title = title
+        self.height = height
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        ZStack {
+            Text(title)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.88))
+                .lineLimit(1)
+
+            HStack {
+                Color.clear
+                    .frame(width: 96)
+
+                Spacer(minLength: 0)
+
+                trailing
+                    .frame(minWidth: 96, alignment: .trailing)
+            }
+            .padding(.horizontal, 20)
+        }
+        .frame(height: height)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .overlay(alignment: .bottom) {
+            Divider()
+                .opacity(0.7)
+        }
+    }
+}
+
+extension ParrotWindowTitleBar where Trailing == EmptyView {
+    init(title: String, height: CGFloat = 44) {
+        self.init(title: title, height: height) {
+            EmptyView()
+        }
+    }
+}
+
+struct ParrotTitleBarIconButton: View {
+    let systemName: String
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .medium))
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .background {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.001))
+        }
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 
@@ -117,6 +190,33 @@ struct ParrotStatusBanner: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .parrotPanel(fill: kind.tint.opacity(0.07), stroke: kind.tint.opacity(0.14))
+    }
+}
+
+struct ParrotStatusPill: View {
+    let kind: ParrotStatusKind
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 7) {
+            if kind == .progress {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 14, height: 14)
+            } else {
+                Image(systemName: kind.iconName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(kind.tint)
+            }
+
+            Text(message)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(kind.tint)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .parrotPanel(cornerRadius: 6, fill: kind.tint.opacity(0.07), stroke: kind.tint.opacity(0.14))
     }
 }
 
@@ -177,9 +277,10 @@ struct ParrotFooterBar<Leading: View, Trailing: View>: View {
 
 struct ParrotFieldLabel: View {
     let title: String
+    var uppercase: Bool = false
 
     var body: some View {
-        Text(title.uppercased())
+        Text(uppercase ? title.uppercased() : title)
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.secondary)
     }

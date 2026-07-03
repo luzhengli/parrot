@@ -680,6 +680,8 @@ struct ScreenshotSelectionResultView: View {
     let status: ScreenshotPipelineStatus
     let onClose: () -> Void
     let onRetrySelection: () -> Void
+    let onOpenHistory: () -> Void
+    let onOpenSettings: () -> Void
 
     @StateObject private var store: ScreenshotTranslationComparisonStore
 
@@ -687,31 +689,42 @@ struct ScreenshotSelectionResultView: View {
         result: ScreenshotSelectionResult,
         status: ScreenshotPipelineStatus,
         onClose: @escaping () -> Void,
-        onRetrySelection: @escaping () -> Void
+        onRetrySelection: @escaping () -> Void,
+        onOpenHistory: @escaping () -> Void = {},
+        onOpenSettings: @escaping () -> Void = {}
     ) {
         self.result = result
         self.status = status
         self.onClose = onClose
         self.onRetrySelection = onRetrySelection
+        self.onOpenHistory = onOpenHistory
+        self.onOpenSettings = onOpenSettings
         _store = StateObject(wrappedValue: ScreenshotTranslationComparisonStore(sourceText: status.recognizedText ?? ""))
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 14) {
+            ParrotWindowTitleBar(title: "Screenshot Translation") {
+                HStack(spacing: 8) {
+                    ParrotTitleBarIconButton(systemName: "clock.arrow.circlepath", title: "Translation History", action: onOpenHistory)
+                    ParrotTitleBarIconButton(systemName: "gearshape", title: "Settings", action: onOpenSettings)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 18) {
                 header
                 preview
-                languageControls
                 statusBanner
                 comparison
             }
-            .padding(20)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 28)
 
             Spacer(minLength: 0)
 
             footer
         }
-        .frame(width: 900, height: 680, alignment: .top)
+        .frame(width: 1024, height: 720, alignment: .top)
         .onChange(of: store.languagePreferences) { _, newValue in
             newValue.save()
         }
@@ -725,24 +738,12 @@ struct ScreenshotSelectionResultView: View {
         .onExitCommand(perform: onClose)
     }
 
-    private var languageControls: some View {
-        TranslationLanguageControls(
-            preferences: $store.languagePreferences,
-            latestDetectedSource: store.latestDetectedSource,
-            validationMessage: store.languageValidationMessage,
-            isTranslating: store.isTranslating,
-            canRetranslate: store.canRetry,
-            onSwap: store.swapLanguages,
-            onRetranslate: store.retryTranslation
-        )
-    }
-
     private var header: some View {
         ParrotSurfaceHeader(
-            systemImageName: status.isSuccess ? "text.viewfinder" : "exclamationmark.triangle.fill",
+            systemImageName: status.isSuccess ? "viewfinder" : "exclamationmark.triangle.fill",
             title: "Translation Result",
             subtitle: status.isSuccess
-                ? "Review OCR text, edit if needed, and copy the translated result."
+                ? "Review and copy the extracted content."
                 : "Review the capture problem and select a new region when ready."
         )
     }
@@ -760,15 +761,15 @@ struct ScreenshotSelectionResultView: View {
                 }
 
             VStack(alignment: .leading, spacing: 4) {
-                Label(status.title, systemImage: status.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                Label(status.isSuccess ? "On-device OCR complete" : status.title, systemImage: status.isSuccess ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                     .font(.callout.weight(.semibold))
-                    .foregroundStyle(status.isSuccess ? Color.green : Color.orange)
+                    .foregroundStyle(status.isSuccess ? Color.accentColor : Color.orange)
 
                 Text(status.message)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
-                    .lineLimit(1)
+                    .lineLimit(status.isSuccess ? 1 : 2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .layoutPriority(1)
@@ -793,11 +794,10 @@ struct ScreenshotSelectionResultView: View {
 
     @ViewBuilder
     private var statusBanner: some View {
-        if let statusMessage = store.statusMessage {
-            ParrotStatusBanner(
-                kind: statusKind,
-                message: statusMessage
-            )
+        if let validationMessage = store.languageValidationMessage {
+            ParrotStatusPill(kind: .warning, message: validationMessage)
+        } else if let statusMessage = store.statusMessage {
+            ParrotStatusPill(kind: statusKind, message: statusMessage)
         }
     }
 
@@ -811,12 +811,18 @@ struct ScreenshotSelectionResultView: View {
                 placeholder: translationPlaceholder
             )
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var sourceComparisonColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                ParrotFieldLabel(title: "Original")
+            HStack(spacing: 8) {
+                ParrotFieldLabel(title: "Original", uppercase: true)
+
+                SourceLanguageMenu(
+                    selection: $store.languagePreferences.sourceLanguage,
+                    isDisabled: store.isTranslating
+                )
 
                 if status.isSuccess {
                     Image(systemName: "pencil")
@@ -839,7 +845,7 @@ struct ScreenshotSelectionResultView: View {
                 isEditable: status.isSuccess,
                 onCancel: onClose
             )
-            .frame(height: 270)
+            .frame(height: 360)
             .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
         .frame(maxWidth: .infinity)
@@ -854,8 +860,25 @@ struct ScreenshotSelectionResultView: View {
 
     private func comparisonColumn(title: String, text: String, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                ParrotFieldLabel(title: title)
+            HStack(spacing: 8) {
+                ParrotFieldLabel(title: title, uppercase: true)
+
+                Button {
+                    store.swapLanguages()
+                } label: {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help("Swap source and target languages")
+                .disabled(store.isTranslating)
+
+                TargetLanguageMenu(
+                    selection: $store.languagePreferences.targetLanguage,
+                    isDisabled: store.isTranslating
+                )
 
                 Spacer()
 
@@ -867,7 +890,7 @@ struct ScreenshotSelectionResultView: View {
             }
 
             ComparisonTextView(text: text, placeholder: placeholder)
-                .frame(height: 270)
+                .frame(height: 360)
                 .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
         .frame(maxWidth: .infinity)
