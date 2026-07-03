@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        try {
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        "colors": {
+                            "surface-container-low": "#f6f3f5",
+                            "error": "#ba1a1a",
+                            "tertiary-fixed-dim": "#c6c6c6",
+                            "on-background": "#1b1b1d",
+                            "tertiary-fixed": "#e2e2e2",
+                            "tertiary": "#585a5a",
+                            "surface-container-high": "#eae7ea",
+                            "error-container": "#ffdad6",
+                            "secondary-fixed-dim": "#c6c6c8",
+                            "surface-dim": "#dcd9dc",
+                            "outline-variant": "#c2c6d8",
+                            "on-primary-container": "#f8f7ff",
+                            "tertiary-container": "#717272",
+                            "surface": "#fcf8fb",
+                            "primary-fixed": "#dae1ff",
+                            "on-surface-variant": "#424656",
+                            "on-secondary-container": "#616365",
+                            "surface-container-highest": "#e4e2e4",
+                            "outline": "#727687",
+                            "surface-container": "#f0edef",
+                            "on-secondary-fixed": "#1a1c1d",
+                            "secondary": "#5d5e60",
+                            "on-surface": "#1b1b1d",
+                            "primary": "#0050cb",
+                            "surface-bright": "#fcf8fb",
+                            "on-primary": "#ffffff",
+                            "surface-variant": "#e4e2e4",
+                            "inverse-surface": "#303032",
+                            "on-primary-fixed": "#001849",
+                            "on-error": "#ffffff",
+                            "surface-tint": "#0054d6",
+                            "primary-fixed-dim": "#b3c5ff",
+                            "secondary-container": "#dfdfe1",
+                            "on-tertiary-container": "#f8f8f8",
+                            "on-tertiary-fixed": "#1a1c1c",
+                            "surface-container-lowest": "#ffffff",
+                            "background": "#fcf8fb",
+                            "on-secondary-fixed-variant": "#454749",
+                            "on-primary-fixed-variant": "#003fa4",
+                            "primary-container": "#0066ff",
+                            "inverse-primary": "#b3c5ff",
+                            "inverse-on-surface": "#f3f0f2",
+                            "secondary-fixed": "#e2e2e4",
+                            "on-tertiary": "#ffffff",
+                            "on-secondary": "#ffffff",
+                            "on-tertiary-fixed-variant": "#454747",
+                            "on-error-container": "#93000a"
+                        },
+                        "borderRadius": {
+                            "DEFAULT": "0.125rem",
+                            "lg": "0.25rem",
+                            "xl": "0.5rem",
+                            "full": "0.75rem"
+                        },
+                        "spacing": {
+                            "md": "16px",
+                            "gutter": "20px",
+                            "xl": "40px",
+                            "lg": "24px",
+                            "xs": "4px",
+                            "sm": "8px",
+                            "unit": "4px",
+                            "margin": "32px"
+                        },
+                        "fontFamily": {
+                            "label-sm": ["Inter", "system-ui", "sans-serif"],
+                            "headline-lg": ["Inter", "system-ui", "sans-serif"],
+                            "body-lg": ["Inter", "system-ui", "sans-serif"],
+                            "label-md": ["Inter", "system-ui", "sans-serif"],
+                            "headline-md": ["Inter", "system-ui", "sans-serif"],
+                            "display": ["Inter", "system-ui", "sans-serif"],
+                            "body-md": ["Inter", "system-ui", "sans-serif"]
+                        },
+                        "fontSize": {
+                            "label-sm": ["11px", {"lineHeight": "14px", "letterSpacing": "0.03em", "fontWeight": "500"}],
+                            "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                            "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0", "fontWeight": "400"}],
+                            "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                            "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                            "display": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                            "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0", "fontWeight": "400"}]
+                        }
+                    },
+                },
+            }
+        } catch (_e) {}
+    </script>
+<style>
+        .mac-window {
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        }
+        .traffic-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .dot-red { background-color: #FF5F57; }
+        .dot-yellow { background-color: #FFBD2E; }
+        .dot-green { background-color: #28C840; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dcd9dc; border-radius: 4px; border: 2px solid #fcf8fb; }
+        ::-webkit-scrollbar-thumb:hover { background: #c6c6c8; }
+    </style>
+</head>
+<body class="bg-[#E5E7EB] min-h-screen flex items-center justify-center p-gutter">
+<!-- macOS Window Container -->
+<div class="mac-window w-full max-w-4xl bg-surface rounded-xl overflow-hidden flex flex-col border border-outline-variant/30">
+<!-- macOS Title Bar (Header) -->
+<header class="h-[44px] border-b border-outline-variant/20 flex items-center px-lg bg-surface shrink-0">
+<div class="flex gap-xs w-1/4">
+<div class="traffic-light dot-red"></div>
+<div class="traffic-light dot-yellow"></div>
+<div class="traffic-light dot-green"></div>
+</div>
+<div class="flex-1 text-center">
+<h1 class="font-label-md text-on-surface opacity-90">Quick Text Translation</h1>
+</div>
+<div class="flex items-center justify-end gap-sm w-1/4">
+<button class="p-xs hover:bg-surface-container rounded transition-colors duration-150">
+<span class="material-symbols-outlined text-secondary text-[18px]">history</span>
+</button>
+<button class="p-xs hover:bg-surface-container rounded transition-colors duration-150">
+<span class="material-symbols-outlined text-secondary text-[18px]">settings</span>
+</button>
+</div>
+</header>
+<!-- Main Scrollable Content -->
+<main class="flex-1 overflow-y-auto p-margin space-y-lg">
+<!-- App Title Area -->
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded-lg text-on-primary shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'wght' 500;">translate</span>
+</div>
+<div>
+<h2 class="font-headline-md text-on-background">Quick Text Translation</h2>
+<p class="font-label-sm text-on-surface-variant">
+                    Enter translates, <span class="bg-surface-container-high px-1 rounded text-[10px]">⌘+Enter</span> copies and closes, <span class="bg-surface-container-high px-1 rounded text-[10px]">Esc</span> closes.
+                </p>
+</div>
+</div>
+<!-- Input Section -->
+<div class="space-y-xs">
+<label class="font-label-md text-on-surface-variant px-0.5">Input Text</label>
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+<textarea class="w-full h-32 p-md font-body-lg text-on-surface border-none focus:ring-0 resize-none bg-transparent" placeholder="Type something to translate...">hello</textarea>
+</div>
+</div>
+<!-- Status Bar -->
+<div class="bg-primary/5 border border-primary/10 rounded px-md py-sm flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-[18px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-body-md text-primary">Translation ready. Press <span class="font-semibold">⌘+Enter</span> to copy and close.</span>
+</div>
+<!-- Output Section -->
+<div class="space-y-xs">
+<div class="flex items-center justify-between px-0.5">
+<h3 class="font-label-md text-on-surface-variant">Translation</h3>
+<button class="flex items-center gap-xs text-primary hover:opacity-80 transition-opacity">
+<span class="font-label-md">Chinese (Simplified)</span>
+<span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded shadow-[0_1px_2px_rgba(0,0,0,0.05)] p-md font-body-lg text-on-surface min-h-[100px] select-all cursor-text">
+                你好
+            </div>
+</div>
+</main>
+<!-- Footer Actions (macOS Desktop Button Style) -->
+<footer class="px-margin py-md border-t border-outline-variant/20 bg-surface-container-low/30 flex items-center justify-between shrink-0">
+<div class="flex gap-sm">
+<button class="bg-primary-container text-on-primary font-label-md px-lg py-1.5 rounded hover:brightness-110 active:brightness-95 transition-all shadow-sm">
+                Translate
+            </button>
+<button class="bg-surface-container-highest text-on-surface font-label-md px-lg py-1.5 rounded hover:bg-surface-variant border border-outline-variant/20 transition-all shadow-sm">
+                Copy Translation
+            </button>
+<button class="text-secondary font-label-md px-lg py-1.5 rounded hover:bg-surface-container-high transition-all">
+                Clear
+            </button>
+</div>
+<button class="bg-surface-container-highest text-on-surface font-label-md px-lg py-1.5 rounded hover:bg-surface-variant border border-outline-variant/20 transition-all shadow-sm">
+            Close
+        </button>
+</footer>
+</div>
+<!-- Scripts -->
+<script>
+    document.addEventListener('keydown', function(e) {
+        // Esc key to "close"
+        if (e.key === 'Escape') {
+            const win = document.querySelector('.mac-window');
+            win.style.opacity = '0.5';
+            win.style.transform = 'scale(0.98)';
+            win.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
+            setTimeout(() => {
+                alert('Window Close Triggered');
+                win.style.opacity = '1';
+                win.style.transform = 'scale(1)';
+            }, 200);
+        }
+        
+        // Cmd+Enter to copy
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            alert('Translation Copied to Clipboard!');
+        }
+    });
+
+    // Simple interaction for buttons
+    document.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('mousedown', () => btn.classList.add('scale-[0.98]'));
+        btn.addEventListener('mouseup', () => btn.classList.remove('scale-[0.98]'));
+        btn.addEventListener('mouseleave', () => btn.classList.remove('scale-[0.98]'));
+    });
+</script>
+</body></html>

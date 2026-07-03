@@ -10,18 +10,6 @@ Parrot is a native macOS translation assistant prototype. The app is planned as 
 - Menu-bar-first product direction with global shortcuts and transient floating windows.
 - Screenshot translation flow designed around local OCR before sending recognized text to an LLM.
 - User-owned provider setup for OpenAI-compatible APIs.
-- High-fidelity product references in [`Design/`](Design/).
-
-## Screens
-
-The current design references cover the main MVP surfaces:
-
-- Quick text translation panel
-- Screenshot translation result card
-- Settings window
-- Menu-bar dropdown
-
-See [`Design/README.md`](Design/README.md) for the image index.
 
 ## Requirements
 
@@ -64,7 +52,6 @@ xcodebuild -scheme Parrot -configuration Debug -destination 'platform=macOS' COD
 - `Parrot/Resources/`: app asset catalog and resources.
 - `Config/`: Debug and Release build settings.
 - `Docs/`: product requirements and planning documents.
-- `Design/`: high-fidelity product prototype images.
 
 ## Product Scope
 

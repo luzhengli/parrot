@@ -1,19 +1,23 @@
-# Parrot Design References
+# Parrot /Design Reference Assets
 
-This directory contains high-fidelity product prototype images for the Parrot macOS translation assistant.
+This directory is a visual reference for a future one-time UI refactor. It does not represent the current SwiftUI/AppKit implementation.
 
-## Screens
+## Use Rules
 
-| File | Prototype | Implementation reference |
-| --- | --- | --- |
-| `quick-text-translation-panel.png` | View 1: Quick Text Translation Panel | Keyboard-first floating quick translation panel, light and dark appearance, shortcut hints, source/target language controls, copy/swap/close actions. |
-| `screenshot-translation-result-card.png` | View 2: Screenshot Translation Result Card | Screenshot region selection result card with OCR source text, translated output, retry, close, copy translation, copy source, and compact dark appearance. |
-| `settings-window.png` | View 3: Settings Window | Native macOS preferences window with General, Shortcuts, Model, Translation, Privacy, and About tabs, including light and dark appearances. |
-| `menu-bar-dropdown.png` | View 4: Menu Bar Dropdown | Standard `NSMenu` opened from the menu-bar icon with quick translate, screenshot translate, history, shortcut toggle, settings, and quit actions. |
-| `custom-shortcuts-settings-prototype.png` | View 5: Custom Shortcuts Settings | Current-app-aligned single-pane SwiftUI Settings prototype for the P1 custom shortcuts flow: shortcut recording, conflict detection, invalid shortcut guidance, defaults, and immediate apply feedback. |
+- These assets lag behind the real code and are expected to drift as Parrot evolves.
+- All prototypes in this directory follow root `DESIGN.md`; `DESIGN.md` is the normative source, and `/Design` is only a visual interpretation.
+- Daily feature work must not reference `/Design` by default.
+- Use `/Design` only when the user explicitly asks to reference the prototypes, compare against planned refactor assets, or align a refactor with these screens.
+- If `/Design` conflicts with current code or `DESIGN.md`, treat `/Design` as stale unless the user explicitly asks for a refactor decision.
 
-## Product Notes
+## Asset Pairs
 
-- Treat these prototypes as visual guidance for the MVP surfaces described in `Docs/ai-translation-macos-prd.md`.
-- Prefer native macOS controls and behavior over pixel-perfect custom rendering when platform conventions conflict.
-- Keep privacy behavior aligned with the PRD: OCR runs locally by default and screenshots are not uploaded unless a future explicit image-based feature enables it.
+| Surface | HTML prototype | Screenshot | Current app surface |
+| --- | --- | --- | --- |
+| `quick_text_translation` | `quick_text_translation/code.html` | `quick_text_translation/screen.png` | Quick Text Translation window |
+| `screenshot_translation` | `screenshot_translation/code.html` | `screenshot_translation/screen.png` | Screenshot Translation result window |
+| `settings` | `settings/code.html` | `settings/screen.png` | Unified Settings window |
+
+## Version Status
+
+Current assets use the existing flat page structure and are not a versioned refactor baseline. If a future refactor needs a frozen visual target, create a versioned subdirectory or manifest that records the target milestone, the `DESIGN.md` revision, lint result, and the paired HTML/PNG assets.

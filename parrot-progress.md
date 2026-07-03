@@ -6,13 +6,14 @@
 - 项目形态：macOS SwiftUI App scaffold
 - Xcode 工程：`Parrot.xcodeproj`
 - Scheme：`Parrot`
-- 产品依据：`Docs/ai-translation-macos-prd.md`；V1 翻译偏好规划见 `Docs/ai-translation-macos-v1-prd.md`
+- 产品上下文默认依据：当前代码、`feature_list.json`、`parrot-progress.md` 和用户当前指令。PRD 可能滞后于代码，仅在用户显式要求 PRD 参考/对齐/审计，或任务本身是 PRD/规划工作时读取。
 - 初始化入口：`./init.sh`
 - 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Translation`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译；语言选择栏已改为紧凑原生风格，并通过真实窗口截图检查。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。2026-06-23 修复 `./init.sh --run` Debug App 录屏授权身份漂移：Debug App 现在会在构建后 ad-hoc 签名为稳定本地 designated requirement `identifier "com.example.parrot"`，与已安装 `/Applications/Parrot.app` 对齐。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。设置全局快捷键已作为第三个可配置动作接入 Shortcuts，默认 `Cmd+Option+,`，并通过源码链接 E2E 与 Finder 前台真实全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。语言选择与一键互换已接入 Quick Text 和截图翻译结果窗口，并进入真实 Provider prompt，已通过源码链接 E2E、Debug 构建和真实 Quick Text 窗口 smoke；`p1.translation-language-controls` 已标记通过。翻译风格已接入 Translation 设置区和真实 Provider prompt，支持 Accurate、Natural、Professional、Concise，并通过源码链接 E2E、Debug 构建和真实 Settings 窗口 smoke；`p1.translation-style` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。2026-06-23 新增 V1 翻译偏好 PRD，并在 `feature_list.json` 中拆分 custom Prompt、glossary、OCR source editing 和 floating-window position preferences，均保持 `passes: false` 等待实现验收。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建、签名并启动同一个 Debug App bundle。
 - 2026-06-24 最新补充：自定义 Prompt 已接入 Translation 设置区和共享 Provider prompt，支持默认 Prompt 展示、启用/关闭、必需变量校验、Restore Default 和无效模板回退；已通过源码链接 E2E、Debug 构建和真实 Settings 窗口 smoke；`p1.custom-translation-prompt` 已标记通过。术语表已接入 Translation 设置区和共享 Provider prompt，支持本地 JSON 持久化、增删改、启停、搜索、目标语言范围、重复校验，并且只把当前源文本命中的启用术语注入 Prompt；已通过术语表源码链接 E2E、回归 E2E、Debug 构建和真实 Settings 窗口 smoke；`p1.terminology-glossary` 已标记通过。
 - 2026-07-03 最新补充：OCR 原文编辑已接入 Screenshot Translation 结果窗口，Original pane 默认显示本地 OCR 文本并可编辑；`Again`/`Retry` 会使用当前编辑后的文本重新翻译，Provider 请求和历史记录写入同一份编辑文本，不保存截图图片或截图几何信息。已通过源码链接 E2E `Scripts/ocr-source-text-editing-e2e.swift`、语言/Prompt 回归 E2E、`./init.sh` Debug 构建和 `./init.sh --run` 启动验证；当前自动化会话中全局事件注入未能触发真实 Quick Text/Screenshot 窗口，完整 GUI smoke 记录为环境限制。
 - 2026-07-03 最新补充：浮窗位置偏好已接入 Settings > Translation > Floating Windows，支持 `Screen Center`、`Mouse Nearby`、`Last Position`。未保存显式偏好时 Quick Text 继续默认居中，Screenshot Translation 结果窗口优先靠近本次内存中的截图选区并在空间不足时夹回可见屏幕；保存显式偏好后 Quick Text 和 Screenshot Translation 都按该偏好出现。Last Position 只保存用户移动后的翻译窗口 top-left 点，不保存截图图片、截图选区、OCR 图片或 API Key。已通过源码链接 E2E `Scripts/floating-window-position-preferences-e2e.swift`、`git diff --check`、JSON 校验、`./init.sh` Debug 构建和 `./init.sh --run` 启动验证；真实不同偏好快捷键 smoke 已用临时 CGEvent/CGWindowList helper 尝试，但当前自动化会话未能把 `Cmd+Shift+T` 投递给 Parrot，未观察到 Quick Text 窗口，记录为环境限制。
-- 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
+- 2026-07-03 最新补充：引入 Design Harness。根目录 `DESIGN.md` 是所有 UI/UX 工作的强制设计规范源和团队级共享设计契约；PRD 与 `/Design` 一样可能滞后于真实代码，均为条件参考资产，只有用户显式要求 PRD 参考/对齐/审计或原型/重构对照时才使用。`/Design` 目录当前包含 `quick_text_translation`、`screenshot_translation`、`settings` 三个未来一次性重构参考页面，每页各有 `code.html` 和 `screen.png`；这些资产滞后于真实代码、遵循 `DESIGN.md`，日常 feature 开发默认不引用。`AGENTS.md` 新增 Design Harness 路由和冲突优先级，`Design/README.md` 新增资产索引与用途声明，`feature_list.json` 新增 `foundation.design-system-harness` 并给 UI 类 feature 追加未来设计验证要求。
+- 2026-07-03 最新补充：根据后续 harness 调整，PRD 不再作为默认产品行为依据，也不参与日常冲突裁决。日常开发默认以当前代码、`feature_list.json`、`parrot-progress.md` 和用户当前指令为准；只有用户显式要求 PRD 参考/对齐/审计，或任务本身是 PRD/规划工作时才读取 PRD。
 
 ## 启动就绪清单
 
@@ -20,6 +21,15 @@
 - [x] 能验证：`./init.sh` 会列出工程元数据并在 `./.DerivedData` 执行 Debug 构建。
 - [x] 能看进度：本文件记录当前状态、已完成事项、已知问题和下一步。
 - [x] 能接手下一步：`feature_list.json` 记录功能清单、验收标准和通过状态。
+
+## 设计 Harness
+
+- 规范源：根目录 `DESIGN.md` 固定命名，必须纳入版本控制，不得作为单次 session 或单个 feature 的临时调参文件。所有 UI/UX 新功能、重构、窗口/Settings/menu surface、状态/错误/loading/empty 文案和布局变更都必须先读并对齐 `DESIGN.md`。
+- `/Design` 条件触发：`Design/quick_text_translation/code.html` 配 `screen.png`、`Design/screenshot_translation/code.html` 配 `screen.png`、`Design/settings/code.html` 配 `screen.png`。这些资产只代表未来一次性重构视觉参考，不代表当前代码；默认不参与日常 feature 裁决，只有用户显式点名 `/Design`、原型、设计稿或重构对照时才打开。
+- PRD 边界：`Docs/ai-translation-macos-prd.md` 和 `Docs/ai-translation-macos-v1-prd.md` 可能滞后于代码；默认不读取、不作为产品或视觉依据。仅在用户显式要求 PRD 参考/对齐/审计，或任务本身是 PRD/规划工作时读取，并且必须与当前代码和当前用户意图核对。
+- 冲突优先级：用户显式指令 > 隐私/安全/macOS 权限/Keychain > macOS HIG > `DESIGN.md` > 当前代码既定形态；PRD 与 `/Design` 都不参与日常裁决，只有用户显式点名时作为条件参考。
+- `DESIGN.md` 审计结果：已修正明显 token/prose 冲突。正文颜色说明改为引用 YAML tokens；新增 SwiftUI/AppKit 原生实现说明，明确 macOS 语义色、系统字体和原生控件优先，hex/Inter 只作为 review/lint/Web 原型 fallback；`body-lg`、`body-md` 的 `letterSpacing` 从字符串 `0` 修为合法 dimension `0px`。本轮未发现必须臆测的设计决策冲突。
+- lint 结果：初次沙箱内运行 `npx @google/design.md lint DESIGN.md` 因 `ENOTFOUND registry.npmjs.org` 失败；经批准联网重试后发现 2 个 `letterSpacing` dimension 错误；修复后再次运行 `npx @google/design.md lint DESIGN.md`，结果为 `errors=0 warnings=0 infos=1`。未把 `@google/design.md` 加入 `package.json`、`init.sh` 或默认构建流程。
 
 ## 已完成
 
@@ -34,13 +44,6 @@
   - `Scripts/package-release.sh`：从 Release 配置读取版本，构建 unsigned Release，并生成 `.dmg`、`.zip`、`SHA256SUMS.txt` 和 `RELEASE_NOTES.md` 到 `Dist/`。
   - 正式模式要求干净工作区和 `v<MARKETING_VERSION>` tag；`--allow-untagged` 仅用于本地 dev 包验证。
   - 2026-06-23 修复 `v0.1.2-alpha` DMG 启动时报“Parrot.app 已损坏”：打包脚本现在会在生成 zip/DMG 前对完整 `Parrot.app` 做 ad-hoc app bundle 签名，并用 `codesign --verify --deep --strict` 阻断缺失资源封签的产物。
-- 添加产品高保真原型图：
-  - `Design/quick-text-translation-panel.png`
-  - `Design/screenshot-translation-result-card.png`
-  - `Design/settings-window.png`
-  - `Design/menu-bar-dropdown.png`
-  - `Design/custom-shortcuts-settings-prototype.png`
-  - `Design/README.md`
 - 添加原生菜单栏常驻入口：
   - `Parrot/App/AppDelegate.swift` 管理 `NSStatusItem`。
   - 菜单包含快捷文本翻译、截图翻译、设置和退出。
@@ -287,14 +290,6 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 已运行 `./init.sh`、`git diff --check`、`feature_list.json` JSON 校验和源码链接 E2E；真实 App smoke 将 Quick Text 临时配置为 `Cmd+Option+Y`，在 Finder 前台触发后成功打开 `Quick Text Translation` 窗口，并已清理测试 defaults 覆盖。
 - 已通过状态栏菜单打开 `Settings` 窗口，确认统一 Settings 入口可达；`p1.custom-shortcuts` 已标记通过。
 
-### 2026-06-22 - 添加自定义快捷键设置原型图
-
-- 针对 `p1.custom-shortcuts` 生成高保真产品原型预览图：`Design/custom-shortcuts-settings-prototype.png`。
-- 原型聚焦统一 Settings 的 `Shortcuts` 区，覆盖快捷键录制、冲突提示、无效组合校验、恢复默认和保存后立即生效反馈。
-- 同步新增渲染源文件 `Design/custom-shortcuts-settings-prototype.html`，便于后续迭代同一张预览图。
-- 已更新 `Design/README.md` 和 `feature_list.json` 的设计参考索引。
-- 根据真实 App Settings 复验结果重绘：当前 App 是单栏 SwiftUI 表单风格，不是侧边栏偏好设置；新版原型已统一为窄窗口、系统按钮、segmented control、rounded field、Divider 和 inline 状态提示。
-
 ### 2026-06-22 - 明确自定义快捷键前的 Settings 范围
 
 - 分析当前设置页、全局快捷键实现、PRD 和 `p1.custom-shortcuts` 验收标准后，决定实现自定义快捷键时顺手做一次轻量 Settings 结构整理。
@@ -308,13 +303,6 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - 将文档中的通用 Web 项目 harness 思路改写为适合 macOS SwiftUI/Xcode 项目的初始化文件。
 - 新增 `init.sh`、`parrot-progress.md`、`feature_list.json`。
 - 已运行 `./init.sh`，确认 `Parrot` scheme 可发现且 Debug 构建通过。
-
-### 2026-06-21 - 添加产品高保真原型图
-
-- 新建 `Design/` 目录并保存 4 张上传的产品原型图。
-- 使用语义化文件名区分快捷文本翻译小窗、截图翻译结果卡片、设置窗口、菜单栏下拉菜单。
-- 新增 `Design/README.md`，记录每张原型图对应的产品界面与实现参考。
-- 更新 `feature_list.json` 的 `source_documents`，并新增 `foundation.design-references` 验收项。
 
 ### 2026-06-21 - 实现菜单栏常驻入口
 

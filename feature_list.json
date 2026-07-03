@@ -3,15 +3,9 @@
   "platform": "macOS",
   "updated": "2026-07-03",
   "source_documents": [
-    "Docs/ai-translation-macos-prd.md",
-    "Docs/ai-translation-macos-v1-prd.md",
-    "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",
-    "Design/README.md",
-    "Design/quick-text-translation-panel.png",
-    "Design/screenshot-translation-result-card.png",
-    "Design/settings-window.png",
-    "Design/menu-bar-dropdown.png",
-    "Design/custom-shortcuts-settings-prototype.png"
+    "DESIGN.md",
+    "Docs/design-md-harness-integration-research.md",
+    "Design/README.md"
   ],
   "status_values": [
     "passing",
@@ -65,18 +59,30 @@
       "notes": "Added Docs/release-process.md and Scripts/package-release.sh. The release process documents SemVer, v<MARKETING_VERSION> tags, GitHub Release assets, Gatekeeper warnings, checksum verification, and no-retag safety rules. The packaging script reads MARKETING_VERSION, CURRENT_PROJECT_VERSION, and PRODUCT_BUNDLE_IDENTIFIER from Config/Release.xcconfig, enforces SemVer, rejects formal releases from dirty worktrees or non-matching tags, supports local --allow-untagged dev packages, builds Release with CODE_SIGNING_ALLOWED=NO, verifies app bundle identifier/version/build metadata, ad-hoc signs the full app bundle for local resource-seal integrity with a stable local designated requirement based on the bundle identifier, verifies codesign --deep --strict before packaging, rejects pure cdhash designated requirements so Screen Recording TCC grants are not tied to a per-build hash, detects architecture, and creates .dmg, .zip, SHA256SUMS.txt, and RELEASE_NOTES.md under Dist/. Follow-up fix for v0.1.2-alpha Gatekeeper 'app is damaged' dialog: the previous package had only executable-level ad-hoc/linker signing and no sealed resources, causing codesign verification to fail with 'code has no resources but signature indicates they must be present'. Follow-up fix for v0.1.3-alpha Screen Recording permission loop: the previous pure ad-hoc release had designated requirement cdhash-only, which produced duplicate Parrot.app entries in System Settings and allowed users to enable an old hash while the current app remained unauthorized. Verified bash -n Scripts/package-release.sh, git diff --check, full Scripts/package-release.sh --allow-untagged Release build, shasum -a 256 -c SHA256SUMS.txt for the generated dmg and zip, mounted the generated DMG and verified Parrot.app with codesign --verify --deep --strict --verbose=4, confirmed the generated Release app, DMG app, ZIP app, and installed /Applications/Parrot.app all report designated => identifier \"com.example.parrot\", confirmed the DMG app has Sealed Resources version 2 and CodeResources, confirmed spctl still rejects only because there is no Developer ID signature, and unzipped the ZIP artifact to verify the packaged app signature. Real System Settings inspection on 2026-06-23 confirmed two Parrot.app Screen Recording entries from old cdhash identities, matching the reported restart-still-unauthorized symptom."
     },
     {
-      "id": "foundation.design-references",
-      "priority": "P0",
+      "id": "foundation.design-system-harness",
+      "priority": "P1",
       "category": "foundation",
-      "description": "High-fidelity product prototypes are available as implementation references.",
+      "description": "The harness routes UI/UX work to DESIGN.md as the normative visual source, treats /Design prototypes as a conditional future-refactor reference only, and records design verification evidence.",
       "acceptance": [
-        "Store the provided prototype images under Design/ with descriptive filenames.",
-        "Document each prototype surface and its intended implementation reference.",
-        "Keep the prototypes discoverable from the harness source documents."
+        "DESIGN.md exists at the repository root with YAML tokens plus Markdown prose sections.",
+        "DESIGN.md is not ignored and is intended to be version controlled as the team-wide design contract.",
+        "DESIGN.md update policy is documented as stable design contract maintenance, not per-session or per-feature tuning.",
+        "DESIGN.md token/prose consistency has been reviewed; any obvious safe mismatch is fixed and any design-decision mismatch is recorded as a follow-up.",
+        "AGENTS.md has a Design Harness section defining mandatory DESIGN.md triggers for UI/UX work and conditional /Design triggers.",
+        "AGENTS.md states PRDs are conditional references only: read them only when the user explicitly requests PRD reference/alignment/review or when doing PRD/planning work.",
+        "AGENTS.md records the conflict priority: explicit user instruction > privacy/security/macOS permission/Keychain > macOS HIG > DESIGN.md > current code established shape, with PRDs and /Design excluded from day-to-day arbitration unless explicitly requested.",
+        "Design/README.md documents /Design as a future one-time-refactor reference that lags behind code and follows DESIGN.md.",
+        "Design/README.md lists the current quick_text_translation, screenshot_translation, and settings code.html/screen.png asset pairs.",
+        "/Design is not listed as a required input for day-to-day feature development and is only triggered by explicit user prototype/refactor reference requests.",
+        "Existing UI-class features include acceptance criteria requiring DESIGN.md review and recorded design verification evidence, without defaulting to /Design prototypes as the baseline.",
+        "A manual npx @google/design.md lint DESIGN.md attempt is recorded in feature_list.json notes or parrot-progress.md, including any npm/network limitation.",
+        "Design harness setup introduces no product code, dependency, signing, bundle identifier, default build flow, privacy, or persistence changes.",
+        "AGENTS.md workflow defaults to current code, feature_list.json, parrot-progress.md, and user intent for product context instead of default PRD reads.",
+        "feature_list.json keeps PRDs in conditional_reference_documents rather than default source_documents, so PRDs are not implied default inputs."
       ],
       "passes": true,
-      "last_verified": "2026-06-21",
-      "notes": "Added four high-fidelity prototype images and Design/README.md."
+      "last_verified": "2026-07-03",
+      "notes": "Design Harness landed on 2026-07-03. DESIGN.md is the mandatory UI/UX design source and /Design is conditional-only for explicit prototype/refactor requests. DESIGN.md audit fixed safe token/prose mismatches by aligning prose color references to YAML tokens, adding native SwiftUI/AppKit implementation guidance, and changing body letterSpacing tokens from string 0 to 0px. Lint record: initial sandbox npx @google/design.md lint DESIGN.md failed with ENOTFOUND registry.npmjs.org; approved npm-backed retry reported 2 errors for letterSpacing dimensions; after the token fix, npx @google/design.md lint DESIGN.md passed with errors=0 warnings=0 infos=1. AGENTS.md now routes UI work to DESIGN.md, keeps PRDs conditional-only, excludes both PRDs and /Design from day-to-day arbitration, and records the required conflict priority. Design/README.md declares /Design as future one-time-refactor assets and lists quick_text_translation, screenshot_translation, and settings code.html/screen.png pairs. Existing UI-class feature acceptance now requires DESIGN.md review and recorded design evidence for future UI changes; existing pass statuses remain prior product verification records. No product code, dependencies, signing, bundle identifier, default build flow, privacy, or persistence behavior changed. Follow-up adjustment on 2026-07-03: PRDs were downgraded from default product-behavior references to conditional-only references because PRDs can also lag behind current code; daily work now defaults to current code, feature_list.json, parrot-progress.md, and user intent unless PRD alignment is explicitly requested. feature_list.json now keeps PRDs under conditional_reference_documents instead of default source_documents."
     },
     {
       "id": "p0.menu-bar-residency",
@@ -88,7 +94,9 @@
         "Open settings from the menu-bar item.",
         "Open quick text translation from the menu-bar item.",
         "Trigger screenshot translation from the menu-bar item.",
-        "Quit the app from the menu-bar item."
+        "Quit the app from the menu-bar item.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-21",
@@ -118,7 +126,9 @@
         "Invoke screenshot mode from the shortcut or menu.",
         "Drag to select a region on the active screen.",
         "Cancel selection with Esc.",
-        "Pass the selected image region to the OCR pipeline."
+        "Pass the selected image region to the OCR pipeline.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-23",
@@ -133,7 +143,9 @@
         "Recognize text from a selected screenshot region using local macOS capabilities.",
         "Do not upload screenshot images by default.",
         "Show a clear message when no text is detected.",
-        "Preserve paragraph structure where OCR output allows it."
+        "Preserve paragraph structure where OCR output allows it.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-22",
@@ -148,7 +160,9 @@
         "Enter Base URL, model name, and API Key.",
         "Test the provider connection.",
         "Show concise errors for invalid credentials, network failure, and timeout.",
-        "Avoid hard-coded provider-specific assumptions beyond OpenAI-compatible defaults."
+        "Avoid hard-coded provider-specific assumptions beyond OpenAI-compatible defaults.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-22",
@@ -179,7 +193,9 @@
         "Focus the input field automatically.",
         "Translate with Enter or the chosen primary action.",
         "Close the transient window with Esc.",
-        "Copy the translation with Cmd+Enter."
+        "Copy the translation with Cmd+Enter.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-22",
@@ -209,7 +225,9 @@
         "Show OCR or input text and translated text in a readable comparison layout.",
         "Provide copy translated text and copy original text actions.",
         "Allow retry when translation fails.",
-        "Close the result window with Esc."
+        "Close the result window with Esc.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-22",
@@ -224,7 +242,9 @@
         "Show missing permission guidance with next-step actions.",
         "Show no-text-detected OCR failures without crashing.",
         "Show authentication failures without exposing secrets.",
-        "Show network and timeout failures with retry options."
+        "Show network and timeout failures with retry options.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-22",
@@ -239,7 +259,9 @@
         "Store recent text translation records when history is enabled.",
         "Open history from the menu-bar item.",
         "Copy previous translations.",
-        "Disable history from settings."
+        "Disable history from settings.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-22",
@@ -255,7 +277,9 @@
         "Persist shortcut preferences.",
         "Detect conflicts or invalid shortcuts.",
         "Apply changed shortcuts without restarting when practical.",
-        "Expose shortcut preferences from the unified Settings window alongside existing Model and Privacy settings."
+        "Expose shortcut preferences from the unified Settings window alongside existing Model and Privacy settings.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-22",
@@ -271,7 +295,9 @@
         "Provide a default shortcut recommendation of Cmd+Option+, without removing the existing menu-bar Settings entry.",
         "Persist the shortcut preference and detect conflicts with Quick Text Translation, Screenshot Translation, and invalid combinations.",
         "Apply the changed settings shortcut without restarting when practical.",
-        "Verify the shortcut opens Settings while another app is frontmost."
+        "Verify the shortcut opens Settings while another app is frontmost.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-23",
@@ -288,7 +314,9 @@
         "Support Auto source language and Auto Opposite target language while preserving the current Chinese-English default behavior.",
         "Support at least Chinese, English, Japanese, Korean, French, and Spanish as explicit language choices.",
         "Support one-click source-target swap and use the swapped direction for retry or retranslate.",
-        "Prevent saving or translating with the same explicit source and target language."
+        "Prevent saving or translating with the same explicit source and target language.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-23",
@@ -304,7 +332,9 @@
         "Default the style to Accurate to preserve current MVP behavior.",
         "Support Accurate, Natural, Professional, and Concise style options.",
         "Apply the selected style to both Quick Text and Screenshot translation prompts.",
-        "Allow retranslation after changing style without requiring users to re-enter text or retake a screenshot."
+        "Allow retranslation after changing style without requiring users to re-enter text or retake a screenshot.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-23",
@@ -321,7 +351,9 @@
         "Validate that custom templates include required variables for target language and text before saving.",
         "Provide a Restore Default action that returns translation to the built-in Prompt behavior.",
         "Fall back to the default Prompt if the saved custom Prompt becomes invalid.",
-        "Verify Quick Text and Screenshot translation both use the active Prompt template."
+        "Verify Quick Text and Screenshot translation both use the active Prompt template.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-24",
@@ -338,7 +370,9 @@
         "Require source term and target term fields, with optional target language and context fields.",
         "Prevent duplicate source terms for the same target language.",
         "Inject only glossary entries that match the current source text into the translation Prompt.",
-        "Verify a matched glossary term changes the translation output or request Prompt while unmatched terms are not sent."
+        "Verify a matched glossary term changes the translation output or request Prompt while unmatched terms are not sent.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-06-24",
@@ -354,7 +388,9 @@
         "Allow users to edit the recognized text and retranslate without taking a new screenshot.",
         "Use the edited text, not the original OCR text, for the provider request.",
         "Save the edited source text in translation history when history is enabled.",
-        "Keep screenshot images local and do not add image persistence."
+        "Keep screenshot images local and do not add image persistence.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-07-03",
@@ -370,11 +406,27 @@
         "Support Screen Center, Mouse Nearby, and Last Position options.",
         "Keep Quick Text Translation defaulting to Screen Center.",
         "Keep Screenshot Translation preferring the screenshot region nearby when space allows, with a visible-screen fallback.",
-        "Persist the preference without changing privacy behavior or storing screenshot images."
+        "Persist the preference without changing privacy behavior or storing screenshot images.",
+        "When modifying this feature UI, verify the changed surface against DESIGN.md for native control choice, layout density, light/dark readability, loading/empty/error states, keyboard behavior, and long-text handling.",
+        "Record design verification evidence in notes after UI work: screenshot/manual review, real app smoke, or documented environment limitation. Do not use /Design prototypes as the baseline unless the user explicitly requested prototype alignment."
       ],
       "passes": true,
       "last_verified": "2026-07-03",
       "notes": "Implemented Settings > Translation > Floating Windows with Screen Center, Mouse Nearby, and Last Position. The saved preference is stored in UserDefaults and applies to Quick Text Translation plus Screenshot Translation result/error windows. With no explicit saved override, Quick Text keeps the existing Screen Center default while Screenshot Translation results prefer the in-memory selected screenshot region and clamp back inside the visible screen when space is constrained. Last Position stores only the translation window top-left point after user movement; no screenshot images, OCR source images, API Keys, selected screenshot rectangles, or provider/prompt/history behavior were persisted or changed. Verified with source-linked E2E Scripts/floating-window-position-preferences-e2e.swift covering default/invalid preference fallback, persistence, last-position storage, screen-center/mouse-nearby/last-position frame calculation, screenshot-region-nearby placement, constrained visible-screen fallback, and no image/screenRect/base64 preference persistence. Also ran git diff --check, feature_list.json JSON validation, ./init.sh Debug build/signing, and ./init.sh --run launch. Real GUI smoke for different preferences was attempted with a temporary AppKit CGEvent/CGWindowList helper after launch, but the current automation session did not deliver Cmd+Shift+T to Parrot, so no Quick Text window was observed; the focused E2E plus Debug build/run are the acceptance evidence in this environment."
+    }
+  ],
+  "conditional_reference_documents": [
+    {
+      "path": "Docs/ai-translation-macos-prd.md",
+      "use_when": "Only when the user explicitly requests PRD reference, alignment, review, or PRD/planning work."
+    },
+    {
+      "path": "Docs/ai-translation-macos-v1-prd.md",
+      "use_when": "Only when the user explicitly requests V1 PRD reference, alignment, review, or PRD/planning work."
+    },
+    {
+      "path": "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",
+      "use_when": "Only when the user explicitly requests this external PRD/source reference and access is available."
     }
   ]
 }

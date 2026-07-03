@@ -1,0 +1,211 @@
+<!DOCTYPE html><html class="light" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#dae1ff",
+                        "outline": "#727687",
+                        "surface-dim": "#dcd9dc",
+                        "on-surface-variant": "#424656",
+                        "surface-variant": "#e4e2e4",
+                        "on-tertiary-container": "#f8f8f8",
+                        "on-secondary-fixed": "#1a1c1d",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#b3c5ff",
+                        "tertiary": "#585a5a",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f6f3f5",
+                        "on-tertiary-fixed-variant": "#454747",
+                        "inverse-surface": "#303032",
+                        "on-error": "#ffffff",
+                        "surface-tint": "#0054d6",
+                        "surface-bright": "#fcf8fb",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#1b1b1d",
+                        "tertiary-fixed": "#e2e2e2",
+                        "surface": "#fcf8fb",
+                        "secondary-fixed": "#e2e2e4",
+                        "inverse-on-surface": "#f3f0f2",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-primary-fixed-variant": "#003fa4",
+                        "on-error-container": "#93000a",
+                        "secondary": "#5d5e60",
+                        "background": "#fcf8fb",
+                        "on-primary": "#ffffff",
+                        "secondary-container": "#dfdfe1",
+                        "on-secondary-fixed-variant": "#454749",
+                        "surface-container-highest": "#e4e2e4",
+                        "surface-container-lowest": "#ffffff",
+                        "primary": "#0050cb",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed-dim": "#c6c6c6",
+                        "on-primary-container": "#f8f7ff",
+                        "on-surface": "#1b1b1d",
+                        "on-primary-fixed": "#001849",
+                        "surface-container-high": "#eae7ea",
+                        "secondary-fixed-dim": "#c6c6c8",
+                        "on-secondary-container": "#616365",
+                        "primary-container": "#0066ff",
+                        "outline-variant": "#c2c6d8",
+                        "surface-container": "#f0edef",
+                        "tertiary-container": "#717272"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "20px",
+                        "margin": "32px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "xl": "40px",
+                        "lg": "24px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "display": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-sm": ["11px", {"lineHeight": "14px", "letterSpacing": "0.03em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    }catch(_e){}</script></head><body class="p-gutter flex items-center justify-center min-h-screen bg-[#E5E7EB]">
+    <!-- macOS Window Mockup -->
+    <div class="window-frame w-full max-w-5xl h-[720px] bg-background rounded-xl overflow-hidden flex flex-col border border-outline-variant/30">
+        <!-- Top App Bar (Header) -->
+        <header class="vibrancy-top grid grid-cols-3 items-center px-lg py-sm border-b border-outline-variant/20 z-10 sticky top-0">
+            <div class="flex items-center">
+                <!-- Traffic Lights -->
+                <div class="flex gap-xs">
+                    <div class="w-3 h-3 rounded-full bg-[#FF5F57]"></div>
+                    <div class="w-3 h-3 rounded-full bg-[#FFBD2E]"></div>
+                    <div class="w-3 h-3 rounded-full bg-[#28C840]"></div>
+                </div>
+            </div>
+            <div class="text-center">
+                <h1 class="font-label-md text-on-surface">Screenshot Translation</h1>
+            </div>
+            <div class="flex items-center justify-end gap-sm">
+                <button class="p-xs hover:bg-surface-container rounded transition-colors duration-150">
+                    <span class="material-symbols-outlined text-secondary text-[18px]">history</span>
+                </button>
+                <button class="p-xs hover:bg-surface-container rounded transition-colors duration-150">
+                    <span class="material-symbols-outlined text-secondary text-[18px]">settings</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            <main class="flex-1 overflow-y-auto bg-background flex flex-col">
+                <!-- Recognition Header -->
+                <div class="px-margin pt-lg pb-md max-w-4xl w-full mx-auto flex items-center gap-md">
+                    <div class="w-10 h-10 bg-primary-fixed flex items-center justify-center rounded-lg text-primary shrink-0">
+                        <span class="material-symbols-outlined text-[20px]">screenshot_region</span>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-headline-md text-on-background">Translation Result</h3>
+                        <p class="font-body-md text-on-surface-variant">Review and copy the extracted content.</p>
+                    </div>
+                </div>
+
+                <!-- Recognition Status Bento - Compressed -->
+                <div class="px-margin mb-md max-w-4xl w-full mx-auto">
+                    <div class="flex items-center gap-md bg-surface-container-low p-sm rounded-lg border border-outline-variant/30">
+                        <!-- Compact Image Preview -->
+                        <div class="w-20 h-10 bg-surface-container-highest rounded border border-outline-variant/50 flex items-center justify-center overflow-hidden shrink-0">
+                            <img class="w-full h-full object-cover opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQlGrJ0laPP5wq0V8fx9X052ucTh6paU1zhYMt7dZpJ8MYUMVMsUY14faRBGVQrnOjqIgLWGrEYfCx2DxBSl6I01WhiZTXd9s38sI8hSFopsHrd-i8z9iPMpjaw4EGA0Z9-DQs9rpvjXcgVszd9zkCLG_EVeJG9zqlggFIQmQ6ed4rUB10lPWH02NJPbjLCwJ3aiKDH2N1HTzjdwCbBi9Rm5kEBDaoyUp9YAYY6KwPqG5vK1iO82lc">
+                        </div>
+                        <!-- Integrated Recognition Info -->
+                        <div class="flex flex-1 items-center justify-between">
+                            <div class="flex items-center gap-sm">
+                                <span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">verified</span>
+                                <span class="font-label-md text-on-surface">On-device OCR complete</span>
+                            </div>
+                            <div class="flex items-center gap-xs">
+                                <span class="w-1.5 h-1.5 rounded-full bg-primary/40"></span>
+                                <span class="font-label-sm text-on-surface-variant">224, 487 (346x26)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Banner - Invisible Utility Style -->
+                <div class="px-margin mb-md max-w-4xl w-full mx-auto">
+                    <div class="bg-primary/5 border border-primary/10 rounded px-md py-xs inline-flex items-center gap-xs">
+                        <span class="material-symbols-outlined text-primary text-[14px]">info</span>
+                        <span class="font-label-sm text-primary">Translation ready</span>
+                    </div>
+                </div>
+
+                <!-- Translation Panes -->
+                <div class="px-margin flex-1 flex flex-col min-h-0 max-w-4xl w-full mx-auto mb-lg">
+                    <div class="grid grid-cols-2 gap-md h-full">
+                        <!-- Original Content -->
+                        <div class="flex flex-col gap-xs">
+                            <div class="flex items-center justify-between px-xs">
+                                <h4 class="font-label-sm text-on-surface-variant uppercase tracking-wider">Original</h4>
+                                <button class="text-primary font-label-sm hover:underline">Copy</button>
+                            </div>
+                            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-md font-body-lg text-on-surface leading-relaxed overflow-y-auto flex-1 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+                                Aime 内测交流8群<br>
+                                公开<br>
+                                16:55
+                            </div>
+                        </div>
+                        <!-- Translated Content -->
+                        <div class="flex flex-col gap-xs">
+                            <div class="flex items-center justify-between px-xs">
+                                <h4 class="font-label-sm text-on-surface-variant uppercase tracking-wider">Translation</h4>
+                                <button class="text-primary font-label-sm hover:underline">Copy</button>
+                            </div>
+                            <div class="bg-surface-container-lowest border border-primary/20 rounded-xl p-md font-body-lg text-on-surface leading-relaxed overflow-y-auto flex-1 shadow-[0_1px_3px_rgba(0,0,0,0.05)] ring-1 ring-primary/5">
+                                Aime Beta Exchange Group 8<br>
+                                Public<br>
+                                16:55
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions Footer Area -->
+                <div class="border-t border-outline-variant/10 bg-surface-container-low/50 sticky bottom-0 w-full z-10">
+    <div class="max-w-4xl mx-auto px-margin py-md flex items-center justify-between">
+        <div class="flex gap-sm">
+            <button class="bg-primary text-on-primary font-label-md px-lg py-2 rounded hover:bg-primary-container transition-colors shadow-sm">Copy Translation</button>
+            <button class="bg-surface-container-highest text-on-surface font-label-md px-lg py-2 rounded hover:bg-surface-variant transition-colors border border-outline-variant/20">Retry</button>
+        </div>
+        <button class="text-secondary font-label-md px-lg py-2 rounded hover:bg-surface-container transition-colors">Close</button>
+    </div>
+</div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Micro-interaction Script -->
+    <script class="">
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-[0.98]');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-[</script></body></html>
