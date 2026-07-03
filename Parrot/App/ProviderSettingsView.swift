@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProviderSettingsView: View {
-    private static let translationSectionHeight: CGFloat = 560
+    private static let translationSectionHeight: CGFloat = 600
     static let settingsContentWidth: CGFloat = 600
 
     enum Section: String, CaseIterable, Identifiable {
@@ -19,7 +19,7 @@ struct ProviderSettingsView: View {
             case .shortcuts:
                 return 620
             case .translation:
-                return 760
+                return 800
             case .privacy:
                 return 360
             }
@@ -32,6 +32,9 @@ struct ProviderSettingsView: View {
     @ObservedObject private var historyStore = TranslationHistoryStore.shared
     @State private var selectedSection: Section = .model
     @State private var translationStyle = TranslationStyle.loadSaved()
+    @State private var floatingWindowPositionPreference = FloatingWindowPositionPreference.loadSaved()
+    @State private var hasSavedFloatingWindowPositionPreference = FloatingWindowPositionPreference.hasSavedPreference()
+    @State private var floatingWindowPositionStatusMessage: String?
     @State private var promptPreferences = TranslationPromptPreferences.loadSaved()
     @State private var promptStatusMessage: String?
     @State private var isPromptStatusError = false
@@ -232,6 +235,10 @@ struct ProviderSettingsView: View {
 
                 Divider()
 
+                floatingWindowPositionSettings
+
+                Divider()
+
                 LabeledContent("Default Prompt") {
                     VStack(alignment: .leading, spacing: 6) {
                         TextEditor(text: .constant(TranslationPromptPreferences.defaultPromptTemplate))
@@ -293,6 +300,56 @@ struct ProviderSettingsView: View {
             .padding(.trailing, 4)
         }
         .frame(height: Self.translationSectionHeight)
+    }
+
+    private var floatingWindowPositionSettings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Floating Windows")
+                    .font(.headline)
+
+                Text(hasSavedFloatingWindowPositionPreference
+                     ? "Saved placement applies to Quick Text and Screenshot result windows."
+                     : "Workflow defaults are active: Quick Text opens centered; Screenshot results open near the selected region when possible.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            LabeledContent("Position") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("Window Position", selection: floatingWindowPositionBinding) {
+                        ForEach(FloatingWindowPositionPreference.allCases) { preference in
+                            Text(preference.displayName).tag(preference)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(minWidth: 360)
+
+                    Text(floatingWindowPositionPreference.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if let floatingWindowPositionStatusMessage {
+                StatusMessageView(message: floatingWindowPositionStatusMessage, isError: false)
+            }
+
+            HStack {
+                Button("Save Current Choice") {
+                    saveFloatingWindowPositionPreference(floatingWindowPositionPreference)
+                }
+
+                Button("Restore Workflow Defaults") {
+                    restoreFloatingWindowDefaults()
+                }
+
+                Spacer()
+            }
+        }
     }
 
     private var glossarySettings: some View {
@@ -447,6 +504,16 @@ struct ProviderSettingsView: View {
         )
     }
 
+    private var floatingWindowPositionBinding: Binding<FloatingWindowPositionPreference> {
+        Binding(
+            get: { floatingWindowPositionPreference },
+            set: { newValue in
+                floatingWindowPositionPreference = newValue
+                saveFloatingWindowPositionPreference(newValue)
+            }
+        )
+    }
+
     private var glossaryTargetLanguageBinding: Binding<String> {
         Binding(
             get: { glossaryDraft.targetLanguage?.rawValue ?? "" },
@@ -482,6 +549,19 @@ struct ProviderSettingsView: View {
         promptPreferences = .defaults
         promptStatusMessage = "Default Prompt restored. Translation uses the built-in Prompt behavior."
         isPromptStatusError = false
+    }
+
+    private func saveFloatingWindowPositionPreference(_ preference: FloatingWindowPositionPreference) {
+        preference.save()
+        hasSavedFloatingWindowPositionPreference = true
+        floatingWindowPositionStatusMessage = "\(preference.displayName) saved for translation windows."
+    }
+
+    private func restoreFloatingWindowDefaults() {
+        FloatingWindowPositionPreference.clearSavedPreference()
+        floatingWindowPositionPreference = FloatingWindowPositionPreference.loadSaved()
+        hasSavedFloatingWindowPositionPreference = false
+        floatingWindowPositionStatusMessage = "Workflow defaults restored."
     }
 
     private func saveGlossaryDraft() {

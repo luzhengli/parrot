@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindowController: NSWindowController?
     private var quickTextWindowController: NSWindowController?
@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var globalShortcutManager: GlobalShortcutManager?
     private var shortcutsMenuItem: NSMenuItem?
     private let screenshotOCRPipeline = ScreenshotOCRPipeline()
+    private var isApplyingFloatingWindowPlacement = false
     private lazy var screenshotSelectionController = ScreenshotSelectionController(
         completion: { [weak self] result in
             self?.handleScreenshotSelection(result)
@@ -146,8 +147,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let view = QuickTextTranslationView { [weak self] in
             self?.quickTextWindowController?.close()
         }
-        presentWindow(&quickTextWindowController, title: "Quick Text Translation", rootView: view)
-        quickTextWindowController?.window?.setContentSize(NSSize(width: 600, height: 560))
+        presentFloatingWindow(
+            &quickTextWindowController,
+            title: "Quick Text Translation",
+            rootView: view,
+            contentSize: NSSize(width: 600, height: 560),
+            placement: .quickText
+        )
     }
 
     @objc private func showScreenshotTranslation() {
@@ -251,6 +257,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller?.window?.makeKeyAndOrderFront(nil)
     }
 
+    private func presentFloatingWindow<Content: View>(
+        _ controller: inout NSWindowController?,
+        title: String,
+        rootView: Content,
+        contentSize: NSSize,
+        placement: FloatingWindowWorkflow
+    ) {
+        if controller == nil {
+            controller = makeWindowController(title: title, rootView: rootView)
+        }
+
+        guard let window = controller?.window else {
+            return
+        }
+
+        isApplyingFloatingWindowPlacement = true
+        window.setContentSize(contentSize)
+        isApplyingFloatingWindowPlacement = false
+        window.identifier = NSUserInterfaceItemIdentifier(placement.windowIdentifier)
+        window.delegate = self
+        applyFloatingWindowPlacement(to: window, placement: placement)
+
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.activate(ignoringOtherApps: true)
+        controller?.showWindow(nil)
+        window.makeKeyAndOrderFront(nil)
+    }
+
     private func makeWindowController<Content: View>(title: String, rootView: Content) -> NSWindowController {
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
@@ -261,6 +295,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
 
         return NSWindowController(window: window)
+    }
+
+    private func applyFloatingWindowPlacement(to window: NSWindow, placement: FloatingWindowWorkflow) {
+        let savedPreference = FloatingWindowPositionPreference.loadSavedOverride()
+        let visibleFrame = floatingWindowVisibleFrame(for: placement, savedPreference: savedPreference)
+        let mouseLocation = NSEvent.mouseLocation
+        let windowSize = window.frame.size
+        let targetFrame: CGRect
+
+        if let savedPreference {
+            targetFrame = FloatingWindowPositioning.frame(
+                for: savedPreference,
+                windowSize: windowSize,
+                visibleFrame: visibleFrame,
+                mouseLocation: mouseLocation,
+                lastTopLeft: FloatingWindowPositionPreference.loadLastTopLeft(),
+                nearbyAnchorRect: savedPreference == .mouseNearby
+                    ? CGRect(origin: mouseLocation, size: .zero)
+                    : nil
+            )
+        } else {
+            switch placement {
+            case .quickText, .screenshotError:
+                targetFrame = FloatingWindowPositioning.frame(
+                    for: .screenCenter,
+                    windowSize: windowSize,
+                    visibleFrame: visibleFrame,
+                    mouseLocation: mouseLocation
+                )
+            case .screenshotResult(let selectionRect):
+                targetFrame = FloatingWindowPositioning.frameNearAnchor(
+                    anchorRect: selectionRect,
+                    windowSize: windowSize,
+                    visibleFrame: visibleFrame
+                )
+            }
+        }
+
+        isApplyingFloatingWindowPlacement = true
+        window.setFrame(targetFrame, display: false)
+        isApplyingFloatingWindowPlacement = false
+    }
+
+    private func floatingWindowVisibleFrame(
+        for placement: FloatingWindowWorkflow,
+        savedPreference: FloatingWindowPositionPreference?
+    ) -> CGRect {
+        if savedPreference == .lastPosition,
+           let lastTopLeft = FloatingWindowPositionPreference.loadLastTopLeft(),
+           let screen = NSScreen.parrotScreen(containing: lastTopLeft) {
+            return screen.visibleFrame
+        }
+
+        if savedPreference == .mouseNearby,
+           let screen = NSScreen.parrotScreen(containing: NSEvent.mouseLocation) {
+            return screen.visibleFrame
+        }
+
+        if case .screenshotResult(let selectionRect) = placement,
+           let screen = NSScreen.parrotScreen(intersecting: selectionRect) {
+            return screen.visibleFrame
+        }
+
+        if let screen = NSScreen.parrotScreen(containing: NSEvent.mouseLocation) ?? NSScreen.main {
+            return screen.visibleFrame
+        }
+
+        return NSScreen.screens.first?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1024, height: 768)
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        guard !isApplyingFloatingWindowPlacement,
+              let window = notification.object as? NSWindow,
+              FloatingWindowWorkflow.isTrackedWindow(window)
+        else {
+            return
+        }
+
+        FloatingWindowPositionPreference.saveLastTopLeft(
+            CGPoint(x: window.frame.minX, y: window.frame.maxY)
+        )
     }
 
     private func handleScreenshotSelection(_ result: ScreenshotSelectionResult) {
@@ -276,12 +391,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showScreenshotTranslation()
             }
         )
-        screenshotWindowController = makeWindowController(title: "Screenshot Translation", rootView: view)
-        screenshotWindowController?.window?.setContentSize(NSSize(width: 800, height: 620))
-
-        NSApp.activate(ignoringOtherApps: true)
-        screenshotWindowController?.showWindow(nil)
-        screenshotWindowController?.window?.makeKeyAndOrderFront(nil)
+        screenshotWindowController?.close()
+        screenshotWindowController = nil
+        presentFloatingWindow(
+            &screenshotWindowController,
+            title: "Screenshot Translation",
+            rootView: view,
+            contentSize: NSSize(width: 800, height: 620),
+            placement: .screenshotResult(result.screenRect)
+        )
     }
 
     private func showScreenshotSelectionError(_ message: String) {
@@ -298,19 +416,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.screenshotWindowController?.close()
             }
         )
-        screenshotWindowController = makeWindowController(title: "Screenshot Translation", rootView: view)
-        screenshotWindowController?.window?.setContentSize(NSSize(width: 520, height: 320))
-
-        NSApp.setActivationPolicy(.accessory)
-        NSApp.activate(ignoringOtherApps: true)
-        screenshotWindowController?.showWindow(nil)
-        screenshotWindowController?.window?.makeKeyAndOrderFront(nil)
+        screenshotWindowController?.close()
+        screenshotWindowController = nil
+        presentFloatingWindow(
+            &screenshotWindowController,
+            title: "Screenshot Translation",
+            rootView: view,
+            contentSize: NSSize(width: 520, height: 320),
+            placement: .screenshotError
+        )
     }
 
     private static func openScreenRecordingSettings() {
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
             ?? URL(fileURLWithPath: "/System/Applications/System Settings.app")
         NSWorkspace.shared.open(url)
+    }
+}
+
+private enum FloatingWindowWorkflow {
+    case quickText
+    case screenshotResult(CGRect)
+    case screenshotError
+
+    static let quickTextIdentifier = "ParrotQuickTextTranslationWindow"
+    static let screenshotIdentifier = "ParrotScreenshotTranslationWindow"
+
+    var windowIdentifier: String {
+        switch self {
+        case .quickText:
+            return Self.quickTextIdentifier
+        case .screenshotResult, .screenshotError:
+            return Self.screenshotIdentifier
+        }
+    }
+
+    static func isTrackedWindow(_ window: NSWindow) -> Bool {
+        guard let identifier = window.identifier?.rawValue else {
+            return false
+        }
+
+        return identifier == quickTextIdentifier || identifier == screenshotIdentifier
+    }
+}
+
+private extension NSScreen {
+    static func parrotScreen(containing point: CGPoint) -> NSScreen? {
+        screens.first { $0.frame.contains(point) }
+    }
+
+    static func parrotScreen(intersecting rect: CGRect) -> NSScreen? {
+        screens
+            .map { screen in
+                (screen: screen, area: screen.frame.intersection(rect).area)
+            }
+            .filter { !$0.area.isZero }
+            .max { $0.area < $1.area }?
+            .screen
+    }
+}
+
+private extension CGRect {
+    var area: CGFloat {
+        guard !isNull, !isEmpty else {
+            return 0
+        }
+
+        return width * height
     }
 }
 

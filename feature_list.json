@@ -372,9 +372,9 @@
         "Keep Screenshot Translation preferring the screenshot region nearby when space allows, with a visible-screen fallback.",
         "Persist the preference without changing privacy behavior or storing screenshot images."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md. Lower priority than settings shortcut, language controls, Prompt, glossary, and OCR text editing because it affects comfort more than translation correctness."
+      "passes": true,
+      "last_verified": "2026-07-03",
+      "notes": "Implemented Settings > Translation > Floating Windows with Screen Center, Mouse Nearby, and Last Position. The saved preference is stored in UserDefaults and applies to Quick Text Translation plus Screenshot Translation result/error windows. With no explicit saved override, Quick Text keeps the existing Screen Center default while Screenshot Translation results prefer the in-memory selected screenshot region and clamp back inside the visible screen when space is constrained. Last Position stores only the translation window top-left point after user movement; no screenshot images, OCR source images, API Keys, selected screenshot rectangles, or provider/prompt/history behavior were persisted or changed. Verified with source-linked E2E Scripts/floating-window-position-preferences-e2e.swift covering default/invalid preference fallback, persistence, last-position storage, screen-center/mouse-nearby/last-position frame calculation, screenshot-region-nearby placement, constrained visible-screen fallback, and no image/screenRect/base64 preference persistence. Also ran git diff --check, feature_list.json JSON validation, ./init.sh Debug build/signing, and ./init.sh --run launch. Real GUI smoke for different preferences was attempted with a temporary AppKit CGEvent/CGWindowList helper after launch, but the current automation session did not deliver Cmd+Shift+T to Parrot, so no Quick Text window was observed; the focused E2E plus Debug build/run are the acceptance evidence in this environment."
     }
   ]
 }
