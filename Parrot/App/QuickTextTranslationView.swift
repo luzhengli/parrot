@@ -117,26 +117,21 @@ struct QuickTextTranslationView: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-            languageControls
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                header
+                languageControls
+                inputView
+                statusView
+                resultView
+            }
+            .padding(20)
 
-            QuickTextEditor(
-                text: $store.sourceText,
-                placeholder: "Paste or type text to translate...",
-                onTranslate: startTranslation,
-                onCopyAndClose: copyAndClose,
-                onClear: store.clear,
-                onCancel: onClose
-            )
-            .frame(height: 120)
+            Spacer(minLength: 0)
 
-            statusView
-            resultView
             footer
         }
-        .padding(20)
-        .frame(width: 620)
+        .frame(width: 760, height: 600, alignment: .top)
         .onChange(of: store.languagePreferences) { _, newValue in
             newValue.save()
         }
@@ -144,20 +139,11 @@ struct QuickTextTranslationView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Image(systemName: "text.cursor")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(.tint)
-
-                Text("Quick Text Translation")
-                    .font(.title3.bold())
-            }
-
-            Text("Enter translates, Cmd+Enter copies the translation and closes, Esc closes.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
+        ParrotSurfaceHeader(
+            systemImageName: "text.cursor",
+            title: "Quick Text Translation",
+            subtitle: "Enter translates, Cmd+Enter copies the translation and closes, Esc closes."
+        )
     }
 
     private var languageControls: some View {
@@ -175,64 +161,96 @@ struct QuickTextTranslationView: View {
     @ViewBuilder
     private var statusView: some View {
         if let error = store.errorPresentation {
-            QuickStatusBanner(
-                style: .error,
+            ParrotStatusBanner(
+                kind: .error,
                 title: error.title,
                 message: "\(error.message) \(error.recoverySuggestion)"
             )
+        } else if store.isTranslating {
+            ParrotStatusBanner(
+                kind: .progress,
+                message: store.statusMessage ?? "Translating with the configured provider..."
+            )
         } else if let statusMessage = store.statusMessage {
-            QuickStatusBanner(
-                style: .success,
-                title: nil,
+            ParrotStatusBanner(
+                kind: .success,
                 message: statusMessage
             )
         }
     }
 
+    private var inputView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ParrotFieldLabel(title: "Input Text")
+
+            QuickTextEditor(
+                text: $store.sourceText,
+                placeholder: "Paste or type text to translate...",
+                onTranslate: startTranslation,
+                onCopyAndClose: copyAndClose,
+                onClear: store.clear,
+                onCancel: onClose
+            )
+            .frame(height: 116)
+            .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
+        }
+    }
+
     @ViewBuilder
     private var resultView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Translation")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 6) {
+            ParrotFieldLabel(title: "Translation")
 
             ReadOnlyTranslationTextView(
                 text: store.translatedText,
-                placeholder: store.isTranslating ? "Waiting for translated text..." : ""
+                placeholder: translationPlaceholder
             )
-            .frame(height: 170)
-            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+            .frame(height: 136)
+            .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
     }
 
     private var footer: some View {
-        HStack {
+        ParrotFooterBar {
             Button("Translate") {
                 startTranslation()
             }
             .disabled(!store.canTranslate)
+            .buttonStyle(.borderedProminent)
 
             Button("Copy Translation") {
                 _ = store.copyTranslation()
             }
             .disabled(!store.canCopyTranslation)
 
-            Button("Retry") {
-                startTranslation()
+            if store.canRetry {
+                Button("Retry") {
+                    startTranslation()
+                }
             }
-            .disabled(!store.canRetry)
 
             Button("Clear") {
                 store.clear()
             }
             .keyboardShortcut("k", modifiers: [.command])
-
-            Spacer()
-
+        } trailing: {
             Button("Close") {
                 onClose()
             }
             .keyboardShortcut(.cancelAction)
         }
+    }
+
+    private var translationPlaceholder: String {
+        if store.isTranslating {
+            return "Waiting for translated text..."
+        }
+
+        if store.isStatusError {
+            return "Translation failed. Press Retry after checking settings or network."
+        }
+
+        return "Translation appears here."
     }
 
     private func startTranslation() {
@@ -264,7 +282,7 @@ struct TranslationLanguageControls: View {
     let onRetranslate: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 8) {
             languagePicker(title: "Source", selection: $preferences.sourceLanguage)
 
             Button {
@@ -276,11 +294,21 @@ struct TranslationLanguageControls: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
-            .background(.quaternary.opacity(0.7), in: Circle())
+            .background(Color(nsColor: .controlBackgroundColor), in: Circle())
+            .overlay {
+                Circle()
+                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+            }
             .help("Swap source and target languages")
             .disabled(isTranslating)
 
             languagePicker(title: "Target", selection: $preferences.targetLanguage)
+
+            Divider()
+                .frame(height: 24)
+
+            languageHint
+                .layoutPriority(1)
 
             Spacer(minLength: 4)
 
@@ -293,14 +321,9 @@ struct TranslationLanguageControls: View {
             .controlSize(.small)
             .disabled(!canRetranslate)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(.quaternary.opacity(0.28), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(alignment: .bottomLeading) {
-            languageHint
-                .offset(x: 12, y: 18)
-        }
-        .padding(.bottom, validationMessage == nil ? 14 : 22)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
 
     private func languagePicker(
@@ -308,9 +331,7 @@ struct TranslationLanguageControls: View {
         selection: Binding<TranslationSourceSelection>
     ) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
+            ParrotFieldLabel(title: title)
 
             Picker(title, selection: selection) {
                 ForEach(TranslationSourceSelection.allCases) { language in
@@ -320,7 +341,7 @@ struct TranslationLanguageControls: View {
             .labelsHidden()
             .pickerStyle(.menu)
             .controlSize(.small)
-            .frame(width: 132)
+            .frame(width: 118)
         }
     }
 
@@ -329,9 +350,7 @@ struct TranslationLanguageControls: View {
         selection: Binding<TranslationTargetSelection>
     ) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
+            ParrotFieldLabel(title: title)
 
             Picker(title, selection: selection) {
                 ForEach(TranslationTargetSelection.allCases) { language in
@@ -341,7 +360,7 @@ struct TranslationLanguageControls: View {
             .labelsHidden()
             .pickerStyle(.menu)
             .controlSize(.small)
-            .frame(width: 148)
+            .frame(width: 132)
         }
     }
 
@@ -359,65 +378,6 @@ struct TranslationLanguageControls: View {
     }
 }
 
-private struct QuickStatusBanner: View {
-    enum Style: Equatable {
-        case success
-        case error
-
-        var iconName: String {
-            switch self {
-            case .success:
-                return "checkmark.circle.fill"
-            case .error:
-                return "exclamationmark.triangle.fill"
-            }
-        }
-
-        var iconColor: Color {
-            switch self {
-            case .success:
-                return .green
-            case .error:
-                return .orange
-            }
-        }
-    }
-
-    let style: Style
-    let title: String?
-    let message: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: style.iconName)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(style.iconColor)
-                .frame(width: 22, height: 22, alignment: .top)
-
-            VStack(alignment: .leading, spacing: 3) {
-                if let title {
-                    Text(title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Text(message)
-                    .font(.system(size: 13))
-                    .foregroundStyle(style == .error ? .primary : .secondary)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutPriority(1)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
 private struct QuickTextEditor: NSViewRepresentable {
     @Binding var text: String
     let placeholder: String
@@ -429,12 +389,17 @@ private struct QuickTextEditor: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
-        scrollView.borderType = .bezelBorder
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
 
         let textView = KeyHandlingTextView()
         textView.delegate = context.coordinator
         textView.font = .systemFont(ofSize: NSFont.systemFontSize)
         textView.string = text
+        textView.drawsBackground = false
+        textView.textContainerInset = NSSize(width: 10, height: 10)
+        textView.textContainer?.widthTracksTextView = true
+        textView.autoresizingMask = [.width]
         textView.isRichText = false
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false

@@ -51,22 +51,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(makeMenuItem(
             title: "Quick Text Translation",
             action: #selector(showQuickTextTranslation),
-            keyEquivalent: ""
+            keyEquivalent: "",
+            systemImageName: "text.cursor"
         ))
         menu.addItem(makeMenuItem(
             title: "Screenshot Translation",
             action: #selector(showScreenshotTranslation),
-            keyEquivalent: ""
+            keyEquivalent: "",
+            systemImageName: "text.viewfinder"
         ))
         menu.addItem(makeMenuItem(
             title: "Translation History",
             action: #selector(showTranslationHistory),
-            keyEquivalent: ""
+            keyEquivalent: "",
+            systemImageName: "clock.arrow.circlepath"
         ))
         let shortcutsMenuItem = makeMenuItem(
             title: "Pause Shortcuts",
             action: #selector(toggleShortcuts),
-            keyEquivalent: ""
+            keyEquivalent: "",
+            systemImageName: "pause.circle"
         )
         self.shortcutsMenuItem = shortcutsMenuItem
         menu.addItem(shortcutsMenuItem)
@@ -74,21 +78,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(makeMenuItem(
             title: "Settings",
             action: #selector(showSettings),
-            keyEquivalent: ","
+            keyEquivalent: ",",
+            systemImageName: "gearshape"
         ))
         menu.addItem(.separator())
         menu.addItem(makeMenuItem(
             title: "Quit Parrot",
             action: #selector(quitParrot),
-            keyEquivalent: "q"
+            keyEquivalent: "q",
+            systemImageName: "power"
         ))
 
         return menu
     }
 
-    private func makeMenuItem(title: String, action: Selector, keyEquivalent: String) -> NSMenuItem {
+    private func makeMenuItem(
+        title: String,
+        action: Selector,
+        keyEquivalent: String,
+        systemImageName: String? = nil
+    ) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
         item.target = self
+        if let systemImageName,
+           let image = NSImage(systemSymbolName: systemImageName, accessibilityDescription: title) {
+            image.isTemplate = true
+            item.image = image
+        }
         return item
     }
 
@@ -125,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             shortcutsMenuItem.title = "Shortcuts Unavailable"
             shortcutsMenuItem.isEnabled = false
             shortcutsMenuItem.toolTip = nil
+            shortcutsMenuItem.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Shortcuts unavailable")
             return
         }
 
@@ -132,14 +149,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             shortcutsMenuItem.title = "Shortcuts Unavailable"
             shortcutsMenuItem.isEnabled = false
             shortcutsMenuItem.toolTip = error
+            shortcutsMenuItem.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Shortcuts unavailable")
         } else if globalShortcutManager.isPaused {
             shortcutsMenuItem.title = "Resume Shortcuts"
             shortcutsMenuItem.isEnabled = true
             shortcutsMenuItem.toolTip = nil
+            shortcutsMenuItem.image = NSImage(systemSymbolName: "play.circle", accessibilityDescription: "Resume shortcuts")
         } else {
             shortcutsMenuItem.title = "Pause Shortcuts"
             shortcutsMenuItem.isEnabled = true
             shortcutsMenuItem.toolTip = nil
+            shortcutsMenuItem.image = NSImage(systemSymbolName: "pause.circle", accessibilityDescription: "Pause shortcuts")
         }
     }
 
@@ -151,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             &quickTextWindowController,
             title: "Quick Text Translation",
             rootView: view,
-            contentSize: NSSize(width: 600, height: 560),
+            contentSize: NSSize(width: 760, height: 600),
             placement: .quickText
         )
     }
@@ -176,6 +196,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             },
             onSectionChanged: { [weak self] section in
                 self?.resizeSettingsWindow(for: section, animate: true)
+            },
+            onOpenQuickText: { [weak self] in
+                self?.showQuickTextTranslation()
+            },
+            onOpenScreenshot: { [weak self] in
+                self?.showScreenshotTranslation()
+            },
+            onOpenHistory: { [weak self] in
+                self?.showTranslationHistory()
             }
         )
         presentWindow(&settingsWindowController, title: "Settings", rootView: view)
@@ -397,7 +426,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             &screenshotWindowController,
             title: "Screenshot Translation",
             rootView: view,
-            contentSize: NSSize(width: 800, height: 620),
+            contentSize: NSSize(width: 900, height: 680),
             placement: .screenshotResult(result.screenRect)
         )
     }
@@ -422,7 +451,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             &screenshotWindowController,
             title: "Screenshot Translation",
             rootView: view,
-            contentSize: NSSize(width: 520, height: 320),
+            contentSize: NSSize(width: 560, height: 360),
             placement: .screenshotError
         )
     }
@@ -546,32 +575,29 @@ struct ScreenshotCaptureErrorView: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(.orange)
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                ParrotSurfaceHeader(
+                    systemImageName: "exclamationmark.triangle.fill",
+                    title: "Screenshot Capture Failed",
+                    subtitle: "Parrot needs Screen Recording permission to capture other apps."
+                )
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Screenshot Capture Failed")
-                        .font(.title3.bold())
+                Text(message)
+                    .font(.callout)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                    Text("Parrot needs Screen Recording permission to capture other apps.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+                ParrotStatusBanner(
+                    kind: .warning,
+                    message: "Open System Settings > Privacy & Security > Screen Recording, enable Parrot, then return here and use Retry."
+                )
             }
+            .padding(20)
 
-            Text(message)
-                .font(.body)
-                .textSelection(.enabled)
+            Spacer(minLength: 0)
 
-            Text("Open System Settings > Privacy & Security > Screen Recording, enable Parrot, then return here and use Retry.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-
-            HStack {
+            ParrotFooterBar {
                 Button("Open Screen Recording Settings") {
                     onOpenSettings()
                 }
@@ -579,17 +605,14 @@ struct ScreenshotCaptureErrorView: View {
                 Button("Retry") {
                     onRetry()
                 }
-
-                Spacer()
-
+            } trailing: {
                 Button("Close") {
                     onClose()
                 }
                 .keyboardShortcut(.cancelAction)
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(width: 560, height: 360, alignment: .top)
         .onExitCommand(perform: onClose)
     }
 }

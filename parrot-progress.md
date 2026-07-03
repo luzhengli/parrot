@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-- 日期：2026-07-03
+- 日期：2026-07-04
 - 项目形态：macOS SwiftUI App scaffold
 - Xcode 工程：`Parrot.xcodeproj`
 - Scheme：`Parrot`
@@ -14,6 +14,8 @@
 - 2026-07-03 最新补充：浮窗位置偏好已接入 Settings > Translation > Floating Windows，支持 `Screen Center`、`Mouse Nearby`、`Last Position`。未保存显式偏好时 Quick Text 继续默认居中，Screenshot Translation 结果窗口优先靠近本次内存中的截图选区并在空间不足时夹回可见屏幕；保存显式偏好后 Quick Text 和 Screenshot Translation 都按该偏好出现。Last Position 只保存用户移动后的翻译窗口 top-left 点，不保存截图图片、截图选区、OCR 图片或 API Key。已通过源码链接 E2E `Scripts/floating-window-position-preferences-e2e.swift`、`git diff --check`、JSON 校验、`./init.sh` Debug 构建和 `./init.sh --run` 启动验证；真实不同偏好快捷键 smoke 已用临时 CGEvent/CGWindowList helper 尝试，但当前自动化会话未能把 `Cmd+Shift+T` 投递给 Parrot，未观察到 Quick Text 窗口，记录为环境限制。
 - 2026-07-03 最新补充：引入 Design Harness。根目录 `DESIGN.md` 是所有 UI/UX 工作的强制设计规范源和团队级共享设计契约；PRD 与 `/Design` 一样可能滞后于真实代码，均为条件参考资产，只有用户显式要求 PRD 参考/对齐/审计或原型/重构对照时才使用。`/Design` 目录当前包含 `quick_text_translation`、`screenshot_translation`、`settings` 三个未来一次性重构参考页面，每页各有 `code.html` 和 `screen.png`；这些资产滞后于真实代码、遵循 `DESIGN.md`，日常 feature 开发默认不引用。`AGENTS.md` 新增 Design Harness 路由和冲突优先级，`Design/README.md` 新增资产索引与用途声明，`feature_list.json` 新增 `foundation.design-system-harness` 并给 UI 类 feature 追加未来设计验证要求。
 - 2026-07-03 最新补充：根据后续 harness 调整，PRD 不再作为默认产品行为依据，也不参与日常冲突裁决。日常开发默认以当前代码、`feature_list.json`、`parrot-progress.md` 和用户当前指令为准；只有用户显式要求 PRD 参考/对齐/审计，或任务本身是 PRD/规划工作时才读取 PRD。
+- 2026-07-04 最新补充：完成一次 DESIGN.md + `/Design` 明确参考范围内的 UI/UX 重构。已阅读 `AGENTS.md`、`parrot-progress.md`、`feature_list.json`、`DESIGN.md`、`Design/README.md`，并检查 `Design/quick_text_translation`、`Design/screenshot_translation`、`Design/settings` 的 HTML 与 PNG。取舍：`DESIGN.md` 和 macOS 原生体验优先于 Web 原型细节，未硬编码 Inter/Tailwind 样式，未引入重型 UI 框架，未改变 Keychain、本地 OCR、截图不上传、历史 text-only 等隐私边界。新增共享原生 UI 组件，统一 header、状态条、面板、空状态和底部动作栏；优化菜单栏菜单图标、Quick Text、语言控制、截图结果/权限错误、截图框选 overlay、Settings/Provider/Shortcuts/Translation/Glossary/Privacy、历史窗口和详情页。验证：`git diff --check`、`feature_list.json` JSON 解析、`./init.sh` Debug build/signing、`./init.sh --run` 启动、`/private/tmp/parrot-ui-view-smoke`、`custom-shortcuts-e2e`、`ocr-source-text-editing-e2e`、`parrot-history-persistence-smoke` 均通过。已知限制：当前自动化会话用 CGEvent 投递真实全局快捷键时出现 `hiservices-xpcservice` 警告，未能打开窗口；`translation-history-e2e` 仍只在已知 `NSPasteboard` 复制断言失败。`pgrep` 确认 Debug Parrot 进程运行，`codesign -dr -` 确认 Debug App designated requirement 为 `identifier "com.example.parrot"`。
+- 2026-07-04 HTML 二次对照补充：根据用户提醒重新以 `code.html` 为准核对 `/Design`，不是只看 `screen.png`。Quick Text 改为 `760x600` 目标内容尺寸，压缩为固定 footer + 一行语言工具条 + 更接近 HTML 的输入/状态/结果节奏，避免底部按钮被挤压；Screenshot Translation 压缩 OCR 预览/状态摘要，保留可编辑原文和双栏对照；Settings 改为 `/Design/settings/code.html` 的左侧导航壳，左侧 Quick Text/Screenshot/History 是真实现有动作，Settings 下 Model/Shortcuts/Translation/Privacy 为当前窗口子分区。验证：`./init.sh`、`./init.sh --run`、`custom-shortcuts-e2e`、`keychain-cache-e2e`、`ocr-source-text-editing-e2e`、`/private/tmp/parrot-ui-adversarial-smoke` 均通过；对抗性 smoke 覆盖长中英混合文本、窗口目标尺寸、历史 JSON 不含 `image`/`screenRect`/`base64`。真实 CGEvent 打开 Settings 仍被当前会话 `hiservices-xpcservice` 限制，记录为环境限制。
 
 ## 启动就绪清单
 
@@ -134,6 +136,22 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-07-04 - 基于 DESIGN.md 和 /Design 原型重构 UI/UX
+
+- 读取并对齐 `AGENTS.md`、`parrot-progress.md`、`feature_list.json`、`DESIGN.md`、`Design/README.md`，并明确参考 `Design/quick_text_translation`、`Design/screenshot_translation`、`Design/settings` 的 `code.html` 与 `screen.png`。
+- 决策：以 `DESIGN.md` 的“disappearing utility”与 macOS HIG 为准，`/Design` 只提取信息层级和布局参考。Web 原型里的 Inter、Tailwind、Material Symbols、强模拟窗口 chrome 和网页式侧边栏不直接移植；SwiftUI/AppKit 继续使用系统字体、语义色、原生控件、低装饰 tonal panels 和不超过 8px 的圆角。
+- 新增 `ParrotUIComponents.swift`，提供共享的 `ParrotSurfaceHeader`、`ParrotStatusBanner`、`ParrotEmptyState`、`ParrotFooterBar`、`ParrotFieldLabel` 和 `parrotPanel`，减少 Quick Text、截图结果、Settings、历史和错误窗口各自维护状态/面板样式的重复。
+- 菜单栏入口：状态菜单项增加原生 SF Symbols 图标，并为 Pause/Resume/Unavailable 状态同步图标；不改变 `NSStatusItem`、菜单 action 或全局快捷键路由。
+- Quick Text：根据 `Design/quick_text_translation/code.html` 的 header/main/footer 结构，窗口目标内容尺寸改为 `760x600`，语言控制压成一行原生工具条，Input Text、状态条、Translation 和底部动作栏按固定节奏排列；输入和结果区继续使用 AppKit `NSTextView`，保留 Enter、Cmd+Enter、Cmd+K、Esc 与流式翻译路径。
+- 截图/OCR 与结果窗口：截图框选 overlay 改为更清晰的遮罩、圆角选区边框、尺寸 badge 和居中提示；截图结果窗口增至 `900x680`，采用紧凑 OCR 摘要、统一状态条和双栏 Original/Translation 对照，Original 仍可编辑，Translation 仍只读。根据 `Design/screenshot_translation/code.html` 二次压缩预览图和 OCR 信息行，减少状态区对双栏工作区的挤压。
+- Settings/Provider/Shortcuts/Translation/Glossary/Privacy：Settings 内容宽度增至 900，并按 `Design/settings/code.html` 改成左侧导航壳。左侧 Quick Text、Screenshot、History 是接入现有真实窗口/流程的快捷动作；Model、Shortcuts、Translation、Privacy 是 Settings 内子分区。Provider、Prompt、Floating Windows、Glossary、Shortcuts 和 Privacy 的提示、空状态、行分组与状态条统一到共享 native 样式。
+- 历史记录：窗口增至 `760x580`，新增统一空状态，记录行和详情 sheet 使用 shared panel/status/footer 样式；历史存储仍为本地 text-only JSON，不保存截图图片、几何信息或 API Key。
+- 权限错误：Screen Recording 权限错误窗口改为 header、说明、warning 状态条和底部操作栏；首轮系统级权限提示与后续 Parrot 指引的状态机未改变。
+- 隐私边界：本次未修改 Provider 请求、Keychain secret 存储、OCR 图片处理、截图上传策略、历史 JSON 业务字段、bundle id、签名团队、部署目标或 Release 流程。
+- 验证：`git diff --check` 通过；`ruby -rjson -e 'JSON.parse(File.read("feature_list.json"))'` 通过；`./init.sh` 通过 Debug build 和本地 signing；`./init.sh --run` 成功构建、签名并打开固定 Debug App；`/private/tmp/parrot-ui-adversarial-smoke` 通过 Quick Text、Screenshot result、Settings、History 的 SwiftUI/AppKit view smoke，并覆盖长中英混合文本、窗口目标尺寸、历史 JSON 不含 `image`/`screenRect`/`base64`；`custom-shortcuts-e2e`、`keychain-cache-e2e`、`ocr-source-text-editing-e2e` 通过。
+- 验证限制：当前自动化会话运行 CGEvent 快捷键 smoke 时出现 `hiservices-xpcservice` 连接警告，未能通过合成 `Cmd+Option+,` 观察到 Settings 窗口打开；`pgrep -fl Parrot` 确认 Debug Parrot 进程存在，`codesign -dr - .DerivedData/Build/Products/Debug/Parrot.app` 确认 designated requirement 为 `identifier "com.example.parrot"`。`translation-history-e2e` 仍只在 `NSPasteboard` 复制断言失败，与此前已知环境限制一致；本轮用 text-only 持久化 smoke 覆盖历史 JSON 验收。`keychain-cache-e2e` 同步修正了 fake Keychain 对 `LAContext.interactionNotAllowed` 读回值的脆弱断言，当前 SDK 下该属性设为 true 后读回仍为 false，因此测试改为断言查询带 `LAContext` 且设置 `kSecUseAuthenticationUIFail`。
+- 已更新 `feature_list.json`：新增 `foundation.design-guided-ui-ux-refactor` 并标记通过，相关 UI feature 追加 2026-07-04 设计验证备注与 `last_verified`。
 
 ### 2026-07-03 - 实现浮窗位置偏好
 

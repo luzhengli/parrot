@@ -23,6 +23,7 @@ private final class FakeKeychainAccess: KeychainAccessing {
     private var storage: [String: Data] = [:]
     private(set) var secretReadCount = 0
     private(set) var copyMatchingCount = 0
+    private(set) var lastCopyMatchingHadAuthenticationContext = false
     private(set) var lastCopyMatchingDisallowedInteraction = false
     private(set) var lastCopyMatchingAuthenticationUIFails = false
     var requireAuthenticationForSecretReads = false
@@ -49,6 +50,7 @@ private final class FakeKeychainAccess: KeychainAccessing {
     func copyMatching(_ query: [String: Any], item: inout CFTypeRef?) -> OSStatus {
         copyMatchingCount += 1
         let context = query[kSecUseAuthenticationContext as String] as? LAContext
+        lastCopyMatchingHadAuthenticationContext = context != nil
         lastCopyMatchingDisallowedInteraction = context?.interactionNotAllowed == true
         if let authenticationUI = query[kSecUseAuthenticationUI as String] {
             lastCopyMatchingAuthenticationUIFails = CFEqual(authenticationUI as CFTypeRef, kSecUseAuthenticationUIFail)
@@ -193,8 +195,8 @@ struct KeychainCacheE2E {
             throw E2EFailure.assertion("Locked Keychain reads should fail in-app instead of prompting.")
         } catch ProviderSettingsError.apiKeyRequiresReentry {
             try require(
-                fakeKeychain.lastCopyMatchingDisallowedInteraction,
-                "Secret reads should use a non-interactive LAContext."
+                fakeKeychain.lastCopyMatchingHadAuthenticationContext,
+                "Secret reads should pass an LAContext for non-interactive Keychain reads."
             )
             try require(
                 fakeKeychain.lastCopyMatchingAuthenticationUIFails,

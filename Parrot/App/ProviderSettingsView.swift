@@ -1,8 +1,9 @@
+import AppKit
 import SwiftUI
 
 struct ProviderSettingsView: View {
-    private static let translationSectionHeight: CGFloat = 600
-    static let settingsContentWidth: CGFloat = 600
+    private static let translationSectionHeight: CGFloat = 660
+    static let settingsContentWidth: CGFloat = 900
 
     enum Section: String, CaseIterable, Identifiable {
         case model = "Model"
@@ -15,13 +16,26 @@ struct ProviderSettingsView: View {
         var contentHeight: CGFloat {
             switch self {
             case .model:
-                return 520
-            case .shortcuts:
                 return 620
+            case .shortcuts:
+                return 660
             case .translation:
-                return 800
+                return 860
             case .privacy:
-                return 360
+                return 430
+            }
+        }
+
+        var iconName: String {
+            switch self {
+            case .model:
+                return "cpu"
+            case .shortcuts:
+                return "keyboard"
+            case .translation:
+                return "text.bubble"
+            case .privacy:
+                return "lock.shield"
             }
         }
     }
@@ -44,36 +58,127 @@ struct ProviderSettingsView: View {
 
     let onShortcutsSaved: () -> Void
     let onSectionChanged: (Section) -> Void
+    let onOpenQuickText: () -> Void
+    let onOpenScreenshot: () -> Void
+    let onOpenHistory: () -> Void
 
     init(
         onShortcutsSaved: @escaping () -> Void = {},
-        onSectionChanged: @escaping (Section) -> Void = { _ in }
+        onSectionChanged: @escaping (Section) -> Void = { _ in },
+        onOpenQuickText: @escaping () -> Void = {},
+        onOpenScreenshot: @escaping () -> Void = {},
+        onOpenHistory: @escaping () -> Void = {}
     ) {
         self.onShortcutsSaved = onShortcutsSaved
         self.onSectionChanged = onSectionChanged
+        self.onOpenQuickText = onOpenQuickText
+        self.onOpenScreenshot = onOpenScreenshot
+        self.onOpenHistory = onOpenHistory
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header
-
-            Picker("Settings Section", selection: $selectedSection) {
-                ForEach(Section.allCases) { section in
-                    Text(section.rawValue).tag(section)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-
+        HStack(spacing: 0) {
+            sidebar
             Divider()
 
-            selectedSettingsSection
+            VStack(alignment: .leading, spacing: 18) {
+                header
+
+                selectedSettingsSection
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Color(nsColor: .windowBackgroundColor))
         }
-        .padding(24)
         .frame(width: Self.settingsContentWidth, height: selectedSection.contentHeight, alignment: .top)
-        .onChange(of: selectedSection) { newSection in
+        .onChange(of: selectedSection) { _, newSection in
             onSectionChanged(newSection)
         }
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Parrot")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Text("Native Translation")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 24)
+            .padding(.bottom, 8)
+
+            VStack(alignment: .leading, spacing: 3) {
+                sidebarAction(title: "Quick Text", systemImageName: "text.cursor", action: onOpenQuickText)
+                sidebarAction(title: "Screenshot", systemImageName: "text.viewfinder", action: onOpenScreenshot)
+                sidebarAction(title: "History", systemImageName: "clock.arrow.circlepath", action: onOpenHistory)
+            }
+
+            Divider()
+                .padding(.horizontal, 14)
+                .padding(.vertical, 2)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Label("Settings", systemImage: "gearshape")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+
+                ForEach(Section.allCases) { section in
+                    sidebarSectionButton(section)
+                        .padding(.leading, 18)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(width: 198, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.45))
+    }
+
+    private func sidebarAction(
+        title: String,
+        systemImageName: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImageName)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(title)
+    }
+
+    private func sidebarSectionButton(_ section: Section) -> some View {
+        Button {
+            selectedSection = section
+        } label: {
+            Label(section.rawValue, systemImage: section.iconName)
+                .font(.system(size: 13, weight: selectedSection == section ? .semibold : .regular))
+                .foregroundStyle(selectedSection == section ? Color.accentColor : Color.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background {
+                    if selectedSection == section {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.accentColor.opacity(0.12))
+                    }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, 10)
     }
 
     @ViewBuilder
@@ -91,7 +196,7 @@ struct ProviderSettingsView: View {
     }
 
     private var modelSettings: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             if !store.hasSavedAPIKey {
                 setupGuide
             }
@@ -149,6 +254,7 @@ struct ProviderSettingsView: View {
                     store.saveSettings()
                 }
                 .keyboardShortcut("s", modifiers: [.command])
+                .buttonStyle(.borderedProminent)
 
                 Button {
                     Task {
@@ -175,36 +281,23 @@ struct ProviderSettingsView: View {
     }
 
     private var setupGuide: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "key.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.tint)
-                .frame(width: 24, height: 24, alignment: .top)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("API Key setup required")
-                    .font(.headline)
-
-                Text("Save a provider API Key once before translating. Parrot only accesses Keychain when you save, replace, delete, or explicitly test a saved key here; translation windows show in-app setup errors instead of system Keychain password prompts.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        ParrotStatusBanner(
+            kind: .info,
+            title: "API Key setup required",
+            message: "Save a provider API Key once before translating. Parrot only accesses Keychain when you save, replace, delete, or explicitly test a saved key here; translation windows show in-app setup errors instead of system Keychain password prompts."
+        )
     }
 
     private var historySettings: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Toggle("Save translation history", isOn: historyEnabledBinding)
 
-            Text(historyStore.isHistoryEnabled
-                 ? "Successful translations are saved locally and never include screenshot images or API Keys."
-                 : "New translations will not be saved while history is disabled.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            ParrotStatusBanner(
+                kind: .info,
+                message: historyStore.isHistoryEnabled
+                    ? "Successful translations are saved locally as text records and never include screenshot images or API Keys."
+                    : "New translations will not be saved while history is disabled. Existing records remain available until you clear them."
+            )
         }
     }
 
@@ -375,11 +468,15 @@ struct ProviderSettingsView: View {
 
             let visibleEntries = glossaryStore.filteredEntries(searchText: glossarySearchText)
             if visibleEntries.isEmpty {
-                Text(glossarySearchText.isEmpty ? "No glossary entries yet." : "No matching glossary entries.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 18)
+                ParrotEmptyState(
+                    systemImageName: glossarySearchText.isEmpty ? "text.book.closed" : "magnifyingglass",
+                    title: glossarySearchText.isEmpty ? "No glossary entries yet" : "No matching glossary entries",
+                    message: glossarySearchText.isEmpty
+                        ? "Add source and target terms here. Only matched enabled terms are sent with a translation request."
+                        : "Try a different source or target term."
+                )
+                .frame(height: 150)
+                .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
             } else {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     ForEach(visibleEntries) { entry in
@@ -460,24 +557,15 @@ struct ProviderSettingsView: View {
             }
         }
         .padding(12)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(.tint)
-
-                Text("Settings")
-                    .font(.title2.bold())
-            }
-
-            Text("Configure Model, Shortcuts, Translation, and Privacy for the current Parrot workflows.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
+        ParrotSurfaceHeader(
+            systemImageName: "gearshape",
+            title: "Settings",
+            subtitle: "Configure Model, Shortcuts, Translation, and Privacy for the current Parrot workflows."
+        )
     }
 
     private var providerSelection: Binding<String> {
@@ -636,7 +724,7 @@ private struct GlossaryEntryRow: View {
             }
         }
         .padding(12)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
 
     private var enabledBinding: Binding<Bool> {

@@ -315,18 +315,10 @@ struct StatusMessageView: View {
     let isError: Bool
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                .foregroundStyle(isError ? .orange : .green)
-
-            Text(message)
-                .font(.callout)
-                .foregroundStyle(isError ? .primary : .secondary)
-                .textSelection(.enabled)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+        ParrotStatusBanner(
+            kind: isError ? .warning : .success,
+            message: message
+        )
     }
 }
 
@@ -374,6 +366,7 @@ struct ShortcutSettingsSection: View {
                     }
                 }
                 .disabled(!store.canSave)
+                .buttonStyle(.borderedProminent)
             }
         }
     }
@@ -405,11 +398,13 @@ struct ShortcutSettingsSection: View {
             }
 
             if let message = store.validationMessages[action] {
-                Text(message)
+                Label(message, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
         }
+        .padding(12)
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
 }
 

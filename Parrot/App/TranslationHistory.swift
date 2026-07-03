@@ -134,19 +134,21 @@ struct TranslationHistoryView: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            header
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 16) {
+                header
 
-            if store.records.isEmpty {
-                emptyState
-            } else {
-                historyList
+                if store.records.isEmpty {
+                    emptyState
+                } else {
+                    historyList
+                }
             }
+            .padding(20)
 
             footer
         }
-        .padding(24)
-        .frame(width: 720, height: 540)
+        .frame(width: 760, height: 580)
         .onExitCommand(perform: onClose)
         .sheet(item: $selectedRecord) { record in
             TranslationHistoryDetailView(
@@ -158,39 +160,22 @@ struct TranslationHistoryView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(.tint)
-
-                Text("Translation History")
-                    .font(.title2.bold())
-            }
-
-            Text(store.isHistoryEnabled
-                 ? "Recent translations are saved locally on this Mac."
-                 : "History is disabled. Existing records remain available until you clear them.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
+        ParrotSurfaceHeader(
+            systemImageName: "clock.arrow.circlepath",
+            title: "Translation History",
+            subtitle: store.isHistoryEnabled
+                ? "Recent translations are saved locally on this Mac."
+                : "History is disabled. Existing records remain available until you clear them."
+        )
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "tray")
-                .font(.system(size: 36, weight: .medium))
-                .foregroundStyle(.secondary)
-
-            Text("No translation history yet.")
-                .font(.headline)
-
-            Text("Successful quick text and screenshot translations will appear here while history is enabled.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ParrotEmptyState(
+            systemImageName: "tray",
+            title: "No translation history yet",
+            message: "Successful quick text and screenshot translations will appear here while history is enabled."
+        )
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
 
     private var historyList: some View {
@@ -210,14 +195,12 @@ struct TranslationHistoryView: View {
     }
 
     private var footer: some View {
-        HStack {
+        ParrotFooterBar {
             Button("Clear History", role: .destructive) {
                 store.clear()
             }
             .disabled(store.records.isEmpty)
-
-            Spacer()
-
+        } trailing: {
             Button("Close") {
                 onClose()
             }
@@ -258,8 +241,8 @@ private struct HistoryRecordRow: View {
             }
         }
         .padding(14)
-        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
         .onTapGesture(perform: onOpenDetails)
     }
 
@@ -293,15 +276,12 @@ private struct TranslationHistoryDetailView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(record.sourceType, systemImage: iconName)
-                        .font(.callout.weight(.semibold))
-
-                    Text(record.createdAt.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            HStack(alignment: .center, spacing: 12) {
+                ParrotSurfaceHeader(
+                    systemImageName: iconName,
+                    title: record.sourceType,
+                    subtitle: record.createdAt.formatted(date: .abbreviated, time: .shortened)
+                )
 
                 Spacer()
 
@@ -343,7 +323,7 @@ private struct TranslationHistoryDetailView: View {
                     .padding(10)
             }
             .frame(height: 360)
-            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
         .frame(maxWidth: .infinity)
     }

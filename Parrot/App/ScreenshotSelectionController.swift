@@ -577,7 +577,7 @@ final class ScreenshotSelectionView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        NSColor.black.withAlphaComponent(0.28).setFill()
+        NSColor.black.withAlphaComponent(0.34).setFill()
         bounds.fill()
 
         guard let selectionRect else {
@@ -590,13 +590,20 @@ final class ScreenshotSelectionView: NSView {
         selectionRect.fill()
         NSGraphicsContext.restoreGraphicsState()
 
-        NSColor.white.withAlphaComponent(0.95).setStroke()
-        let border = NSBezierPath(rect: selectionRect)
-        border.lineWidth = 2
-        border.stroke()
-
         NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
         selectionRect.fill()
+
+        NSColor.white.withAlphaComponent(0.96).setStroke()
+        let outerBorder = NSBezierPath(roundedRect: selectionRect, xRadius: 4, yRadius: 4)
+        outerBorder.lineWidth = 1
+        outerBorder.stroke()
+
+        NSColor.controlAccentColor.withAlphaComponent(0.95).setStroke()
+        let accentBorder = NSBezierPath(roundedRect: selectionRect.insetBy(dx: 1, dy: 1), xRadius: 3, yRadius: 3)
+        accentBorder.lineWidth = 2
+        accentBorder.stroke()
+
+        drawSelectionSize(selectionRect)
     }
 
     private var selectionRect: CGRect? {
@@ -613,20 +620,58 @@ final class ScreenshotSelectionView: NSView {
     }
 
     private func drawInstructions() {
-        let text = "Drag to select a region. Press Esc to cancel."
+        let text = "Drag to select text. Esc cancels."
+        drawBadge(text, centeredAt: CGPoint(x: bounds.midX, y: bounds.midY))
+    }
+
+    private func drawSelectionSize(_ rect: CGRect) {
+        let text = "\(Int(rect.width)) x \(Int(rect.height))"
+        let badgeSize = badgeSize(for: text)
+        let origin = CGPoint(
+            x: min(max(rect.minX, bounds.minX + 12), bounds.maxX - badgeSize.width - 12),
+            y: min(rect.maxY + 8, bounds.maxY - badgeSize.height - 12)
+        )
+        drawBadge(text, at: origin)
+    }
+
+    private func drawBadge(_ text: String, centeredAt point: CGPoint) {
+        let size = badgeSize(for: text)
+        let origin = CGPoint(x: point.x - size.width / 2, y: point.y - size.height / 2)
+        drawBadge(text, at: origin)
+    }
+
+    private func badgeSize(for text: String) -> CGSize {
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 18, weight: .medium),
-            .foregroundColor: NSColor.white
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium)
         ]
         let attributedText = NSAttributedString(string: text, attributes: attributes)
         let size = attributedText.size()
-        let rect = CGRect(
-            x: (bounds.width - size.width) / 2,
-            y: (bounds.height - size.height) / 2,
-            width: size.width,
-            height: size.height
+        return CGSize(width: size.width + 22, height: size.height + 14)
+    }
+
+    private func drawBadge(_ text: String, at origin: CGPoint) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .foregroundColor: NSColor.labelColor
+        ]
+        let attributedText = NSAttributedString(string: text, attributes: attributes)
+        let size = badgeSize(for: text)
+        let rect = CGRect(origin: origin, size: size)
+
+        NSColor.windowBackgroundColor.withAlphaComponent(0.92).setFill()
+        let background = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)
+        background.fill()
+
+        NSColor.separatorColor.withAlphaComponent(0.5).setStroke()
+        background.lineWidth = 1
+        background.stroke()
+
+        attributedText.draw(
+            at: CGPoint(
+                x: rect.midX - attributedText.size().width / 2,
+                y: rect.midY - attributedText.size().height / 2
+            )
         )
-        attributedText.draw(in: rect)
     }
 }
 
@@ -652,16 +697,21 @@ struct ScreenshotSelectionResultView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-            preview
-            languageControls
-            statusBanner
-            comparison
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                header
+                preview
+                languageControls
+                statusBanner
+                comparison
+            }
+            .padding(20)
+
+            Spacer(minLength: 0)
+
             footer
         }
-        .padding(24)
-        .frame(width: 780)
+        .frame(width: 900, height: 680, alignment: .top)
         .onChange(of: store.languagePreferences) { _, newValue in
             newValue.save()
         }
@@ -688,68 +738,66 @@ struct ScreenshotSelectionResultView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: status.isSuccess ? "text.viewfinder" : "exclamationmark.triangle.fill")
-                .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(status.isSuccess ? Color.accentColor : .orange)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Screenshot Translation")
-                    .font(.title3.bold())
-
-                Text("Compare the recognized original text with the streaming translation.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-        }
+        ParrotSurfaceHeader(
+            systemImageName: status.isSuccess ? "text.viewfinder" : "exclamationmark.triangle.fill",
+            title: "Translation Result",
+            subtitle: status.isSuccess
+                ? "Review OCR text, edit if needed, and copy the translated result."
+                : "Review the capture problem and select a new region when ready."
+        )
     }
 
     private var preview: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Image(nsImage: result.image)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 180, height: 110)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .frame(width: 82, height: 46)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(.secondary.opacity(0.35))
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color(nsColor: .separatorColor).opacity(0.7), lineWidth: 1)
                 }
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 Label(status.title, systemImage: status.isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .font(.headline)
-                    .foregroundStyle(status.isSuccess ? .green : .orange)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(status.isSuccess ? Color.green : Color.orange)
 
                 Text(status.message)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .layoutPriority(1)
 
-                Text("Selected region: x \(Int(result.screenRect.minX)), y \(Int(result.screenRect.minY)), \(Int(result.screenRect.width)) x \(Int(result.screenRect.height))")
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 3) {
+                ParrotFieldLabel(title: "Region")
+
+                Text("x \(Int(result.screenRect.minX)), y \(Int(result.screenRect.minY))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
 
-            Spacer(minLength: 0)
+                Text("\(Int(result.screenRect.width)) x \(Int(result.screenRect.height))")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
         }
+        .padding(9)
+        .parrotPanel()
     }
 
     @ViewBuilder
     private var statusBanner: some View {
         if let statusMessage = store.statusMessage {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: statusIconName)
-                    .foregroundStyle(store.isStatusError ? .orange : .green)
-
-                Text(statusMessage)
-                    .font(.callout)
-                    .foregroundStyle(store.isStatusError ? .primary : .secondary)
-                    .textSelection(.enabled)
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+            ParrotStatusBanner(
+                kind: statusKind,
+                message: statusMessage
+            )
         }
     }
 
@@ -768,14 +816,21 @@ struct ScreenshotSelectionResultView: View {
     private var sourceComparisonColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Text("Original")
-                    .font(.headline)
+                ParrotFieldLabel(title: "Original")
 
                 if status.isSuccess {
                     Image(systemName: "pencil")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
+
+                Spacer()
+
+                Button("Copy") {
+                    store.copySource()
+                }
+                .buttonStyle(.borderless)
+                .disabled(!store.canCopySource)
             }
 
             EditableComparisonTextView(
@@ -784,8 +839,8 @@ struct ScreenshotSelectionResultView: View {
                 isEditable: status.isSuccess,
                 onCancel: onClose
             )
-            .frame(height: 240)
-            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+            .frame(height: 270)
+            .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
         .frame(maxWidth: .infinity)
     }
@@ -799,27 +854,32 @@ struct ScreenshotSelectionResultView: View {
 
     private func comparisonColumn(title: String, text: String, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
+            HStack {
+                ParrotFieldLabel(title: title)
+
+                Spacer()
+
+                Button("Copy") {
+                    store.copyTranslation()
+                }
+                .buttonStyle(.borderless)
+                .disabled(!store.canCopyTranslation)
+            }
 
             ComparisonTextView(text: text, placeholder: placeholder)
-                .frame(height: 240)
-                .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+                .frame(height: 270)
+                .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
         .frame(maxWidth: .infinity)
     }
 
     private var footer: some View {
-        HStack {
+        ParrotFooterBar {
             Button("Copy Translation") {
                 store.copyTranslation()
             }
             .disabled(!store.canCopyTranslation)
-
-            Button("Copy Original") {
-                store.copySource()
-            }
-            .disabled(!store.canCopySource)
+            .buttonStyle(.borderedProminent)
 
             Button("Retry") {
                 store.retryTranslation()
@@ -831,9 +891,7 @@ struct ScreenshotSelectionResultView: View {
                     onRetrySelection()
                 }
             }
-
-            Spacer()
-
+        } trailing: {
             Button("Close") {
                 onClose()
             }
@@ -841,12 +899,12 @@ struct ScreenshotSelectionResultView: View {
         }
     }
 
-    private var statusIconName: String {
+    private var statusKind: ParrotStatusKind {
         if store.isStatusError {
-            return "exclamationmark.triangle.fill"
+            return .error
         }
 
-        return store.isTranslating ? "arrow.triangle.2.circlepath" : "checkmark.circle.fill"
+        return store.isTranslating ? .progress : .success
     }
 
     private var translationPlaceholder: String {
