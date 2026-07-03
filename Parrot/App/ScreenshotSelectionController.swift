@@ -21,10 +21,40 @@ struct ScreenshotPipelineStatus {
     let isSuccess: Bool
 }
 
+struct OCRSourceTextEditingState: Equatable {
+    let originalRecognizedText: String
+    private(set) var editedText: String
+
+    init(recognizedText: String) {
+        let trimmedText = recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        originalRecognizedText = trimmedText
+        editedText = trimmedText
+    }
+
+    var requestText: String {
+        editedText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var hasEditedText: Bool {
+        requestText != originalRecognizedText
+    }
+
+    var canRequestTranslation: Bool {
+        !requestText.isEmpty
+    }
+
+    mutating func updateEditedText(_ text: String) {
+        editedText = text
+    }
+}
+
 @MainActor
 private final class ScreenshotTranslationComparisonStore: ObservableObject {
-    let sourceText: String
-
+    @Published private var sourceEditingState: OCRSourceTextEditingState {
+        didSet {
+            handleSourceTextChange(from: oldValue)
+        }
+    }
     @Published var languagePreferences = TranslationLanguagePreferences.loadSaved()
     @Published private(set) var latestDetectedSource: TranslationLanguage?
     @Published private(set) var translatedText = ""
@@ -34,18 +64,30 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
 
     private let keychain: KeychainSecretStore
     private var hasAttemptedTranslation = false
+    private var lastTranslatedSourceText: String?
 
     init(sourceText: String, keychain: KeychainSecretStore = KeychainSecretStore()) {
-        self.sourceText = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.sourceEditingState = OCRSourceTextEditingState(recognizedText: sourceText)
         self.keychain = keychain
     }
 
+    var sourceText: String {
+        get {
+            sourceEditingState.editedText
+        }
+        set {
+            var updatedState = sourceEditingState
+            updatedState.updateEditedText(newValue)
+            sourceEditingState = updatedState
+        }
+    }
+
     var canRetry: Bool {
-        !sourceText.isEmpty && languagePreferences.validationMessage == nil && !isTranslating
+        sourceEditingState.canRequestTranslation && languagePreferences.validationMessage == nil && !isTranslating
     }
 
     var canCopySource: Bool {
-        !sourceText.isEmpty
+        sourceEditingState.canRequestTranslation
     }
 
     var canCopyTranslation: Bool {
@@ -78,7 +120,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
     }
 
     func copySource() {
-        copyToPasteboard(sourceText)
+        copyToPasteboard(sourceEditingState.requestText)
         statusMessage = "Original text copied."
         isStatusError = false
     }
@@ -95,12 +137,13 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
     }
 
     private func translate() async {
-        guard !sourceText.isEmpty, !isTranslating else {
+        let requestText = sourceEditingState.requestText
+        guard !requestText.isEmpty, !isTranslating else {
             return
         }
 
         isTranslating = true
-        latestDetectedSource = TranslationLanguageResolver.detectSourceLanguage(in: sourceText)
+        latestDetectedSource = TranslationLanguageResolver.detectSourceLanguage(in: requestText)
         languagePreferences.save()
         translatedText = ""
         statusMessage = "Translating recognized text with the configured provider..."
@@ -117,16 +160,22 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
             }
 
             let client = OpenAICompatibleProviderClient(settings: settings, apiKey: apiKey)
-            let finalTranslation = try await client.translateStreaming(sourceText, preferences: languagePreferences) { [weak self] delta in
+            let finalTranslation = try await client.translateStreaming(requestText, preferences: languagePreferences) { [weak self] delta in
                 self?.translatedText += delta
             }
             translatedText = finalTranslation
             TranslationHistoryStore.shared.addRecord(
-                sourceText: sourceText,
+                sourceText: requestText,
                 translatedText: finalTranslation,
                 sourceType: "Screenshot"
             )
-            statusMessage = "Translation ready."
+            lastTranslatedSourceText = requestText
+            if sourceEditingState.requestText == requestText {
+                statusMessage = "Translation ready."
+            } else {
+                translatedText = ""
+                statusMessage = "Original text edited. Use Again to translate the updated text."
+            }
             isStatusError = false
         } catch {
             translatedText = ""
@@ -135,6 +184,40 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         }
 
         isTranslating = false
+    }
+
+    private func handleSourceTextChange(from oldState: OCRSourceTextEditingState) {
+        guard sourceEditingState.editedText != oldState.editedText else {
+            return
+        }
+
+        let requestText = sourceEditingState.requestText
+        latestDetectedSource = requestText.isEmpty
+            ? nil
+            : TranslationLanguageResolver.detectSourceLanguage(in: requestText)
+
+        guard !isTranslating else {
+            return
+        }
+
+        guard !requestText.isEmpty else {
+            translatedText = ""
+            statusMessage = "Original text is empty."
+            isStatusError = true
+            return
+        }
+
+        guard let lastTranslatedSourceText, lastTranslatedSourceText != requestText else {
+            if isStatusError, statusMessage == "Original text is empty." {
+                statusMessage = nil
+                isStatusError = false
+            }
+            return
+        }
+
+        translatedText = ""
+        statusMessage = "Original text edited. Use Again to translate the updated text."
+        isStatusError = false
     }
 
     private func copyToPasteboard(_ text: String) {
@@ -672,11 +755,7 @@ struct ScreenshotSelectionResultView: View {
 
     private var comparison: some View {
         HStack(alignment: .top, spacing: 14) {
-            comparisonColumn(
-                title: "Original",
-                text: store.sourceText,
-                placeholder: status.isSuccess ? "" : "No recognized text to translate."
-            )
+            sourceComparisonColumn
 
             comparisonColumn(
                 title: "Translation",
@@ -684,6 +763,38 @@ struct ScreenshotSelectionResultView: View {
                 placeholder: translationPlaceholder
             )
         }
+    }
+
+    private var sourceComparisonColumn: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text("Original")
+                    .font(.headline)
+
+                if status.isSuccess {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            EditableComparisonTextView(
+                text: sourceTextBinding,
+                placeholder: status.isSuccess ? "" : "No recognized text to translate.",
+                isEditable: status.isSuccess,
+                onCancel: onClose
+            )
+            .frame(height: 240)
+            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var sourceTextBinding: Binding<String> {
+        Binding(
+            get: { store.sourceText },
+            set: { store.sourceText = $0 }
+        )
     }
 
     private func comparisonColumn(title: String, text: String, placeholder: String) -> some View {
@@ -751,6 +862,73 @@ struct ScreenshotSelectionResultView: View {
     }
 }
 
+private struct EditableComparisonTextView: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let isEditable: Bool
+    let onCancel: () -> Void
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+
+        let textView = ComparisonPlaceholderTextView()
+        textView.delegate = context.coordinator
+        textView.isEditable = isEditable
+        textView.isSelectable = true
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.drawsBackground = false
+        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
+        textView.textContainerInset = NSSize(width: 10, height: 10)
+        textView.textContainer?.widthTracksTextView = true
+        textView.autoresizingMask = [.width]
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.string = text
+        textView.placeholderString = placeholder
+        textView.onCancel = onCancel
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? ComparisonPlaceholderTextView else {
+            return
+        }
+
+        if textView.string != text {
+            textView.string = text
+        }
+        textView.isEditable = isEditable
+        textView.placeholderString = placeholder
+        textView.onCancel = onCancel
+        textView.needsDisplay = true
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text)
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        @Binding private var text: String
+
+        init(text: Binding<String>) {
+            _text = text
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else {
+                return
+            }
+            text = textView.string
+        }
+    }
+}
+
 private struct ComparisonTextView: NSViewRepresentable {
     let text: String
     let placeholder: String
@@ -792,6 +970,21 @@ private struct ComparisonTextView: NSViewRepresentable {
 
 private final class ComparisonPlaceholderTextView: NSTextView {
     var placeholderString = ""
+    var onCancel: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53, let onCancel {
+            onCancel()
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+
+    override func didChangeText() {
+        super.didChangeText()
+        needsDisplay = true
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)

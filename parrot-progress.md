@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-- 日期：2026-06-24
+- 日期：2026-07-03
 - 项目形态：macOS SwiftUI App scaffold
 - Xcode 工程：`Parrot.xcodeproj`
 - Scheme：`Parrot`
@@ -10,6 +10,7 @@
 - 初始化入口：`./init.sh`
 - 最新验证：`./init.sh` 已成功完成工程元数据检查和 Debug 构建；设置菜单可打开统一 Settings 窗口，当前分为 `Model`、`Shortcuts`、`Translation`、`Privacy`。`Cmd+Shift+T` 可打开 Quick Text Translation 小窗并完成流式翻译；语言选择栏已改为紧凑原生风格，并通过真实窗口截图检查。本地 OCR 已通过等效 smoke test 识别临时生成的两行文字图片。截图 OCR 结果窗口已升级为原文/译文对照窗口，并已由用户本地验证真实截图选择、Provider 流式响应、复制、重试和 Esc 关闭；`p0.comparison-result-window` 已标记通过。中英自动互译已由共享翻译实现确认通过；`p0.zh-en-auto-translation` 已标记通过。权限、OCR、认证、网络和超时错误已补齐可操作用户提示，并通过 Debug 构建、CGEvent 窗口 smoke 与等效集成/E2E 检查；首轮 Screen Recording 授权请求已修复为只显示 macOS 系统级“录屏”提示，不再叠加 Parrot 自己的 `Screenshot Capture Failed` 窗口；同一 App 会话里如果仍未授权后再次触发截图，会显示 Parrot 权限错误指引而不是静默无响应；`p0.user-facing-errors` 已标记通过。2026-06-23 修复 `./init.sh --run` Debug App 录屏授权身份漂移：Debug App 现在会在构建后 ad-hoc 签名为稳定本地 designated requirement `identifier "com.example.parrot"`，与已安装 `/Applications/Parrot.app` 对齐。Keychain API Key 体验已改为非秘密设置记录 + 进程内缓存 + 非交互钥匙串读取；首次启动缺少 API Key 设置时自动打开 Settings 引导，翻译路径不会弹系统钥匙串密码窗，缺 Key 或旧调试构建 Key 需要交互时显示 App 内错误；已通过源码链接 E2E 和真实 Debug smoke。翻译历史已实现本地文本记录、菜单栏历史窗口、复制/清空和设置开关，并通过 Debug 构建、源码链接 E2E 与真实状态栏菜单 smoke；`p1.translation-history` 已标记通过。自定义快捷键已支持录制、持久化、冲突/无效校验和保存后热更新，并通过 Debug 构建、源码链接 E2E 与真实全局快捷键 smoke；`p1.custom-shortcuts` 已标记通过。设置全局快捷键已作为第三个可配置动作接入 Shortcuts，默认 `Cmd+Option+,`，并通过源码链接 E2E 与 Finder 前台真实全局快捷键 smoke；`p1.settings-global-shortcut` 已标记通过。语言选择与一键互换已接入 Quick Text 和截图翻译结果窗口，并进入真实 Provider prompt，已通过源码链接 E2E、Debug 构建和真实 Quick Text 窗口 smoke；`p1.translation-language-controls` 已标记通过。翻译风格已接入 Translation 设置区和真实 Provider prompt，支持 Accurate、Natural、Professional、Concise，并通过源码链接 E2E、Debug 构建和真实 Settings 窗口 smoke；`p1.translation-style` 已标记通过。unsigned Release 打包流程已落地，支持 SemVer/tag 校验、GitHub 风格 `.dmg`/`.zip`/校验和/Release Notes 产物，并已通过本地 dev 打包验证；`foundation.release-packaging` 已标记通过。2026-06-23 修复 `v0.1.3-alpha` DMG 录屏授权重启后仍失效：release ad-hoc 签名现在写入稳定本地 designated requirement `identifier "com.example.parrot"` 并阻断纯 `cdhash` 产物。2026-06-23 新增 V1 翻译偏好 PRD，并在 `feature_list.json` 中拆分 custom Prompt、glossary、OCR source editing 和 floating-window position preferences，均保持 `passes: false` 等待实现验收。日常调试启动使用 `./init.sh --run`，固定从 `./.DerivedData` 构建、签名并启动同一个 Debug App bundle。
 - 2026-06-24 最新补充：自定义 Prompt 已接入 Translation 设置区和共享 Provider prompt，支持默认 Prompt 展示、启用/关闭、必需变量校验、Restore Default 和无效模板回退；已通过源码链接 E2E、Debug 构建和真实 Settings 窗口 smoke；`p1.custom-translation-prompt` 已标记通过。术语表已接入 Translation 设置区和共享 Provider prompt，支持本地 JSON 持久化、增删改、启停、搜索、目标语言范围、重复校验，并且只把当前源文本命中的启用术语注入 Prompt；已通过术语表源码链接 E2E、回归 E2E、Debug 构建和真实 Settings 窗口 smoke；`p1.terminology-glossary` 已标记通过。
+- 2026-07-03 最新补充：OCR 原文编辑已接入 Screenshot Translation 结果窗口，Original pane 默认显示本地 OCR 文本并可编辑；`Again`/`Retry` 会使用当前编辑后的文本重新翻译，Provider 请求和历史记录写入同一份编辑文本，不保存截图图片或截图几何信息。已通过源码链接 E2E `Scripts/ocr-source-text-editing-e2e.swift`、语言/Prompt 回归 E2E、`./init.sh` Debug 构建和 `./init.sh --run` 启动验证；当前自动化会话中全局事件注入未能触发真实 Quick Text/Screenshot 窗口，完整 GUI smoke 记录为环境限制。
 - 设计参考：`Design/` 已保存 5 张产品高保真原型图，并通过 `Design/README.md` 建立索引。
 
 ## 启动就绪清单
@@ -102,7 +103,7 @@
 
 ## 当前未实现
 
-- P1/P2 V1 翻译偏好功能尚未实现：OCR 原文编辑和浮窗位置偏好。
+- P2 V1 翻译偏好功能尚未实现：浮窗位置偏好。
 
 ## 已知约束
 
@@ -124,11 +125,22 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 1. 运行 `./init.sh`，确认当前 scaffold 可构建；调试运行使用 `./init.sh --run`。
 2. 如需验证发布包，先运行 `Scripts/package-release.sh --allow-untagged`；正式发布前先提交、打 `v<MARKETING_VERSION>` tag，再运行 `Scripts/package-release.sh`。
-3. 下一项建议从 `Docs/ai-translation-macos-v1-prd.md` 中选择 P1：优先实现 `p1.ocr-source-text-editing`。
+3. 下一项建议从 `Docs/ai-translation-macos-v1-prd.md` 中选择剩余 P2：实现 `p2.floating-window-position-preferences`。
 4. 语言、Prompt、术语等设置必须接入真实翻译链路后再标记通过，不要只添加空壳设置项。
 5. 验证通过后更新对应功能的 `passes`、`last_verified` 和本进度文件，并保持工作区整洁，提交描述性 commit。
 
 ## 会话记录
+
+### 2026-07-03 - 实现 OCR 原文编辑
+
+- 新增 `OCRSourceTextEditingState`，截图 OCR 成功后 Original pane 初始化为本地 OCR 识别文本，并保留原始 OCR 文本用于判断是否被编辑。
+- `ScreenshotTranslationComparisonStore` 改为持有可编辑原文；重新翻译时先截取当前编辑文本快照，再用于语言检测、`OpenAICompatibleProviderClient.translateStreaming` 和 `TranslationHistoryStore.addRecord`。因此 Provider 请求和历史记录都使用实际发送的编辑后原文。
+- Screenshot Translation 结果窗口的 Original pane 改为原生可编辑 `NSTextView`，Translation pane 保持只读；编辑为空会禁用重译，编辑后旧译文会清空，等待用户用 `Again`/`Retry` 重新翻译。
+- 未新增图片上传、多模态请求、截图图片持久化、截图几何持久化或新的依赖；历史记录仍为文本 JSON，API Key 仍只读 Keychain。
+- 新增源码链接 E2E `Scripts/ocr-source-text-editing-e2e.swift`，覆盖 OCR 文本默认进入可编辑状态、编辑后 request text、Provider 自定义 Prompt 渲染使用编辑文本且不含旧 OCR 文本、历史保存编辑后原文、历史 JSON 不含 image/screenRect/base64 字段、空编辑文本不能翻译。
+- 验证：已运行 `xcrun swiftc -target arm64-apple-macosx14.0 -module-cache-path /private/tmp/parrot-swift-module-cache -parse-as-library Parrot/App/ProviderSettings.swift Parrot/App/TranslationHistory.swift Parrot/App/QuickTextTranslationView.swift Parrot/App/ScreenshotSelectionController.swift Scripts/ocr-source-text-editing-e2e.swift -o /tmp/parrot-ocr-source-text-editing-e2e` 和 `/tmp/parrot-ocr-source-text-editing-e2e`；已运行 `Scripts/translation-language-controls-e2e.swift` 和 `Scripts/custom-translation-prompt-e2e.swift` 对应源码链接回归；已运行 `./init.sh` 并通过 Debug 构建/签名；已运行 `./init.sh --run` 并确认 Debug App 启动。
+- 限制：当前自动化会话可确认 Parrot Debug 进程运行，但用 Swift/CGEvent 注入 `Cmd+Shift+2` 和 `Cmd+Shift+T` 没有打开窗口，命令输出 `hiservices-xpcservice` connection warning；因此未完成真实“框选截图-编辑原文-重译-查看历史”GUI smoke。`Scripts/translation-history-e2e.swift` 在当前会话只失败于 `NSPasteboard` 复制断言，历史 JSON 持久化路径由新增 OCR E2E 覆盖。
+- 已更新 `feature_list.json`：`p1.ocr-source-text-editing.passes = true`，`last_verified = 2026-07-03`。
 
 ### 2026-06-24 - 实现术语表
 

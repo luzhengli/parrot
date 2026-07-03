@@ -1,7 +1,7 @@
 {
   "project": "Parrot",
   "platform": "macOS",
-  "updated": "2026-06-24",
+  "updated": "2026-07-03",
   "source_documents": [
     "Docs/ai-translation-macos-prd.md",
     "Docs/ai-translation-macos-v1-prd.md",
@@ -356,9 +356,9 @@
         "Save the edited source text in translation history when history is enabled.",
         "Keep screenshot images local and do not add image persistence."
       ],
-      "passes": false,
-      "last_verified": null,
-      "notes": "Planned in Docs/ai-translation-macos-v1-prd.md and aligned with the original MVP PRD's OCR failure recovery path. This should be implemented after language controls so retranslation uses the same shared translation request model."
+      "passes": true,
+      "last_verified": "2026-07-03",
+      "notes": "Implemented OCR source text editing in the Screenshot Translation result window. The Original pane now uses an editable native NSTextView initialized from the local OCR result, while the Translation pane remains read-only. Retranslate/Again uses the current edited text snapshot for language detection, OpenAICompatibleProviderClient.translateStreaming, and TranslationHistoryStore.addRecord, so history saves the actual text sent to the Provider rather than the stale OCR text. Blank edited source text disables retranslation, and if the source changes after a translation, the stale translation is cleared until the user retranslates. No screenshot image persistence was added; history remains text-only. Verified with source-linked E2E Scripts/ocr-source-text-editing-e2e.swift covering editable OCR state defaults, edited request text, custom Prompt rendering with edited text and not stale OCR text, edited source saved to local history, and no image/screenRect/base64 fields in the history JSON. Also reran translation-language-controls and custom-translation-prompt E2Es, ran ./init.sh Debug build/signing, and launched the real Debug app with ./init.sh --run. Full GUI smoke for screenshot selection/edit/retranslate/history was limited by the current automation session: Parrot was running, but injected Cmd+Shift+2 and Cmd+Shift+T events did not open windows and emitted a system hiservices-xpcservice connection warning, so the focused E2E plus Debug build were used as equivalent verification."
     },
     {
       "id": "p2.floating-window-position-preferences",
