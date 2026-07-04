@@ -169,15 +169,15 @@ enum ParrotAlwaysOnTopSurface: String, CaseIterable {
     var displayName: String {
         switch self {
         case .quickText:
-            return "Quick Text"
+            return AppLocalization.string("always_on_top.quick_text")
         case .screenshotTranslation:
-            return "Screenshot Translation"
+            return AppLocalization.string("always_on_top.screenshot_translation")
         case .history:
-            return "History"
+            return AppLocalization.string("always_on_top.history")
         case .settings:
-            return "Settings"
+            return AppLocalization.string("always_on_top.settings")
         case .about:
-            return "About"
+            return AppLocalization.string("always_on_top.about")
         }
     }
 }
@@ -223,17 +223,17 @@ struct ParrotAlwaysOnTopButton: View {
         }
         .help(helpText)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(isEnabled ? "On" : "Off")
+        .accessibilityValue(isEnabled ? AppLocalization.string("always_on_top.on") : AppLocalization.string("always_on_top.off"))
     }
 
     private var helpText: String {
         isEnabled
-            ? "Turn off Always on Top for \(surface.displayName)"
-            : "Keep \(surface.displayName) on Top"
+            ? AppLocalization.format("always_on_top.help.on", surface.displayName)
+            : AppLocalization.format("always_on_top.help.off", surface.displayName)
     }
 
     private var accessibilityLabel: String {
-        "\(surface.displayName) Always on Top"
+        AppLocalization.format("always_on_top.accessibility", surface.displayName)
     }
 }
 

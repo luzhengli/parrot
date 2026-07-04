@@ -14,10 +14,10 @@ enum GlobalShortcutRegistrationError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .eventHandlerInstallFailed(let status):
-            return "Unable to install the global shortcut event handler. Carbon returned status \(status)."
+            return AppLocalization.format("shortcut.error.install_failed", status)
         case .hotKeyRegistrationFailed(let action, let status):
             let shortcut = ShortcutPreferences.loadSaved()[action].displayString
-            return "Unable to register \(action.title) shortcut \(shortcut). It may already be used by another app or system shortcut. Carbon returned status \(status)."
+            return AppLocalization.format("shortcut.error.register_failed", action.title, shortcut, status)
         }
     }
 }
@@ -108,7 +108,7 @@ final class GlobalShortcutManager {
             return false
         } catch {
             unregisterAll()
-            lastRegistrationError = "Unable to register global shortcuts."
+            lastRegistrationError = AppLocalization.string("shortcut.error.generic")
             return false
         }
     }

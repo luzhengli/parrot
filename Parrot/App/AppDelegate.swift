@@ -59,25 +59,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let menu = NSMenu()
 
         menu.addItem(makeMenuItem(
-            title: "Quick Text Translation",
+            title: AppLocalization.string("menu.quick_text"),
             action: #selector(showQuickTextTranslation),
             keyEquivalent: "",
             systemImageName: "text.cursor"
         ))
         menu.addItem(makeMenuItem(
-            title: "Screenshot Translation",
+            title: AppLocalization.string("menu.screenshot"),
             action: #selector(showScreenshotTranslation),
             keyEquivalent: "",
             systemImageName: "text.viewfinder"
         ))
         menu.addItem(makeMenuItem(
-            title: "Translation History",
+            title: AppLocalization.string("menu.history"),
             action: #selector(showTranslationHistory),
             keyEquivalent: "",
             systemImageName: "clock.arrow.circlepath"
         ))
         let shortcutsMenuItem = makeMenuItem(
-            title: "Pause Shortcuts",
+            title: AppLocalization.string("menu.pause_shortcuts"),
             action: #selector(toggleShortcuts),
             keyEquivalent: "",
             systemImageName: "pause.circle"
@@ -86,14 +86,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(shortcutsMenuItem)
         menu.addItem(.separator())
         menu.addItem(makeMenuItem(
-            title: "Settings",
+            title: AppLocalization.string("menu.settings"),
             action: #selector(showSettings),
             keyEquivalent: ",",
             systemImageName: "gearshape"
         ))
         menu.addItem(.separator())
         menu.addItem(makeMenuItem(
-            title: "Quit Parrot",
+            title: AppLocalization.string("menu.quit"),
             action: #selector(quitParrot),
             keyEquivalent: "q",
             systemImageName: "power"
@@ -148,28 +148,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         guard let globalShortcutManager else {
-            shortcutsMenuItem.title = "Shortcuts Unavailable"
+            shortcutsMenuItem.title = AppLocalization.string("menu.shortcuts_unavailable")
             shortcutsMenuItem.isEnabled = false
             shortcutsMenuItem.toolTip = nil
-            shortcutsMenuItem.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Shortcuts unavailable")
+            shortcutsMenuItem.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: AppLocalization.string("menu.shortcuts_unavailable"))
             return
         }
 
         if let error = globalShortcutManager.lastRegistrationError {
-            shortcutsMenuItem.title = "Shortcuts Unavailable"
+            shortcutsMenuItem.title = AppLocalization.string("menu.shortcuts_unavailable")
             shortcutsMenuItem.isEnabled = false
             shortcutsMenuItem.toolTip = error
-            shortcutsMenuItem.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Shortcuts unavailable")
+            shortcutsMenuItem.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: AppLocalization.string("menu.shortcuts_unavailable"))
         } else if globalShortcutManager.isPaused {
-            shortcutsMenuItem.title = "Resume Shortcuts"
+            shortcutsMenuItem.title = AppLocalization.string("menu.resume_shortcuts")
             shortcutsMenuItem.isEnabled = true
             shortcutsMenuItem.toolTip = nil
-            shortcutsMenuItem.image = NSImage(systemSymbolName: "play.circle", accessibilityDescription: "Resume shortcuts")
+            shortcutsMenuItem.image = NSImage(systemSymbolName: "play.circle", accessibilityDescription: AppLocalization.string("menu.resume_shortcuts"))
         } else {
-            shortcutsMenuItem.title = "Pause Shortcuts"
+            shortcutsMenuItem.title = AppLocalization.string("menu.pause_shortcuts")
             shortcutsMenuItem.isEnabled = true
             shortcutsMenuItem.toolTip = nil
-            shortcutsMenuItem.image = NSImage(systemSymbolName: "pause.circle", accessibilityDescription: "Pause shortcuts")
+            shortcutsMenuItem.image = NSImage(systemSymbolName: "pause.circle", accessibilityDescription: AppLocalization.string("menu.pause_shortcuts"))
         }
     }
 
@@ -195,7 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         presentFloatingWindow(
             &quickTextWindowController,
-            title: "Quick Text Translation",
+            title: AppLocalization.string("window.quick_text.title"),
             rootView: view,
             contentSize: NSSize(width: 900, height: 640),
             placement: .quickText,
@@ -222,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         presentWindow(
             &historyWindowController,
-            title: "Translation History",
+            title: AppLocalization.string("window.history.title"),
             rootView: view,
             usesIntegratedTitleBar: true,
             alwaysOnTopSurface: alwaysOnTopSurface
@@ -273,7 +273,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         launchHubWindowController = nil
         presentWindow(
             &launchHubWindowController,
-            title: "Launch Hub",
+            title: AppLocalization.string("window.launch_hub.title"),
             rootView: view,
             usesIntegratedTitleBar: true
         )
@@ -336,7 +336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         presentWindow(
             &settingsWindowController,
-            title: "Settings",
+            title: AppLocalization.string("window.settings.title"),
             rootView: view,
             usesIntegratedTitleBar: true,
             alwaysOnTopSurface: alwaysOnTopSurface
@@ -674,7 +674,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         screenshotWindowController = nil
         presentFloatingWindow(
             &screenshotWindowController,
-            title: "Screenshot Translation",
+            title: AppLocalization.string("window.screenshot.title"),
             rootView: view,
             contentSize: NSSize(width: 1024, height: 720),
             placement: .screenshotResult(result.screenRect),
@@ -706,7 +706,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         screenshotWindowController = nil
         presentFloatingWindow(
             &screenshotWindowController,
-            title: "Screenshot Translation",
+            title: AppLocalization.string("window.screenshot.title"),
             rootView: view,
             contentSize: NSSize(width: 580, height: 400),
             placement: .screenshotError,
@@ -768,7 +768,7 @@ private struct LaunchHubView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ParrotWindowTitleBar(title: "Launch Hub")
+            ParrotWindowTitleBar(title: AppLocalization.string("window.launch_hub.title"))
 
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .center, spacing: 14) {
@@ -786,7 +786,7 @@ private struct LaunchHubView: View {
                         Text("Parrot")
                             .font(.system(size: 24, weight: .semibold))
 
-                        Text("Quick access to translation, history, setup, and release information.")
+                        Text(AppLocalization.string("launch_hub.subtitle"))
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -797,13 +797,13 @@ private struct LaunchHubView: View {
 
                 ParrotStatusBanner(
                     kind: .info,
-                    message: "Launch Hub appears on startup after onboarding is complete so Parrot stays reachable even when the menu-bar icon is hidden."
+                    message: AppLocalization.string("launch_hub.startup_info")
                 )
 
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
                     LaunchHubActionButton(
-                        title: "Quick Text",
-                        detail: "Translate typed text.",
+                        title: AppLocalization.string("launch_hub.quick_text.title"),
+                        detail: AppLocalization.string("launch_hub.quick_text.detail"),
                         systemImageName: "text.cursor",
                         shortcut: quickTextShortcut,
                         isPrimary: true,
@@ -811,40 +811,40 @@ private struct LaunchHubView: View {
                     )
 
                     LaunchHubActionButton(
-                        title: "Screenshot OCR",
-                        detail: "Capture text for local OCR.",
+                        title: AppLocalization.string("launch_hub.screenshot.title"),
+                        detail: AppLocalization.string("launch_hub.screenshot.detail"),
                         systemImageName: "text.viewfinder",
                         shortcut: screenshotShortcut,
                         action: onOpenScreenshot
                     )
 
                     LaunchHubActionButton(
-                        title: "History",
-                        detail: "Review local text records.",
+                        title: AppLocalization.string("launch_hub.history.title"),
+                        detail: AppLocalization.string("launch_hub.history.detail"),
                         systemImageName: "clock.arrow.circlepath",
                         shortcut: nil,
                         action: onOpenHistory
                     )
 
                     LaunchHubActionButton(
-                        title: "Settings",
-                        detail: "Model, shortcuts, translation, privacy.",
+                        title: AppLocalization.string("launch_hub.settings.title"),
+                        detail: AppLocalization.string("launch_hub.settings.detail"),
                         systemImageName: "gearshape",
                         shortcut: settingsShortcut,
                         action: onOpenSettings
                     )
 
                     LaunchHubActionButton(
-                        title: "Onboarding Guide",
-                        detail: "Reopen setup steps.",
+                        title: AppLocalization.string("launch_hub.onboarding.title"),
+                        detail: AppLocalization.string("launch_hub.onboarding.detail"),
                         systemImageName: "checklist",
                         shortcut: nil,
                         action: onOpenSetup
                     )
 
                     LaunchHubActionButton(
-                        title: "Updates & Feedback",
-                        detail: "Check releases, privacy, diagnostics.",
+                        title: AppLocalization.string("launch_hub.updates.title"),
+                        detail: AppLocalization.string("launch_hub.updates.detail"),
                         systemImageName: "info.circle",
                         shortcut: nil,
                         action: onOpenAbout
@@ -855,12 +855,12 @@ private struct LaunchHubView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             ParrotFooterBar {
-                Button("Don't Show on Startup") {
+                Button(AppLocalization.string("launch_hub.disable_startup")) {
                     onDisableStartup()
                 }
-                .help("Turn off automatic Launch Hub startup. Restore it in Settings > Launch.")
+                .help(AppLocalization.string("launch_hub.disable_startup.help"))
             } trailing: {
-                Button("Close") {
+                Button(AppLocalization.string("common.close")) {
                     onClose()
                 }
                 .keyboardShortcut(.cancelAction)
@@ -962,14 +962,14 @@ struct SettingsPlaceholderView: View {
                 .font(.system(size: 40, weight: .medium))
                 .foregroundStyle(.tint)
 
-            Text("Settings")
+            Text(AppLocalization.string("window.settings.title"))
                 .font(.title2.bold())
 
-            Text("Provider settings are not implemented yet.")
+            Text(AppLocalization.string("placeholder.settings.not_implemented"))
                 .font(.body)
                 .multilineTextAlignment(.center)
 
-            Text("Future settings will configure an OpenAI-compatible base URL, model, and Keychain-backed API key.")
+            Text(AppLocalization.string("placeholder.settings.future"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -1034,7 +1034,7 @@ struct ScreenshotCaptureErrorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ParrotWindowTitleBar(title: "Screenshot Translation") {
+            ParrotWindowTitleBar(title: AppLocalization.string("window.screenshot.title")) {
                 ParrotAlwaysOnTopButton(
                     surface: .screenshotTranslation,
                     isEnabled: $isAlwaysOnTop,
@@ -1045,8 +1045,8 @@ struct ScreenshotCaptureErrorView: View {
             VStack(alignment: .leading, spacing: 14) {
                 ParrotSurfaceHeader(
                     systemImageName: "exclamationmark.triangle.fill",
-                    title: "Screenshot Capture Failed",
-                    subtitle: "Parrot needs Screen Recording permission to capture other apps."
+                    title: AppLocalization.string("screenshot.capture.failed.title"),
+                    subtitle: AppLocalization.string("screenshot.capture.permission.subtitle")
                 )
 
                 Text(message)
@@ -1056,7 +1056,7 @@ struct ScreenshotCaptureErrorView: View {
 
                 ParrotStatusBanner(
                     kind: .warning,
-                    message: "Open System Settings > Privacy & Security > Screen Recording, enable Parrot, then return here and use Retry."
+                    message: AppLocalization.string("screenshot.capture.permission.message")
                 )
             }
             .padding(20)
@@ -1064,15 +1064,15 @@ struct ScreenshotCaptureErrorView: View {
             Spacer(minLength: 0)
 
             ParrotFooterBar {
-                Button("Open Screen Recording Settings") {
+                Button(AppLocalization.string("screenshot.capture.open_settings")) {
                     onOpenSettings()
                 }
 
-                Button("Retry") {
+                Button(AppLocalization.string("common.retry")) {
                     onRetry()
                 }
             } trailing: {
-                Button("Close") {
+                Button(AppLocalization.string("common.close")) {
                     onClose()
                 }
                 .keyboardShortcut(.cancelAction)

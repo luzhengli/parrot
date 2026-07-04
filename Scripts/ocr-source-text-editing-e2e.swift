@@ -22,6 +22,8 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
 struct OCRSourceTextEditingE2E {
     @MainActor
     static func main() throws {
+        AppLocalization.resetSessionLanguageForTesting(.english)
+
         let recognizingStatus = ScreenshotPipelineStatus.recognizing
         try require(recognizingStatus.isRecognizing, "Initial screenshot status should support a recognizing phase.")
         try require(!recognizingStatus.isSuccess, "Recognizing OCR should not be treated as OCR success.")

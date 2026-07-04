@@ -6,6 +6,7 @@ struct ProviderSettingsView: View {
     static let settingsContentWidth: CGFloat = 980
 
     enum Section: String, CaseIterable, Identifiable {
+        case general = "General"
         case setup = "Setup"
         case launch = "Launch"
         case model = "Model"
@@ -18,6 +19,8 @@ struct ProviderSettingsView: View {
 
         var contentHeight: CGFloat {
             switch self {
+            case .general:
+                return 480
             case .setup:
                 return 820
             case .launch:
@@ -37,6 +40,8 @@ struct ProviderSettingsView: View {
 
         var iconName: String {
             switch self {
+            case .general:
+                return "switch.2"
             case .setup:
                 return "checklist"
             case .launch:
@@ -51,6 +56,27 @@ struct ProviderSettingsView: View {
                 return "lock.shield"
             case .about:
                 return "info.circle"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .general:
+                return AppLocalization.string("settings.section.general")
+            case .setup:
+                return AppLocalization.string("settings.section.setup")
+            case .launch:
+                return AppLocalization.string("settings.section.launch")
+            case .model:
+                return AppLocalization.string("settings.section.model")
+            case .shortcuts:
+                return AppLocalization.string("settings.section.shortcuts")
+            case .translation:
+                return AppLocalization.string("settings.section.translation")
+            case .privacy:
+                return AppLocalization.string("settings.section.privacy")
+            case .about:
+                return AppLocalization.string("settings.section.about")
             }
         }
     }
@@ -80,6 +106,8 @@ struct ProviderSettingsView: View {
     @State private var launchStatusMessage: String?
     @State private var settingsAlwaysOnTop: Bool
     @State private var aboutAlwaysOnTop: Bool
+    @State private var appLanguage = AppLanguagePreference.loadSaved()
+    @State private var appLanguageStatusMessage: String?
 
     let onShortcutsSaved: () -> Void
     let onSectionChanged: (Section) -> Void
@@ -118,7 +146,7 @@ struct ProviderSettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ParrotWindowTitleBar(title: "Settings", height: 52) {
+            ParrotWindowTitleBar(title: AppLocalization.string("window.settings.title"), height: 52) {
                 ParrotAlwaysOnTopButton(
                     surface: activeAlwaysOnTopSurface,
                     isEnabled: activeAlwaysOnTopBinding,
@@ -189,7 +217,7 @@ struct ProviderSettingsView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
 
-                Text("Native Translation")
+                Text(AppLocalization.string("settings.sidebar.subtitle"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -199,9 +227,9 @@ struct ProviderSettingsView: View {
             .padding(.bottom, 16)
 
             VStack(alignment: .leading, spacing: 6) {
-                sidebarAction(title: "Quick Text", systemImageName: "text.cursor", action: onOpenQuickText)
-                sidebarAction(title: "Screenshot", systemImageName: "text.viewfinder", action: onOpenScreenshot)
-                sidebarAction(title: "History", systemImageName: "clock.arrow.circlepath", action: onOpenHistory)
+                sidebarAction(title: AppLocalization.string("launch_hub.quick_text.title"), systemImageName: "text.cursor", action: onOpenQuickText)
+                sidebarAction(title: AppLocalization.string("launch_hub.screenshot.title"), systemImageName: "text.viewfinder", action: onOpenScreenshot)
+                sidebarAction(title: AppLocalization.string("launch_hub.history.title"), systemImageName: "clock.arrow.circlepath", action: onOpenHistory)
             }
 
             VStack(alignment: .leading, spacing: 5) {
@@ -242,7 +270,7 @@ struct ProviderSettingsView: View {
     }
 
     private var sidebarSettingsHeader: some View {
-        Label("Settings", systemImage: "gearshape")
+        Label(AppLocalization.string("window.settings.title"), systemImage: "gearshape")
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -254,7 +282,7 @@ struct ProviderSettingsView: View {
         Button {
             selectedSection = section
         } label: {
-            Text(section.rawValue)
+            Text(section.title)
                 .font(.system(size: 13, weight: selectedSection == section ? .semibold : .regular))
                 .foregroundStyle(selectedSection == section ? Color.accentColor : Color.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -275,6 +303,8 @@ struct ProviderSettingsView: View {
     @ViewBuilder
     private var selectedSettingsSection: some View {
         switch selectedSection {
+        case .general:
+            generalSettings
         case .setup:
             setupChecklist
         case .launch:
@@ -292,6 +322,45 @@ struct ProviderSettingsView: View {
         }
     }
 
+    private var generalSettings: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ParrotSurfaceHeader(
+                systemImageName: "switch.2",
+                title: AppLocalization.string("settings.general.title"),
+                subtitle: AppLocalization.string("settings.general.subtitle"),
+                iconSize: 44
+            )
+
+            SettingsFormRow(AppLocalization.string("settings.language.title"), alignment: .top, labelTopPadding: 4) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker(AppLocalization.string("settings.language.title"), selection: appLanguageBinding) {
+                        ForEach(AppLanguage.allCases) { language in
+                            Text(AppLocalization.string(language.pickerTitleKey)).tag(language)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 320)
+
+                    Text(AppLocalization.string("settings.language.description"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if let appLanguageStatusMessage {
+                ParrotStatusBanner(
+                    kind: .info,
+                    message: appLanguageStatusMessage
+                )
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: 650, alignment: .leading)
+    }
+
     private var setupChecklist: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -301,35 +370,35 @@ struct ProviderSettingsView: View {
 
                 ParrotStatusBanner(
                     kind: .info,
-                    title: "Configuration Health",
-                    message: "Finish the essentials once, then Parrot stays out of the way. Quick Text works without Screen Recording permission."
+                    title: AppLocalization.string("settings.setup.health.title"),
+                    message: AppLocalization.string("settings.setup.health.message")
                 )
 
                 setupChecklistRow(
-                    title: "API Key",
+                    title: AppLocalization.string("settings.setup.api_key.title"),
                     detail: store.hasSavedAPIKey
-                        ? "A non-secret setup record exists and the secret remains in Keychain."
-                        : "Save a provider API Key before translating.",
+                        ? AppLocalization.string("settings.setup.api_key.ready")
+                        : AppLocalization.string("settings.setup.api_key.missing"),
                     isPassing: store.hasSavedAPIKey,
-                    actionTitle: "Configure",
+                    actionTitle: AppLocalization.string("common.configure"),
                     action: { selectedSection = .model }
                 )
 
                 setupChecklistRow(
-                    title: "Provider Endpoint",
+                    title: AppLocalization.string("settings.setup.endpoint.title"),
                     detail: providerEndpointIsValid
-                        ? "Base URL and model look ready for an OpenAI-compatible chat completions request."
-                        : "Check the Base URL format and model name.",
+                        ? AppLocalization.string("settings.setup.endpoint.ready")
+                        : AppLocalization.string("settings.setup.endpoint.missing"),
                     isPassing: providerEndpointIsValid,
-                    actionTitle: "Review Model",
+                    actionTitle: AppLocalization.string("settings.section.model"),
                     action: { selectedSection = .model }
                 )
 
                 setupChecklistRow(
-                    title: "Connection Test",
-                    detail: store.statusMessage ?? "Use the same endpoint, timeout, model, and API Key path that translation uses.",
+                    title: AppLocalization.string("settings.setup.connection.title"),
+                    detail: store.statusMessage ?? AppLocalization.string("settings.setup.connection.detail"),
                     isPassing: connectionTestSucceeded,
-                    actionTitle: store.isTesting ? nil : "Test Connection",
+                    actionTitle: store.isTesting ? nil : AppLocalization.string("settings.model.test_connection"),
                     action: {
                         Task {
                             await store.testConnection()
@@ -338,20 +407,25 @@ struct ProviderSettingsView: View {
                 )
 
                 setupChecklistRow(
-                    title: "Shortcuts",
-                    detail: "Quick Text: \(shortcutStore.preferences[.quickTextTranslation].displayString). Screenshot: \(shortcutStore.preferences[.screenshotTranslation].displayString). Settings: \(shortcutStore.preferences[.openSettings].displayString).",
+                    title: AppLocalization.string("settings.setup.shortcuts.title"),
+                    detail: AppLocalization.format(
+                        "settings.setup.shortcuts.detail",
+                        shortcutStore.preferences[.quickTextTranslation].displayString,
+                        shortcutStore.preferences[.screenshotTranslation].displayString,
+                        shortcutStore.preferences[.openSettings].displayString
+                    ),
                     isPassing: shortcutStore.validationMessages.isEmpty,
-                    actionTitle: "View Shortcuts",
+                    actionTitle: AppLocalization.string("settings.section.shortcuts"),
                     action: { selectedSection = .shortcuts }
                 )
 
                 setupChecklistRow(
-                    title: "Screen Recording",
+                    title: AppLocalization.string("settings.setup.screen_recording.title"),
                     detail: screenRecordingPermissionGranted
-                        ? "Screenshot Translation can capture other apps for local OCR."
-                        : "Only Screenshot Translation needs this permission. Quick Text can be used without it.",
+                        ? AppLocalization.string("settings.setup.screen_recording.ready")
+                        : AppLocalization.string("settings.setup.screen_recording.missing"),
                     isPassing: screenRecordingPermissionGranted,
-                    actionTitle: "Open System Settings",
+                    actionTitle: AppLocalization.string("settings.setup.open_system_settings"),
                     action: openScreenRecordingSettings
                 )
             }
@@ -364,16 +438,16 @@ struct ProviderSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             ParrotStatusBanner(
                 kind: .info,
-                title: "Startup Entry",
-                message: "Launch Hub opens after onboarding is complete and provider setup is valid. Invalid setup or onboarding always takes priority."
+                title: AppLocalization.string("settings.launch.startup.title"),
+                message: AppLocalization.string("settings.launch.startup.message")
             )
 
             VStack(alignment: .leading, spacing: 12) {
-                Toggle("Show Launch Hub on Startup", isOn: launchHubStartupBinding)
+                Toggle(AppLocalization.string("settings.launch.show_hub"), isOn: launchHubStartupBinding)
 
                 Text(launchHubPreferences.showOnStartup
-                     ? "Parrot will show Launch Hub on startup when no setup or onboarding window needs attention."
-                     : "Parrot will stay quiet on startup unless provider setup or onboarding needs attention.")
+                     ? AppLocalization.string("settings.launch.hub_on")
+                     : AppLocalization.string("settings.launch.hub_off"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -382,11 +456,11 @@ struct ProviderSettingsView: View {
             .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
 
             VStack(alignment: .leading, spacing: 12) {
-                Toggle("Show Dock icon", isOn: dockIconBinding)
+                Toggle(AppLocalization.string("settings.launch.show_dock"), isOn: dockIconBinding)
 
                 Text(dockIconPreferences.showDockIcon
-                     ? "Parrot appears in the Dock and App Switcher. Closing windows keeps Parrot running; use Quit Parrot to exit."
-                     : "Parrot stays in menu-bar mode. You can still open it from Launch Hub, the menu bar, or shortcuts.")
+                     ? AppLocalization.string("settings.launch.dock_on")
+                     : AppLocalization.string("settings.launch.dock_off"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -395,22 +469,22 @@ struct ProviderSettingsView: View {
             .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Entry Points")
+                Text(AppLocalization.string("settings.launch.entry_points"))
                     .font(.headline)
 
                 launchInfoRow(
                     systemImageName: "text.cursor",
-                    title: "Quick Text",
+                    title: AppLocalization.string("launch_hub.quick_text.title"),
                     message: shortcutStore.preferences[.quickTextTranslation].displayString
                 )
                 launchInfoRow(
                     systemImageName: "text.viewfinder",
-                    title: "Screenshot OCR",
+                    title: AppLocalization.string("launch_hub.screenshot.title"),
                     message: shortcutStore.preferences[.screenshotTranslation].displayString
                 )
                 launchInfoRow(
                     systemImageName: "gearshape",
-                    title: "Settings",
+                    title: AppLocalization.string("window.settings.title"),
                     message: shortcutStore.preferences[.openSettings].displayString
                 )
             }
@@ -425,10 +499,10 @@ struct ProviderSettingsView: View {
                 Button {
                     onOpenLaunchHub()
                 } label: {
-                    Label("Open Launch Hub", systemImage: "rectangle.on.rectangle")
+                    Label(AppLocalization.string("settings.launch.open_hub"), systemImage: "rectangle.on.rectangle")
                 }
 
-                Button("Reset Startup Display") {
+                Button(AppLocalization.string("settings.launch.reset_startup")) {
                     setLaunchHubStartupEnabled(true)
                 }
 
@@ -442,16 +516,16 @@ struct ProviderSettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             ParrotStatusBanner(
                 kind: onboardingState.status == .completed ? .success : .info,
-                title: "Onboarding Guide",
+                title: AppLocalization.string("settings.onboarding.title"),
                 message: onboardingGuideMessage
             )
 
             HStack(spacing: 8) {
-                Label("Status: \(onboardingState.status.displayName)", systemImage: "flag")
+                Label(AppLocalization.format("settings.onboarding.status", onboardingState.status.displayName), systemImage: "flag")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("Schema \(ParrotOnboardingState.currentSchemaVersion)")
+                Text(AppLocalization.format("settings.onboarding.schema", ParrotOnboardingState.currentSchemaVersion))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -460,32 +534,32 @@ struct ProviderSettingsView: View {
 
             onboardingStepRow(
                 number: 1,
-                title: "Welcome",
-                detail: "Parrot lives in the menu bar. It translates typed text or locally recognized screenshot text, and it keeps API Keys in Keychain.",
+                title: AppLocalization.string("settings.onboarding.step.welcome.title"),
+                detail: AppLocalization.string("settings.onboarding.step.welcome.detail"),
                 isPassing: true,
-                actionTitle: "Privacy Summary",
+                actionTitle: AppLocalization.string("settings.about.privacy.title"),
                 action: { selectedSection = .about }
             )
 
             onboardingStepRow(
                 number: 2,
-                title: "Provider",
+                title: AppLocalization.string("settings.onboarding.step.provider.title"),
                 detail: providerReadyForTranslation
-                    ? "Provider, endpoint, model, and Keychain setup look ready."
-                    : "Choose a provider, confirm the HTTPS endpoint and model, then save the API Key to Keychain.",
+                    ? AppLocalization.string("settings.onboarding.step.provider.ready")
+                    : AppLocalization.string("settings.onboarding.step.provider.missing"),
                 isPassing: providerReadyForTranslation,
-                actionTitle: "Configure",
+                actionTitle: AppLocalization.string("common.configure"),
                 action: { selectedSection = .model }
             )
 
             onboardingStepRow(
                 number: 3,
-                title: "Test Connection",
+                title: AppLocalization.string("settings.onboarding.step.test.title"),
                 detail: connectionTestSucceeded
-                    ? "The configured provider accepted the test request."
-                    : "Run the same connection path used by Quick Text and Screenshot Translation.",
+                    ? AppLocalization.string("settings.onboarding.step.test.ready")
+                    : AppLocalization.string("settings.onboarding.step.test.missing"),
                 isPassing: connectionTestSucceeded,
-                actionTitle: store.isTesting ? nil : "Test",
+                actionTitle: store.isTesting ? nil : AppLocalization.string("common.test"),
                 action: {
                     Task {
                         await store.testConnection()
@@ -495,31 +569,36 @@ struct ProviderSettingsView: View {
 
             onboardingStepRow(
                 number: 4,
-                title: "Learn Shortcuts",
-                detail: "Quick Text: \(shortcutStore.preferences[.quickTextTranslation].displayString). Screenshot: \(shortcutStore.preferences[.screenshotTranslation].displayString). Settings: \(shortcutStore.preferences[.openSettings].displayString).",
+                title: AppLocalization.string("settings.onboarding.step.shortcuts.title"),
+                detail: AppLocalization.format(
+                    "settings.setup.shortcuts.detail",
+                    shortcutStore.preferences[.quickTextTranslation].displayString,
+                    shortcutStore.preferences[.screenshotTranslation].displayString,
+                    shortcutStore.preferences[.openSettings].displayString
+                ),
                 isPassing: shortcutStore.validationMessages.isEmpty,
-                actionTitle: "Review",
+                actionTitle: AppLocalization.string("common.review"),
                 action: { selectedSection = .shortcuts }
             )
 
             onboardingStepRow(
                 number: 5,
-                title: "First Translation",
-                detail: "Open Quick Text, type a short sentence, and translate it. This step does not use Screen Recording.",
+                title: AppLocalization.string("settings.onboarding.step.first.title"),
+                detail: AppLocalization.string("settings.onboarding.step.first.detail"),
                 isPassing: providerReadyForTranslation,
-                actionTitle: "Open Quick Text",
+                actionTitle: AppLocalization.string("launch_hub.quick_text.title"),
                 action: onOpenQuickText
             )
 
             onboardingStepRow(
                 number: 6,
-                title: "Screenshot OCR",
+                title: AppLocalization.string("settings.onboarding.step.ocr.title"),
                 detail: screenRecordingPermissionGranted
-                    ? "Screen Recording is enabled for optional screenshot translation."
-                    : "Optional. Screenshot Translation uses Screen Recording only for local capture and OCR; Quick Text still works if you skip it.",
+                    ? AppLocalization.string("settings.onboarding.step.ocr.ready")
+                    : AppLocalization.string("settings.onboarding.step.ocr.missing"),
                 isPassing: screenRecordingPermissionGranted,
                 isOptional: true,
-                actionTitle: "Open System Settings",
+                actionTitle: AppLocalization.string("settings.setup.open_system_settings"),
                 action: openScreenRecordingSettings
             )
 
@@ -528,17 +607,17 @@ struct ProviderSettingsView: View {
             }
 
             HStack(spacing: 8) {
-                Button("Mark Complete") {
+                Button(AppLocalization.string("settings.onboarding.mark_complete")) {
                     markOnboardingComplete()
                 }
                 .disabled(!providerReadyForTranslation)
 
-                Button("Skip for This Version") {
+                Button(AppLocalization.string("settings.onboarding.skip")) {
                     skipOnboarding()
                 }
 
                 if onboardingState.status != .notStarted {
-                    Button("Reset Guide") {
+                    Button(AppLocalization.string("settings.onboarding.reset")) {
                         resetOnboarding()
                     }
                 }
@@ -587,7 +666,7 @@ struct ProviderSettingsView: View {
                         .foregroundStyle(.primary)
 
                     if isOptional {
-                        Text("Optional")
+                        Text(AppLocalization.string("common.optional"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -650,11 +729,11 @@ struct ProviderSettingsView: View {
                     setupGuide
                 }
 
-                SettingsFormRow("Provider") {
+                SettingsFormRow(AppLocalization.string("settings.model.provider")) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Picker("Provider", selection: providerSelection) {
+                        Picker(AppLocalization.string("settings.model.provider"), selection: providerSelection) {
                             ForEach(LLMProviderPreset.presets) { preset in
-                                Text(preset.name).tag(preset.id)
+                                Text(preset.displayName).tag(preset.id)
                             }
                         }
                         .labelsHidden()
@@ -667,36 +746,36 @@ struct ProviderSettingsView: View {
                     }
                 }
 
-                SettingsFormRow("Base URL") {
+                SettingsFormRow(AppLocalization.string("settings.model.base_url")) {
                     TextField(store.selectedPreset.baseURLString, text: $store.baseURLString)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: .infinity)
                 }
 
-                SettingsFormRow("Model") {
+                SettingsFormRow(AppLocalization.string("settings.model.model")) {
                     TextField(store.selectedPreset.modelName, text: $store.modelName)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: .infinity)
                 }
 
-                SettingsFormRow("Timeout") {
+                SettingsFormRow(AppLocalization.string("settings.model.timeout")) {
                     VStack(alignment: .leading, spacing: 6) {
                         Stepper(
-                            "\(Int(store.requestTimeoutSeconds.rounded())) seconds",
+                            AppLocalization.format("settings.model.timeout.seconds", Int(store.requestTimeoutSeconds.rounded())),
                             value: timeoutBinding,
                             in: ProviderTimeoutPreference.minimumRequestTimeoutSeconds...ProviderTimeoutPreference.maximumRequestTimeoutSeconds,
                             step: 5
                         )
                         .controlSize(.small)
 
-                        Text("Applies to connection tests, Quick Text, and Screenshot Translation requests. The default is 25 seconds.")
+                        Text(AppLocalization.string("settings.model.timeout.help"))
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
-                SettingsFormRow("API Key", alignment: .top, labelTopPadding: 7) {
+                SettingsFormRow(AppLocalization.string("settings.model.api_key"), alignment: .top, labelTopPadding: 7) {
                     VStack(alignment: .leading, spacing: 9) {
                         SecureField(apiKeyPlaceholder, text: $store.apiKeyInput)
                             .textFieldStyle(.roundedBorder)
@@ -724,7 +803,7 @@ struct ProviderSettingsView: View {
             Divider()
 
             HStack {
-                Button("Save") {
+                Button(AppLocalization.string("common.save")) {
                     store.saveSettings()
                 }
                 .keyboardShortcut("s", modifiers: [.command])
@@ -739,14 +818,14 @@ struct ProviderSettingsView: View {
                         ProgressView()
                             .controlSize(.small)
                     } else {
-                        Text("Test Connection")
+                        Text(AppLocalization.string("settings.model.test_connection"))
                     }
                 }
                 .disabled(store.isTesting)
 
                 Spacer()
 
-                Button("Delete API Key", role: .destructive) {
+                Button(AppLocalization.string("settings.model.delete_api_key"), role: .destructive) {
                     store.deleteAPIKey()
                 }
                 .disabled(!store.hasSavedAPIKey)
@@ -759,20 +838,20 @@ struct ProviderSettingsView: View {
     private var setupGuide: some View {
         ParrotStatusBanner(
             kind: .info,
-            title: "API Key setup required",
-            message: "Save a provider API Key once before translating. Parrot only accesses Keychain when you save, replace, delete, or explicitly test a saved key here; translation windows show in-app setup errors instead of system Keychain password prompts."
+            title: AppLocalization.string("settings.model.api_key_required.title"),
+            message: AppLocalization.string("settings.model.api_key_required.message")
         )
     }
 
     private var historySettings: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Toggle("Save translation history", isOn: historyEnabledBinding)
+            Toggle(AppLocalization.string("settings.privacy.save_history"), isOn: historyEnabledBinding)
 
             ParrotStatusBanner(
                 kind: .info,
                 message: historyStore.isHistoryEnabled
-                    ? "Successful translations are saved locally as text records and never include screenshot images or API Keys."
-                    : "New translations will not be saved while history is disabled. Existing records remain available until you clear them."
+                    ? AppLocalization.string("settings.privacy.history_on")
+                    : AppLocalization.string("settings.privacy.history_off")
             )
         }
     }
@@ -784,26 +863,26 @@ struct ProviderSettingsView: View {
                     Text("Parrot")
                         .font(.title3.weight(.semibold))
 
-                    Text("Unsigned release candidate for local macOS translation workflows.")
+                    Text(AppLocalization.string("settings.about.subtitle"))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    settingsInfoRow("Version", value: appVersion)
-                    settingsInfoRow("Build", value: buildNumber)
-                    settingsInfoRow("Bundle ID", value: bundleIdentifier)
-                    settingsInfoRow("Requires", value: ParrotAboutInfo.macOSRequirement)
-                    settingsInfoRow("Release Channel", value: ParrotAboutInfo.releaseChannel)
+                    settingsInfoRow(AppLocalization.string("settings.about.version"), value: appVersion)
+                    settingsInfoRow(AppLocalization.string("settings.about.build"), value: buildNumber)
+                    settingsInfoRow(AppLocalization.string("settings.about.bundle_id"), value: bundleIdentifier)
+                    settingsInfoRow(AppLocalization.string("settings.about.requires"), value: ParrotAboutInfo.macOSRequirementDisplayName)
+                    settingsInfoRow(AppLocalization.string("settings.about.release_channel"), value: ParrotAboutInfo.releaseChannelDisplayName)
                 }
                 .padding(12)
                 .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
 
                 ParrotStatusBanner(
                     kind: .warning,
-                    title: "Unsigned RC",
-                    message: "This build is not Developer ID signed or notarized. macOS Gatekeeper may require manual approval before launch."
+                    title: AppLocalization.string("settings.about.unsigned.title"),
+                    message: AppLocalization.string("settings.about.unsigned.message")
                 )
 
                 updateCheckSection
@@ -824,7 +903,7 @@ struct ProviderSettingsView: View {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
-                            Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
+                            Label(AppLocalization.string("settings.about.check_updates"), systemImage: "arrow.triangle.2.circlepath")
                         }
                     }
                     .disabled(updateChecker.status == .checking)
@@ -832,19 +911,19 @@ struct ProviderSettingsView: View {
                     Button {
                         openReleaseNotes()
                     } label: {
-                        Label("Open Release Notes", systemImage: "doc.text")
+                        Label(AppLocalization.string("settings.about.updates.open_notes"), systemImage: "doc.text")
                     }
 
                     Button {
                         copyDiagnosticsSummary()
                     } label: {
-                        Label("Copy Diagnostics Summary", systemImage: "doc.on.doc")
+                        Label(AppLocalization.string("settings.about.copy_diagnostics"), systemImage: "doc.on.doc")
                     }
 
                     Button {
                         sendFeedback()
                     } label: {
-                        Label("Send Feedback", systemImage: "bubble.left.and.bubble.right")
+                        Label(AppLocalization.string("settings.about.send_feedback"), systemImage: "bubble.left.and.bubble.right")
                     }
 
                     Spacer()
@@ -857,28 +936,28 @@ struct ProviderSettingsView: View {
 
     private var aboutPrivacySummary: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Privacy Summary")
+            Text(AppLocalization.string("settings.about.privacy.title"))
                 .font(.headline)
 
             privacySummaryRow(
                 systemImageName: "key.fill",
-                title: "API Key in Keychain",
-                message: "Parrot stores API keys only in macOS Keychain and keeps only a non-secret setup record in UserDefaults."
+                title: AppLocalization.string("settings.about.privacy.keychain.title"),
+                message: AppLocalization.string("settings.about.privacy.keychain.message")
             )
             privacySummaryRow(
                 systemImageName: "text.viewfinder",
-                title: "Local OCR",
-                message: "Screenshot images are processed locally for text recognition and are not saved to history."
+                title: AppLocalization.string("settings.about.privacy.ocr.title"),
+                message: AppLocalization.string("settings.about.privacy.ocr.message")
             )
             privacySummaryRow(
                 systemImageName: "paperplane",
-                title: "Recognized text only",
-                message: "Only recognized or typed text is sent to the configured provider during translation."
+                title: AppLocalization.string("settings.about.privacy.text.title"),
+                message: AppLocalization.string("settings.about.privacy.text.message")
             )
             privacySummaryRow(
                 systemImageName: "clock.arrow.circlepath",
-                title: "Text-only history",
-                message: "History stores local text records only, can be disabled, and can be cleared from Privacy settings."
+                title: AppLocalization.string("settings.about.privacy.history.title"),
+                message: AppLocalization.string("settings.about.privacy.history.message")
             )
         }
         .padding(12)
@@ -888,7 +967,7 @@ struct ProviderSettingsView: View {
     private var updateCheckSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
-                Text("Updates")
+                Text(AppLocalization.string("settings.about.updates.title"))
                     .font(.headline)
 
                 Spacer()
@@ -900,7 +979,7 @@ struct ProviderSettingsView: View {
                         ProgressView()
                             .controlSize(.small)
                     } else {
-                        Label("Check", systemImage: "arrow.triangle.2.circlepath")
+                        Label(AppLocalization.string("common.check"), systemImage: "arrow.triangle.2.circlepath")
                     }
                 }
                 .disabled(updateChecker.status == .checking)
@@ -916,33 +995,33 @@ struct ProviderSettingsView: View {
     private var updateStatusView: some View {
         switch updateChecker.status {
         case .idle:
-            Text("Manual update checks use GitHub Releases. Parrot does not send API keys, provider settings, translation text, screenshots, history, or diagnostics.")
+            Text(AppLocalization.string("settings.about.updates.idle"))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         case .checking:
             ParrotStatusBanner(
                 kind: .progress,
-                title: "Checking for Updates",
-                message: "Contacting GitHub Releases for the latest Parrot release."
+                title: AppLocalization.string("settings.about.updates.checking.title"),
+                message: AppLocalization.string("settings.about.updates.checking.message")
             )
         case .upToDate(let message):
             ParrotStatusBanner(
                 kind: .success,
-                title: "Up to Date",
+                title: AppLocalization.string("settings.about.updates.up_to_date"),
                 message: message
             )
         case .unableToCheck(let message):
             ParrotStatusBanner(
                 kind: .error,
-                title: "Unable to Check",
+                title: AppLocalization.string("settings.about.updates.unable"),
                 message: message
             )
         case .updateAvailable(let release, let message):
             VStack(alignment: .leading, spacing: 10) {
                 ParrotStatusBanner(
                     kind: .info,
-                    title: "Update Available",
+                    title: AppLocalization.string("settings.about.updates.available"),
                     message: message
                 )
 
@@ -950,7 +1029,7 @@ struct ProviderSettingsView: View {
                     Button {
                         NSWorkspace.shared.open(release.releaseNotesURL)
                     } label: {
-                        Label("Open Release Notes", systemImage: "doc.text")
+                        Label(AppLocalization.string("settings.about.updates.open_notes"), systemImage: "doc.text")
                     }
 
                     Button {
@@ -960,7 +1039,7 @@ struct ProviderSettingsView: View {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
-                            Label("Download and Open Update", systemImage: "arrow.down.circle")
+                            Label(AppLocalization.string("settings.about.updates.download_open"), systemImage: "arrow.down.circle")
                         }
                     }
                     .disabled(isUpdateDownloading)
@@ -968,7 +1047,7 @@ struct ProviderSettingsView: View {
                     Button {
                         copyUpdateVersionInfo()
                     } label: {
-                        Label("Copy Version Info", systemImage: "doc.on.doc")
+                        Label(AppLocalization.string("settings.about.updates.copy_version"), systemImage: "doc.on.doc")
                     }
                 }
 
@@ -992,19 +1071,23 @@ struct ProviderSettingsView: View {
         case .downloading(let fileName):
             ParrotStatusBanner(
                 kind: .progress,
-                title: "Downloading Update",
-                message: "Downloading \(fileName) to your Downloads folder."
+                title: AppLocalization.string("settings.about.updates.downloading.title"),
+                message: AppLocalization.format("settings.about.updates.downloading.message", fileName)
             )
         case .downloaded(let fileName, let fileURL):
             ParrotStatusBanner(
                 kind: .success,
-                title: "Update Downloaded",
-                message: "\(fileName) was saved to \(fileURL.deletingLastPathComponent().path) and opened with macOS."
+                title: AppLocalization.string("settings.about.updates.downloaded.title"),
+                message: AppLocalization.format(
+                    "settings.about.updates.downloaded.message",
+                    fileName,
+                    fileURL.deletingLastPathComponent().path
+                )
             )
         case .unableToDownload(let message):
             ParrotStatusBanner(
                 kind: .error,
-                title: "Unable to Download",
+                title: AppLocalization.string("settings.about.updates.download_failed"),
                 message: message
             )
         }
@@ -1012,10 +1095,10 @@ struct ProviderSettingsView: View {
 
     private var diagnosticsSummarySection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Diagnostics Summary")
+            Text(AppLocalization.string("settings.about.diagnostics.title"))
                 .font(.headline)
 
-            Text("This summary excludes API keys, endpoint hosts, source text, provider responses, history content, screenshots, window titles, and source app names.")
+            Text(AppLocalization.string("settings.about.diagnostics.description"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1032,9 +1115,9 @@ struct ProviderSettingsView: View {
     private var translationSettings: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                LabeledContent("Style") {
+                LabeledContent(AppLocalization.string("settings.translation.style")) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Picker("Translation Style", selection: translationStyleBinding) {
+                        Picker(AppLocalization.string("settings.translation.style_picker"), selection: translationStyleBinding) {
                             ForEach(TranslationStyle.allCases) { style in
                                 Text(style.displayName).tag(style)
                             }
@@ -1050,7 +1133,7 @@ struct ProviderSettingsView: View {
                     }
                 }
 
-                Text("Style is applied to Quick Text and Screenshot translation prompts. Use Again or Retry in an open translation window to retranslate with the latest style.")
+                Text(AppLocalization.string("settings.translation.style_help"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -1060,7 +1143,7 @@ struct ProviderSettingsView: View {
 
                 Divider()
 
-                LabeledContent("Default Prompt") {
+                LabeledContent(AppLocalization.string("settings.translation.default_prompt")) {
                     VStack(alignment: .leading, spacing: 6) {
                         TextEditor(text: .constant(TranslationPromptPreferences.defaultPromptTemplate))
                             .font(.system(.caption, design: .monospaced))
@@ -1069,17 +1152,17 @@ struct ProviderSettingsView: View {
                             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
                             .disabled(true)
 
-                        Text("This is the built-in Prompt structure. Parrot sends source text only to the configured provider during translation.")
+                        Text(AppLocalization.string("settings.translation.default_prompt_help"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
-                Toggle("Enable custom Prompt template", isOn: $promptPreferences.isCustomPromptEnabled)
+                Toggle(AppLocalization.string("settings.translation.enable_custom_prompt"), isOn: $promptPreferences.isCustomPromptEnabled)
 
                 if promptPreferences.isCustomPromptEnabled {
-                    LabeledContent("Custom Prompt") {
+                    LabeledContent(AppLocalization.string("settings.translation.custom_prompt")) {
                         VStack(alignment: .leading, spacing: 6) {
                             TextEditor(text: $promptPreferences.customPromptTemplate)
                                 .font(.system(.caption, design: .monospaced))
@@ -1087,7 +1170,10 @@ struct ProviderSettingsView: View {
                                 .scrollContentBackground(.hidden)
                                 .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
 
-                            Text("Required variables: {target_language}, {text}. Supported variables: \(TranslationPromptPreferences.supportedVariables.joined(separator: ", ")).")
+                            Text(AppLocalization.format(
+                                "settings.translation.prompt_variables",
+                                TranslationPromptPreferences.supportedVariables.joined(separator: ", ")
+                            ))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1102,12 +1188,12 @@ struct ProviderSettingsView: View {
                 }
 
                 HStack {
-                    Button("Save Prompt") {
+                    Button(AppLocalization.string("settings.translation.save_prompt")) {
                         savePromptPreferences()
                     }
                     .disabled(promptValidationMessage != nil)
 
-                    Button("Restore Default") {
+                    Button(AppLocalization.string("common.restore_default")) {
                         restoreDefaultPrompt()
                     }
 
@@ -1126,20 +1212,20 @@ struct ProviderSettingsView: View {
     private var floatingWindowPositionSettings: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Floating Windows")
+                Text(AppLocalization.string("settings.translation.floating.title"))
                     .font(.headline)
 
                 Text(hasSavedFloatingWindowPositionPreference
-                     ? "Saved placement applies to Quick Text and Screenshot result windows."
-                     : "Workflow defaults are active: Quick Text opens centered; Screenshot results open near the selected region when possible.")
+                     ? AppLocalization.string("settings.translation.floating.saved")
+                     : AppLocalization.string("settings.translation.floating.default"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            LabeledContent("Position") {
+            LabeledContent(AppLocalization.string("settings.translation.floating.position")) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Picker("Window Position", selection: floatingWindowPositionBinding) {
+                    Picker(AppLocalization.string("settings.translation.floating.window_position"), selection: floatingWindowPositionBinding) {
                         ForEach(FloatingWindowPositionPreference.allCases) { preference in
                             Text(preference.displayName).tag(preference)
                         }
@@ -1160,11 +1246,11 @@ struct ProviderSettingsView: View {
             }
 
             HStack {
-                Button("Save Current Choice") {
+                Button(AppLocalization.string("settings.translation.floating.save_choice")) {
                     saveFloatingWindowPositionPreference(floatingWindowPositionPreference)
                 }
 
-                Button("Restore Workflow Defaults") {
+                Button(AppLocalization.string("settings.translation.floating.restore")) {
                     restoreFloatingWindowDefaults()
                 }
 
@@ -1176,10 +1262,10 @@ struct ProviderSettingsView: View {
     private var glossarySettings: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Terminology Glossary")
+                Text(AppLocalization.string("settings.translation.glossary.title"))
                     .font(.headline)
 
-                Text("Entries stay local. During translation, Parrot only sends enabled terms that appear in the current source text and match the target language.")
+                Text(AppLocalization.string("settings.translation.glossary.description"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1191,17 +1277,19 @@ struct ProviderSettingsView: View {
                 StatusMessageView(message: statusMessage, isError: glossaryStore.isStatusError)
             }
 
-            TextField("Search source or target term", text: $glossarySearchText)
+            TextField(AppLocalization.string("settings.translation.glossary.search"), text: $glossarySearchText)
                 .textFieldStyle(.roundedBorder)
 
             let visibleEntries = glossaryStore.filteredEntries(searchText: glossarySearchText)
             if visibleEntries.isEmpty {
                 ParrotEmptyState(
                     systemImageName: glossarySearchText.isEmpty ? "text.book.closed" : "magnifyingglass",
-                    title: glossarySearchText.isEmpty ? "No glossary entries yet" : "No matching glossary entries",
+                    title: glossarySearchText.isEmpty
+                        ? AppLocalization.string("settings.translation.glossary.empty.title")
+                        : AppLocalization.string("settings.translation.glossary.empty_search.title"),
                     message: glossarySearchText.isEmpty
-                        ? "Add source and target terms here. Only matched enabled terms are sent with a translation request."
-                        : "Try a different source or target term."
+                        ? AppLocalization.string("settings.translation.glossary.empty.message")
+                        : AppLocalization.string("settings.translation.glossary.empty_search.message")
                 )
                 .frame(height: 150)
                 .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
@@ -1224,7 +1312,7 @@ struct ProviderSettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Source Term")
+                    Text(AppLocalization.string("settings.translation.glossary.source_term"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     TextField("Parrot", text: $glossaryDraft.sourceTerm)
@@ -1232,7 +1320,7 @@ struct ProviderSettingsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Target Term")
+                    Text(AppLocalization.string("settings.translation.glossary.target_term"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     TextField("Parrot", text: $glossaryDraft.targetTerm)
@@ -1242,11 +1330,11 @@ struct ProviderSettingsView: View {
 
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Target Language")
+                    Text(AppLocalization.string("settings.translation.glossary.target_language"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Picker("Target Language", selection: glossaryTargetLanguageBinding) {
-                        Text("Any").tag("")
+                    Picker(AppLocalization.string("settings.translation.glossary.target_language"), selection: glossaryTargetLanguageBinding) {
+                        Text(AppLocalization.string("settings.translation.glossary.any")).tag("")
                         ForEach(TranslationLanguage.allCases) { language in
                             Text(language.displayName).tag(language.rawValue)
                         }
@@ -1256,27 +1344,29 @@ struct ProviderSettingsView: View {
                     .frame(width: 150, alignment: .leading)
                 }
 
-                Toggle("Enabled", isOn: $glossaryDraft.isEnabled)
+                Toggle(AppLocalization.string("common.enabled"), isOn: $glossaryDraft.isEnabled)
                     .padding(.top, 22)
 
                 Spacer()
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Context")
+                Text(AppLocalization.string("settings.translation.glossary.context"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                TextField("Optional note, product area, or usage hint", text: $glossaryDraft.context)
+                TextField(AppLocalization.string("settings.translation.glossary.context_placeholder"), text: $glossaryDraft.context)
                     .textFieldStyle(.roundedBorder)
             }
 
             HStack {
-                Button(editingGlossaryID == nil ? "Add Entry" : "Save Entry") {
+                Button(editingGlossaryID == nil
+                       ? AppLocalization.string("settings.translation.glossary.add")
+                       : AppLocalization.string("settings.translation.glossary.save")) {
                     saveGlossaryDraft()
                 }
 
                 if editingGlossaryID != nil {
-                    Button("Cancel") {
+                    Button(AppLocalization.string("common.cancel")) {
                         resetGlossaryDraft()
                     }
                 }
@@ -1301,11 +1391,11 @@ struct ProviderSettingsView: View {
                 }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Settings")
+                Text(AppLocalization.string("window.settings.title"))
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(.primary)
 
-                Text("Configure Launch, Model, Shortcuts, Translation, Privacy, and release information for the current Parrot workflows.")
+                Text(AppLocalization.string("settings.header.subtitle"))
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1378,15 +1468,15 @@ struct ProviderSettingsView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? AppLocalization.string("common.unknown")
     }
 
     private var buildNumber: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? AppLocalization.string("common.unknown")
     }
 
     private var bundleIdentifier: String {
-        Bundle.main.bundleIdentifier ?? "unknown"
+        Bundle.main.bundleIdentifier ?? AppLocalization.string("common.unknown")
     }
 
     private var currentDiagnosticsSummary: ParrotDiagnosticsSummary {
@@ -1403,7 +1493,7 @@ struct ProviderSettingsView: View {
     private func copyDiagnosticsSummary() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(currentDiagnosticsSummary.text, forType: .string)
-        aboutStatusMessage = "Diagnostics summary copied without API keys, endpoints, source text, provider responses, history, or screenshots."
+        aboutStatusMessage = AppLocalization.string("settings.about.status.diagnostics_copied")
     }
 
     private func checkForUpdates() {
@@ -1434,47 +1524,47 @@ struct ProviderSettingsView: View {
         )
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        aboutStatusMessage = "Version info copied without API keys, provider settings, user text, history, screenshots, or diagnostics."
+        aboutStatusMessage = AppLocalization.string("settings.about.status.version_copied")
     }
 
     private func openReleaseNotes() {
         NSWorkspace.shared.open(ParrotAboutInfo.releaseNotesURL)
-        aboutStatusMessage = "Opened release notes in the browser."
+        aboutStatusMessage = AppLocalization.string("settings.about.status.release_notes_opened")
     }
 
     private func sendFeedback() {
         NSWorkspace.shared.open(ParrotAboutInfo.feedbackURL)
-        aboutStatusMessage = "Opened GitHub Issues for feedback."
+        aboutStatusMessage = AppLocalization.string("settings.about.status.feedback_opened")
     }
 
     private func markOnboardingComplete() {
         onboardingState = ParrotOnboardingState.markCompleted()
-        onboardingStatusMessage = "Onboarding marked complete for this version."
+        onboardingStatusMessage = AppLocalization.string("settings.onboarding.completed_status")
     }
 
     private func skipOnboarding() {
         onboardingState = ParrotOnboardingState.markSkipped()
-        onboardingStatusMessage = "Onboarding skipped for this version. You can restart it here later."
+        onboardingStatusMessage = AppLocalization.string("settings.onboarding.skipped_status")
     }
 
     private func resetOnboarding() {
         onboardingState = ParrotOnboardingState.reset()
-        onboardingStatusMessage = "Onboarding reset."
+        onboardingStatusMessage = AppLocalization.string("settings.onboarding.reset_status")
     }
 
     private func setLaunchHubStartupEnabled(_ isEnabled: Bool) {
         launchHubPreferences = ParrotLaunchHubPreferences.setShowOnStartup(isEnabled)
         launchStatusMessage = isEnabled
-            ? "Launch Hub will open on startup after setup and onboarding are complete."
-            : "Launch Hub startup display is off. Setup and onboarding can still open when needed."
+            ? AppLocalization.string("settings.launch.status.hub_on")
+            : AppLocalization.string("settings.launch.status.hub_off")
     }
 
     private func setDockIconVisible(_ isVisible: Bool) {
         dockIconPreferences = ParrotDockIconPreferences.setShowDockIcon(isVisible)
         onDockIconVisibilityChanged(isVisible)
         launchStatusMessage = isVisible
-            ? "Dock icon enabled. Parrot now appears in the Dock and App Switcher."
-            : "Dock icon hidden. Parrot remains available from Launch Hub, the menu bar, and shortcuts."
+            ? AppLocalization.string("settings.launch.status.dock_on")
+            : AppLocalization.string("settings.launch.status.dock_off")
     }
 
     private var providerSelection: Binding<String> {
@@ -1494,17 +1584,17 @@ struct ProviderSettingsView: View {
     }
 
     private var connectionTestSucceeded: Bool {
-        store.statusMessage?.localizedCaseInsensitiveContains("succeeded") == true
+        store.didTestConnectionSucceed
     }
 
     private var onboardingGuideMessage: String {
         switch onboardingState.status {
         case .notStarted:
-            return "Complete these steps once for this version. You can skip the guide and reopen it from Settings > Setup."
+            return AppLocalization.string("settings.onboarding.not_started")
         case .skipped:
-            return "Skipped for this version. Parrot will not reopen onboarding automatically unless setup becomes invalid or the onboarding schema changes."
+            return AppLocalization.string("settings.onboarding.skipped")
         case .completed:
-            return "Complete for this version. Future launches will stay quiet unless setup becomes invalid or a later onboarding schema requires attention."
+            return AppLocalization.string("settings.onboarding.completed")
         }
     }
 
@@ -1537,6 +1627,20 @@ struct ProviderSettingsView: View {
         Binding(
             get: { dockIconPreferences.showDockIcon },
             set: { setDockIconVisible($0) }
+        )
+    }
+
+    private var appLanguageBinding: Binding<AppLanguage> {
+        Binding(
+            get: { appLanguage },
+            set: { newValue in
+                appLanguage = newValue
+                AppLanguagePreference.save(newValue)
+                appLanguageStatusMessage = AppLocalization.string(
+                    "settings.language.restart_notice",
+                    language: newValue
+                )
+            }
         )
     }
 
@@ -1581,8 +1685,8 @@ struct ProviderSettingsView: View {
         do {
             try promptPreferences.save()
             promptStatusMessage = promptPreferences.isCustomPromptEnabled
-                ? "Custom Prompt saved. Use Again or Retry in an open translation window to apply it."
-                : "Custom Prompt disabled. Translation uses the built-in Prompt."
+                ? AppLocalization.string("settings.translation.prompt_saved")
+                : AppLocalization.string("settings.translation.prompt_disabled")
             isPromptStatusError = false
         } catch {
             promptStatusMessage = error.userFacingMessage
@@ -1593,21 +1697,21 @@ struct ProviderSettingsView: View {
     private func restoreDefaultPrompt() {
         TranslationPromptPreferences.restoreDefault()
         promptPreferences = .defaults
-        promptStatusMessage = "Default Prompt restored. Translation uses the built-in Prompt behavior."
+        promptStatusMessage = AppLocalization.string("settings.translation.prompt_restored")
         isPromptStatusError = false
     }
 
     private func saveFloatingWindowPositionPreference(_ preference: FloatingWindowPositionPreference) {
         preference.save()
         hasSavedFloatingWindowPositionPreference = true
-        floatingWindowPositionStatusMessage = "\(preference.displayName) saved for translation windows."
+        floatingWindowPositionStatusMessage = AppLocalization.format("settings.translation.floating.saved_status", preference.displayName)
     }
 
     private func restoreFloatingWindowDefaults() {
         FloatingWindowPositionPreference.clearSavedPreference()
         floatingWindowPositionPreference = FloatingWindowPositionPreference.loadSaved()
         hasSavedFloatingWindowPositionPreference = false
-        floatingWindowPositionStatusMessage = "Workflow defaults restored."
+        floatingWindowPositionStatusMessage = AppLocalization.string("settings.translation.floating.restored_status")
     }
 
     private func saveGlossaryDraft() {
@@ -1627,13 +1731,15 @@ struct ProviderSettingsView: View {
     }
 
     private var apiKeyPlaceholder: String {
-        store.hasSavedAPIKey ? "Leave blank to keep saved Keychain API Key" : "sk-..."
+        store.hasSavedAPIKey
+            ? AppLocalization.string("settings.model.api_key.placeholder.saved")
+            : AppLocalization.string("settings.model.api_key.placeholder.empty")
     }
 
     private var apiKeyHelpText: String {
         store.hasSavedAPIKey
-            ? "A Keychain API Key is saved. Enter a new key to replace it if macOS asks for Keychain access during debugging."
-            : "The API Key is saved only to Keychain. Parrot keeps only a non-secret setup flag in UserDefaults."
+            ? AppLocalization.string("settings.model.api_key.help.saved")
+            : AppLocalization.string("settings.model.api_key.help.empty")
     }
 
     private func openScreenRecordingSettings() {
@@ -1696,12 +1802,12 @@ private struct GlossaryEntryRow: View {
 
                 Spacer()
 
-                Toggle("Enabled", isOn: enabledBinding)
+                Toggle(AppLocalization.string("common.enabled"), isOn: enabledBinding)
                     .labelsHidden()
             }
 
             HStack(spacing: 8) {
-                Text(entry.targetLanguage?.displayName ?? "Any target")
+                Text(entry.targetLanguage?.displayName ?? AppLocalization.string("settings.translation.glossary.any_target"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -1714,8 +1820,8 @@ private struct GlossaryEntryRow: View {
             }
 
             HStack {
-                Button("Edit", action: onEdit)
-                Button("Delete", role: .destructive, action: onDelete)
+                Button(AppLocalization.string("common.edit"), action: onEdit)
+                Button(AppLocalization.string("common.delete"), role: .destructive, action: onDelete)
                 Spacer()
             }
         }

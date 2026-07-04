@@ -15,22 +15,22 @@ enum FloatingWindowPositionPreference: String, CaseIterable, Codable, Identifiab
     var displayName: String {
         switch self {
         case .screenCenter:
-            return "Screen Center"
+            return AppLocalization.string("floating_position.screen_center")
         case .mouseNearby:
-            return "Mouse Nearby"
+            return AppLocalization.string("floating_position.mouse_nearby")
         case .lastPosition:
-            return "Last Position"
+            return AppLocalization.string("floating_position.last_position")
         }
     }
 
     var detail: String {
         switch self {
         case .screenCenter:
-            return "Open lightweight translation windows in the current screen center."
+            return AppLocalization.string("floating_position.screen_center.detail")
         case .mouseNearby:
-            return "Open lightweight translation windows near the current pointer."
+            return AppLocalization.string("floating_position.mouse_nearby.detail")
         case .lastPosition:
-            return "Open lightweight translation windows at the last user-moved position."
+            return AppLocalization.string("floating_position.last_position.detail")
         }
     }
 

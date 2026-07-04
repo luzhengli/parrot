@@ -21,7 +21,7 @@ struct KeyboardShortcutDescriptor: Codable, Equatable, Hashable {
 
     var displayString: String {
         guard let keyName = Self.keyName(for: keyCode) else {
-            return "Unsupported key"
+            return AppLocalization.string("shortcut.unsupported_key")
         }
 
         var parts: [String] = []
@@ -43,12 +43,12 @@ struct KeyboardShortcutDescriptor: Codable, Equatable, Hashable {
 
     var validationMessage: String? {
         guard Self.keyName(for: keyCode) != nil else {
-            return "Press a supported letter, number, function, or punctuation key."
+            return AppLocalization.string("shortcut.validation.supported_key")
         }
 
         let requiredModifiers = UInt32(cmdKey | controlKey | optionKey)
         guard modifiers & requiredModifiers != 0 else {
-            return "Use at least Cmd, Ctrl, or Option so the shortcut is global and intentional."
+            return AppLocalization.string("shortcut.validation.modifier")
         }
 
         return nil
@@ -236,7 +236,7 @@ struct ShortcutPreferences: Codable, Equatable {
                 otherAction != action && self[otherAction] == self[action]
             }
             if conflicts {
-                messages[action] = "This shortcut is already used by another Parrot action."
+                messages[action] = AppLocalization.string("shortcut.validation.conflict")
             }
         }
 
@@ -261,11 +261,11 @@ extension GlobalShortcutAction {
     var title: String {
         switch self {
         case .quickTextTranslation:
-            return "Quick Text Translation"
+            return AppLocalization.string("shortcut.action.quick_text")
         case .screenshotTranslation:
-            return "Screenshot Translation"
+            return AppLocalization.string("shortcut.action.screenshot")
         case .openSettings:
-            return "Open Settings"
+            return AppLocalization.string("shortcut.action.open_settings")
         }
     }
 }
@@ -292,18 +292,18 @@ final class ShortcutSettingsStore: ObservableObject {
 
     func resetToDefaults() {
         preferences = .defaults
-        statusMessage = "Default shortcuts restored. Save to apply them."
+        statusMessage = AppLocalization.string("shortcut.status.restored")
         isStatusError = false
     }
 
     func save() -> Bool {
         do {
             try preferences.save(to: userDefaults)
-            statusMessage = "Shortcuts saved and applied."
+            statusMessage = AppLocalization.string("shortcut.status.saved")
             isStatusError = false
             return true
         } catch {
-            statusMessage = "Fix invalid or conflicting shortcuts before saving."
+            statusMessage = AppLocalization.string("shortcut.status.invalid")
             isStatusError = true
             return false
         }
@@ -330,19 +330,19 @@ struct ShortcutSettingsSection: View {
         VStack(alignment: .leading, spacing: 14) {
             settingsRow(
                 title: GlobalShortcutAction.quickTextTranslation.title,
-                detail: "Open the lightweight text translation window.",
+                detail: AppLocalization.string("shortcut.detail.quick_text"),
                 action: .quickTextTranslation
             )
 
             settingsRow(
                 title: GlobalShortcutAction.screenshotTranslation.title,
-                detail: "Start screen region selection for OCR translation.",
+                detail: AppLocalization.string("shortcut.detail.screenshot"),
                 action: .screenshotTranslation
             )
 
             settingsRow(
                 title: GlobalShortcutAction.openSettings.title,
-                detail: "Open the unified Settings window.",
+                detail: AppLocalization.string("shortcut.detail.settings"),
                 action: .openSettings
             )
 
@@ -354,13 +354,13 @@ struct ShortcutSettingsSection: View {
             }
 
             HStack {
-                Button("Restore Defaults") {
+                Button(AppLocalization.string("shortcut.restore_defaults")) {
                     store.resetToDefaults()
                 }
 
                 Spacer()
 
-                Button("Save Shortcuts") {
+                Button(AppLocalization.string("shortcut.save")) {
                     if store.save() {
                         onSaved()
                     }
@@ -491,7 +491,7 @@ final class RecorderView: NSView {
     }
 
     private func updateLabel() {
-        label.stringValue = isRecording ? "Press shortcut..." : shortcut.displayString
+        label.stringValue = isRecording ? AppLocalization.string("shortcut.recording") : shortcut.displayString
         layer?.borderColor = (isRecording ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
     }
 }

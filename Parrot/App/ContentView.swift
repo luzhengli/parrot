@@ -12,7 +12,7 @@ struct ContentView: View {
                     Text("Parrot")
                         .font(.largeTitle.bold())
 
-                    Text("Native macOS app foundation is ready.")
+                    Text(AppLocalization.string("content.foundation_ready"))
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

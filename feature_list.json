@@ -693,6 +693,25 @@
       "notes": "Implemented Settings > Translation > Floating Windows with Screen Center, Mouse Nearby, and Last Position. The saved preference is stored in UserDefaults and applies to Quick Text Translation plus Screenshot Translation result/error windows. With no explicit saved override, Quick Text keeps the existing Screen Center default while Screenshot Translation results prefer the in-memory selected screenshot region and clamp back inside the visible screen when space is constrained. Last Position stores only the translation window top-left point after user movement; no screenshot images, OCR source images, API Keys, selected screenshot rectangles, or provider/prompt/history behavior were persisted or changed. Verified with source-linked E2E Scripts/floating-window-position-preferences-e2e.swift covering default/invalid preference fallback, persistence, last-position storage, screen-center/mouse-nearby/last-position frame calculation, screenshot-region-nearby placement, constrained visible-screen fallback, and no image/screenRect/base64 preference persistence. Also ran git diff --check, feature_list.json JSON validation, ./init.sh Debug build/signing, and ./init.sh --run launch. Real GUI smoke for different preferences was attempted with a temporary AppKit CGEvent/CGWindowList helper after launch, but the current automation session did not deliver Cmd+Shift+T to Parrot, so no Quick Text window was observed; the focused E2E plus Debug build/run are the acceptance evidence in this environment. 2026-07-04 UI/UX refactor verification: DESIGN.md and explicit /Design prototypes were reviewed; the changed surface now uses shared native header/status/panel/footer components, semantic macOS colors, system font, native controls, and 8px-or-less rounded panels. Verified by ./init.sh Debug build/signing plus /private/tmp/parrot-ui-view-smoke; related source E2Es passed where applicable. Real CGEvent shortcut smoke was limited by hiservices-xpcservice event-delivery warnings in this automation session."
     },
     {
+      "id": "p0.app-ui-internationalization",
+      "priority": "P0",
+      "category": "localization",
+      "description": "Parrot UI supports Simplified Chinese and English interface strings with zh-Hans as the default app language.",
+      "acceptance": [
+        "Bundle zh-Hans and en Localizable.strings resources with identical key coverage.",
+        "Default app UI language to zh-Hans instead of the system language, and fall back to zh-Hans for invalid saved values.",
+        "Expose Settings > General > App Language with zh-Hans and English options.",
+        "Persist app language in UserDefaults without resetting provider setup, API Key setup record, shortcuts, translation language preferences, Prompt preferences, glossary, history, Launch/Dock preferences, or window pinning preferences.",
+        "Show a restart notice after changing app language; do not hot-switch the active UI session.",
+        "Localize P0 menu, Launch Hub, Quick Text, Screenshot Translation/OCR, History, Settings, About, and key user-facing errors.",
+        "Keep translation source/target language preferences independent from app UI language.",
+        "Run resource lint, key completeness, hardcoded UI-literal scan, source-linked E2E, and Debug build verification."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Implemented AppLocalization and AppLanguagePreference with zh-Hans default, en support, invalid-value fallback to zh-Hans, session-language caching so saves require restart, and command-line resource lookup for source-linked E2E. Added zh-Hans/en Localizable.strings to the Xcode resource bundle and localized menu items, Launch Hub, Quick Text, Screenshot/OCR, History, Settings sections including new General > App Language, About/diagnostics/update copy, shortcut labels/errors, provider/key errors, glossary/floating-window/style labels, and key status messages. Settings > General saves only AppLanguagePreference and shows a localized restart notice. Provider connection success tracking now uses explicit state instead of matching an English status string. Scripts/i18n-localization-e2e.swift verifies resource key parity, AppLocalization source key completeness, zh-Hans default, invalid fallback, English persistence, restart/no-hot-switch behavior, translation language independence, UserDefaults/file isolation for provider settings, API Key setup record, shortcuts, translation language/style/Prompt preferences, history, glossary, Launch/Dock, floating window, and always-on-top preferences, plus a bounded hardcoded UI-literal scan. Scripts/run-core-e2e.sh now includes the i18n E2E and all affected source-linked E2Es compile with AppLocalization. Verified plutil -lint for both strings files, Scripts/run-core-e2e.sh, git diff --check, and ./init.sh Debug build/signing on 2026-07-04; ./init.sh copied en.lproj and zh-Hans.lproj into the app bundle. Known warnings were existing kSecUseAuthenticationUIFail, CGWindowListCreateImage, and Xcode/CoreSimulator noise. No screenshot upload, image persistence, API Key persistence, provider payload expansion, bundle identifier, signing team, deployment target, or release version behavior changed."
+    },
+    {
       "id": "v2.translation-request-lifecycle",
       "priority": "P0",
       "category": "reliability",
@@ -790,6 +809,10 @@
     {
       "path": "Docs/ai-translation-macos-release-candidate-prd.md",
       "use_when": "Only when the user explicitly requests release-candidate, formal-release, user-facing launch, PRD reference, alignment, review, or PRD/planning work."
+    },
+    {
+      "path": "Docs/ai-translation-macos-i18n-prd.md",
+      "use_when": "Only when the user explicitly requests i18n, localization, interface language, bilingual UI, PRD reference, alignment, review, or PRD/planning work."
     },
     {
       "path": "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",

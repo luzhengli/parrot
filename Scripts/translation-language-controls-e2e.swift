@@ -20,6 +20,8 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
 @main
 struct TranslationLanguageControlsE2E {
     static func main() throws {
+        AppLocalization.resetSessionLanguageForTesting(.english)
+
         let suiteName = "parrot-translation-language-e2e-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             throw TranslationLanguageControlsE2EFailure.assertion("Unable to create isolated UserDefaults suite.")

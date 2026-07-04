@@ -94,7 +94,7 @@ final class QuickTextTranslationStore: ObservableObject {
             translatedText = ""
             segmentRetryState = nil
         }
-        statusMessage = "Translating with the configured provider..."
+        statusMessage = AppLocalization.string("quick_text.status.translating")
         isStatusError = false
         errorPresentation = nil
 
@@ -121,7 +121,7 @@ final class QuickTextTranslationStore: ObservableObject {
         requiresLargeTextConfirmation = false
 
         if showStatus, hadActiveRequest {
-            statusMessage = "Translation canceled."
+            statusMessage = AppLocalization.string("quick_text.status.canceled")
             isStatusError = false
             errorPresentation = nil
         }
@@ -156,7 +156,7 @@ final class QuickTextTranslationStore: ObservableObject {
             }
             translatedText = finalTranslation
             historyRecorder(text, finalTranslation, "Quick Text")
-            statusMessage = "Translation ready. Press Cmd+Enter to copy and close."
+            statusMessage = AppLocalization.string("quick_text.status.ready")
             isStatusError = false
             errorPresentation = nil
             segmentRetryState = nil
@@ -164,7 +164,7 @@ final class QuickTextTranslationStore: ObservableObject {
             // Keep the confirmation status already prepared in performTranslation.
         } catch is CancellationError {
             if requestCoordinator.isActive(requestID) {
-                statusMessage = "Translation canceled."
+                statusMessage = AppLocalization.string("quick_text.status.canceled")
                 isStatusError = false
                 errorPresentation = nil
             }
@@ -210,7 +210,7 @@ final class QuickTextTranslationStore: ObservableObject {
         case .requiresConfirmation(let characterCount, let segments):
             requiresLargeTextConfirmation = true
             translatedText = ""
-            statusMessage = "This text is \(characterCount) characters across about \(segments.count) segments. Translation runs sequentially, may take longer or cost more, can be canceled, and failed segments can be retried."
+            statusMessage = AppLocalization.format("quick_text.status.large_text", characterCount, segments.count)
             isStatusError = true
             throw TranslationControlFlow.awaitingLargeTextConfirmation
         }
@@ -222,7 +222,7 @@ final class QuickTextTranslationStore: ObservableObject {
         client: TranslationStreamingProviding
     ) async throws -> String {
         try Task.checkCancellation()
-        statusMessage = "Translating with the configured provider..."
+        statusMessage = AppLocalization.string("quick_text.status.translating")
         let finalTranslation = try await client.translateStreaming(
             text,
             preferences: languagePreferences,
@@ -261,7 +261,7 @@ final class QuickTextTranslationStore: ObservableObject {
                 throw CancellationError()
             }
 
-            statusMessage = "Translating \(segment.index + 1)/\(segments.count)..."
+            statusMessage = AppLocalization.format("quick_text.status.segment_progress", segment.index + 1, segments.count)
             var segmentBuffer = ""
 
             do {
@@ -292,7 +292,7 @@ final class QuickTextTranslationStore: ObservableObject {
                         outputs: outputs,
                         failedSegmentIndex: segment.index
                     )
-                    statusMessage = "Segment \(segment.index + 1)/\(segments.count) failed. Retry will continue from that segment."
+                    statusMessage = AppLocalization.format("quick_text.status.segment_failed", segment.index + 1, segments.count)
                     isStatusError = true
                     errorPresentation = UserFacingErrorPresentation(error: error)
                 }
@@ -334,7 +334,7 @@ final class QuickTextTranslationStore: ObservableObject {
 
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        statusMessage = "Translation copied."
+        statusMessage = AppLocalization.string("quick_text.status.copied")
         isStatusError = false
         errorPresentation = nil
         return true
@@ -368,15 +368,15 @@ struct QuickTextTranslationView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ParrotWindowTitleBar(title: "Quick Text Translation") {
+            ParrotWindowTitleBar(title: AppLocalization.string("window.quick_text.title")) {
                 HStack(spacing: 8) {
                     ParrotAlwaysOnTopButton(
                         surface: .quickText,
                         isEnabled: $isAlwaysOnTop,
                         onChange: onAlwaysOnTopChanged
                     )
-                    ParrotTitleBarIconButton(systemName: "clock.arrow.circlepath", title: "Translation History", action: onOpenHistory)
-                    ParrotTitleBarIconButton(systemName: "gearshape", title: "Settings", action: onOpenSettings)
+                    ParrotTitleBarIconButton(systemName: "clock.arrow.circlepath", title: AppLocalization.string("window.history.title"), action: onOpenHistory)
+                    ParrotTitleBarIconButton(systemName: "gearshape", title: AppLocalization.string("window.settings.title"), action: onOpenSettings)
                 }
             }
 
@@ -406,8 +406,8 @@ struct QuickTextTranslationView: View {
     private var header: some View {
         ParrotSurfaceHeader(
             systemImageName: "translate",
-            title: "Quick Text Translation",
-            subtitle: "Enter translates, Shift+Enter inserts a new line, Cmd+Enter copies and closes, Esc closes."
+            title: AppLocalization.string("window.quick_text.title"),
+            subtitle: AppLocalization.string("quick_text.header.subtitle")
         )
     }
 
@@ -432,7 +432,7 @@ struct QuickTextTranslationView: View {
         } else if store.isTranslating {
             ParrotStatusBanner(
                 kind: .progress,
-                message: store.statusMessage ?? "Translating with the configured provider..."
+                message: store.statusMessage ?? AppLocalization.string("quick_text.status.translating")
             )
         } else if let statusMessage = store.statusMessage {
             ParrotStatusBanner(
@@ -445,12 +445,12 @@ struct QuickTextTranslationView: View {
     private var inputView: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 10) {
-                ParrotFieldLabel(title: "Input Text")
+                ParrotFieldLabel(title: AppLocalization.string("quick_text.input.label"))
 
                 Spacer()
 
                 if let latestDetectedSource = store.latestDetectedSource {
-                    Text("Detected: \(latestDetectedSource.displayName)")
+                    Text(AppLocalization.format("quick_text.detected", latestDetectedSource.displayName))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -463,7 +463,7 @@ struct QuickTextTranslationView: View {
 
             QuickTextEditor(
                 text: $store.sourceText,
-                placeholder: "Paste or type text to translate...",
+                placeholder: AppLocalization.string("quick_text.input.placeholder"),
                 onTranslate: startTranslation,
                 onCopyAndClose: copyAndClose,
                 onClear: store.clear,
@@ -478,7 +478,7 @@ struct QuickTextTranslationView: View {
     private var resultView: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 8) {
-                ParrotFieldLabel(title: "Translation")
+                ParrotFieldLabel(title: AppLocalization.string("quick_text.translation.label"))
 
                 Spacer()
 
@@ -491,7 +491,7 @@ struct QuickTextTranslationView: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
-                .help("Swap source and target languages")
+                .help(AppLocalization.string("language.help.swap"))
                 .disabled(store.isTranslating)
 
                 TargetLanguageMenu(
@@ -502,7 +502,7 @@ struct QuickTextTranslationView: View {
                 Button {
                     startTranslation()
                 } label: {
-                    Label("Again", systemImage: "arrow.clockwise")
+                    Label(AppLocalization.string("common.again"), systemImage: "arrow.clockwise")
                         .labelStyle(.titleAndIcon)
                 }
                 .controlSize(.small)
@@ -520,35 +520,35 @@ struct QuickTextTranslationView: View {
 
     private var footer: some View {
         ParrotFooterBar {
-            Button("Translate") {
+            Button(AppLocalization.string("common.translate")) {
                 startTranslation()
             }
             .disabled(!store.canTranslate)
             .buttonStyle(.borderedProminent)
 
-            Button("Copy Translation") {
+            Button(AppLocalization.string("common.copy_translation")) {
                 _ = store.copyTranslation()
             }
             .disabled(!store.canCopyTranslation)
 
             if store.canRetry {
-                Button("Retry") {
+                Button(AppLocalization.string("common.retry")) {
                     retryTranslation()
                 }
             }
 
             if store.canConfirmLargeTextTranslation {
-                Button("Translate Anyway") {
+                Button(AppLocalization.string("quick_text.button.translate_anyway")) {
                     startTranslation(allowLargeText: true)
                 }
             }
 
-            Button("Clear") {
+            Button(AppLocalization.string("quick_text.button.clear")) {
                 store.clear()
             }
             .keyboardShortcut("k", modifiers: [.command])
         } trailing: {
-            Button("Close") {
+            Button(AppLocalization.string("common.close")) {
                 cancelAndClose()
             }
             .keyboardShortcut(.cancelAction)
@@ -557,14 +557,14 @@ struct QuickTextTranslationView: View {
 
     private var translationPlaceholder: String {
         if store.isTranslating {
-            return "Waiting for translated text..."
+            return AppLocalization.string("quick_text.translation.placeholder.waiting")
         }
 
         if store.isStatusError {
-            return "Translation failed. Press Retry after checking settings or network."
+            return AppLocalization.string("quick_text.translation.placeholder.failed")
         }
 
-        return "Translation appears here."
+        return AppLocalization.string("quick_text.translation.placeholder.idle")
     }
 
     private func startTranslation() {
@@ -626,7 +626,7 @@ struct TranslationLanguageControls: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
-            languagePicker(title: "Source", selection: $preferences.sourceLanguage)
+            languagePicker(title: AppLocalization.string("language.source"), selection: $preferences.sourceLanguage)
 
             Button {
                 onSwap()
@@ -642,10 +642,10 @@ struct TranslationLanguageControls: View {
                 Circle()
                     .strokeBorder(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
             }
-            .help("Swap source and target languages")
+            .help(AppLocalization.string("language.help.swap"))
             .disabled(isTranslating)
 
-            languagePicker(title: "Target", selection: $preferences.targetLanguage)
+            languagePicker(title: AppLocalization.string("language.target"), selection: $preferences.targetLanguage)
 
             Divider()
                 .frame(height: 24)
@@ -658,7 +658,7 @@ struct TranslationLanguageControls: View {
             Button {
                 onRetranslate()
             } label: {
-                Label("Again", systemImage: "arrow.clockwise")
+                Label(AppLocalization.string("common.again"), systemImage: "arrow.clockwise")
                     .labelStyle(.titleAndIcon)
             }
             .controlSize(.small)
@@ -713,7 +713,10 @@ struct TranslationLanguageControls: View {
             Image(systemName: validationMessage == nil ? "sparkle.magnifyingglass" : "exclamationmark.triangle.fill")
                 .font(.system(size: 10, weight: .semibold))
 
-            Text(validationMessage ?? "Detected: \(latestDetectedSource?.displayName ?? "waiting for input")")
+            Text(validationMessage ?? AppLocalization.format(
+                "language.detected",
+                latestDetectedSource?.displayName ?? AppLocalization.string("language.detected_waiting")
+            ))
                 .font(.system(size: 11))
                 .lineLimit(1)
         }
@@ -747,8 +750,8 @@ struct SourceLanguageMenu: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .disabled(isDisabled)
-        .help("Choose source language")
-        .accessibilityLabel("Source language")
+        .help(AppLocalization.string("language.help.source"))
+        .accessibilityLabel(AppLocalization.string("language.source"))
     }
 
     @ViewBuilder
@@ -787,8 +790,8 @@ struct TargetLanguageMenu: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .disabled(isDisabled)
-        .help("Choose target language")
-        .accessibilityLabel("Target language")
+        .help(AppLocalization.string("language.help.target"))
+        .accessibilityLabel(AppLocalization.string("language.target"))
     }
 
     @ViewBuilder

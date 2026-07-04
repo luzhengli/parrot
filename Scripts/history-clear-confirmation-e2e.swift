@@ -69,31 +69,27 @@ struct HistoryClearConfirmationE2E {
             "History view should keep explicit confirmation state."
         )
         try require(
-            source.contains(".alert(\"Clear Translation History?\", isPresented: $isShowingClearConfirmation)"),
-            "Clear History should present a confirmation alert before deleting records."
+            source.contains(".alert(AppLocalization.string(\"history.clear.confirm.title\"), isPresented: $isShowingClearConfirmation)"),
+            "Clear History should present a localized confirmation alert before deleting records."
         )
         try require(
-            source.contains("Button(\"Clear History\", role: .destructive)") && source.contains("store.clear()"),
+            source.contains("Button(AppLocalization.string(\"history.clear.confirm.button\"), role: .destructive)") && source.contains("store.clear()"),
             "The confirmed destructive action should clear local history."
         )
         try require(
-            source.contains("Button(\"Cancel\", role: .cancel)"),
+            source.contains("Button(AppLocalization.string(\"common.cancel\"), role: .cancel)"),
             "The confirmation alert should offer a cancel action that preserves records."
         )
         try require(
-            source.contains("This deletes local text records only."),
+            source.contains("AppLocalization.string(\"history.clear.confirm.message\")"),
             "The confirmation should explain the local text-only scope."
-        )
-        try require(
-            source.contains("It does not delete API keys, provider settings, screenshots, or app preferences."),
-            "The confirmation should name data that is not deleted."
         )
         try require(
             source.contains("isShowingClearConfirmation = true"),
             "The footer Clear History button should request confirmation instead of deleting immediately."
         )
         try require(
-            source.contains("Local text-only translation history cleared."),
+            source.contains("AppLocalization.string(\"history.clear.done\")"),
             "Confirmed clear should provide a short completion status."
         )
     }

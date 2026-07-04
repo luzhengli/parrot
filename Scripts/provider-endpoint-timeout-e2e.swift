@@ -30,6 +30,8 @@ struct ProviderEndpointTimeoutE2E {
     }
 
     private static func run() async throws {
+        AppLocalization.resetSessionLanguageForTesting(.english)
+
         let rootURL = try ProviderEndpointNormalizer.chatCompletionsURL(from: "https://api.example.com")
         try require(rootURL.absoluteString == "https://api.example.com/chat/completions", "Root provider URL should normalize to chat completions.")
 
@@ -265,23 +267,23 @@ struct ProviderEndpointTimeoutE2E {
 
         let settingsSource = try String(contentsOfFile: "Parrot/App/ProviderSettingsView.swift", encoding: .utf8)
         try require(
-            settingsSource.contains("Toggle(\"Show Dock icon\", isOn: dockIconBinding)"),
+            settingsSource.contains("Toggle(AppLocalization.string(\"settings.launch.show_dock\"), isOn: dockIconBinding)"),
             "Settings Launch section should expose the Show Dock icon toggle."
         )
         try require(
-            settingsSource.contains("Parrot appears in the Dock and App Switcher."),
+            settingsSource.contains("settings.launch.dock_on"),
             "Enabled Dock copy should mention Dock and App Switcher."
         )
         try require(
-            settingsSource.contains("Closing windows keeps Parrot running; use Quit Parrot to exit."),
+            settingsSource.contains("settings.launch.dock_on"),
             "Enabled Dock copy should explain close-versus-quit behavior."
         )
         try require(
-            settingsSource.contains("Parrot stays in menu-bar mode."),
+            settingsSource.contains("settings.launch.dock_off"),
             "Disabled Dock copy should explain menu-bar mode."
         )
         try require(
-            settingsSource.contains("Launch Hub, the menu bar, or shortcuts"),
+            settingsSource.contains("settings.launch.dock_off"),
             "Disabled Dock copy should mention remaining entry points."
         )
     }

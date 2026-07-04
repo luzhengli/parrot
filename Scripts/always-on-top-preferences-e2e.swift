@@ -77,7 +77,10 @@ struct AlwaysOnTopPreferencesE2E {
 
         try require(pinAppearsBeforeHistory(in: quickText, surface: ".quickText"), "Quick Text pin button should appear before History.")
         try require(pinAppearsBeforeHistory(in: screenshot, surface: ".screenshotTranslation"), "Screenshot pin button should appear before History.")
-        try require(history.contains("ParrotWindowTitleBar(title: \"Translation History\")"), "History should expose a title bar for its pin control.")
+        try require(
+            history.contains("ParrotWindowTitleBar(title: AppLocalization.string(\"window.history.title\"))"),
+            "History should expose a localized title bar for its pin control."
+        )
         try require(history.contains("surface: .history"), "History should use the history pin surface.")
 
         try require(settings.contains("surface: activeAlwaysOnTopSurface"), "Settings should bind the title-bar pin to the active section surface.")

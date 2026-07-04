@@ -23,6 +23,8 @@
 		2F3A6C8D2B10000100A0000E /* TranslationRequestLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00021 /* TranslationRequestLifecycle.swift */; };
 		2F3A6C8D2B10000100A0000F /* LongTextTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00022 /* LongTextTranslation.swift */; };
 		2F3A6C8D2B10000100A00023 /* FloatingWindowPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00024 /* FloatingWindowPlacement.swift */; };
+		2F3A6C8D2B10000100A00025 /* AppLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00027 /* AppLocalization.swift */; };
+		2F3A6C8D2B10000100A00026 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0002A /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +47,9 @@
 		2F3A6C8D2B10000100A00021 /* TranslationRequestLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationRequestLifecycle.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A00022 /* LongTextTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LongTextTranslation.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A00024 /* FloatingWindowPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingWindowPlacement.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A00027 /* AppLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocalization.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A00028 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A00029 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				2F3A6C8D2B10000100A00011 /* ParrotApp.swift */,
+				2F3A6C8D2B10000100A00027 /* AppLocalization.swift */,
 				2F3A6C8D2B10000100A00016 /* AppDelegate.swift */,
 				2F3A6C8D2B10000100A00017 /* GlobalShortcutManager.swift */,
 				2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */,
@@ -102,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				2F3A6C8D2B10000100A00013 /* Assets.xcassets */,
+				2F3A6C8D2B10000100A0002A /* Localizable.strings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -164,6 +171,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 2F3A6C8D2B10000100A00030;
@@ -182,6 +190,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F3A6C8D2B10000100A00003 /* Assets.xcassets in Resources */,
+				2F3A6C8D2B10000100A00026 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,6 +202,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F3A6C8D2B10000100A00001 /* ParrotApp.swift in Sources */,
+				2F3A6C8D2B10000100A00025 /* AppLocalization.swift in Sources */,
 				2F3A6C8D2B10000100A00004 /* AppDelegate.swift in Sources */,
 				2F3A6C8D2B10000100A00005 /* GlobalShortcutManager.swift in Sources */,
 				2F3A6C8D2B10000100A00006 /* ScreenshotSelectionController.swift in Sources */,
@@ -211,6 +221,18 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		2F3A6C8D2B10000100A0002A /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				2F3A6C8D2B10000100A00028 /* en */,
+				2F3A6C8D2B10000100A00029 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		2F3A6C8D2B10000100A00071 /* Debug */ = {

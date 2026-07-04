@@ -17,13 +17,13 @@ enum TranslationStyle: String, CaseIterable, Codable, Identifiable {
     var displayName: String {
         switch self {
         case .accurate:
-            return "Accurate"
+            return AppLocalization.string("translation_style.accurate")
         case .natural:
-            return "Natural"
+            return AppLocalization.string("translation_style.natural")
         case .professional:
-            return "Professional"
+            return AppLocalization.string("translation_style.professional")
         case .concise:
-            return "Concise"
+            return AppLocalization.string("translation_style.concise")
         }
     }
 
@@ -43,13 +43,13 @@ enum TranslationStyle: String, CaseIterable, Codable, Identifiable {
     var detail: String {
         switch self {
         case .accurate:
-            return "Faithful to the original meaning for reading, debugging, and reference material."
+            return AppLocalization.string("translation_style.accurate.detail")
         case .natural:
-            return "Smoother everyday wording for chat and casual writing."
+            return AppLocalization.string("translation_style.natural.detail")
         case .professional:
-            return "Formal, consistent wording for docs, email, and product material."
+            return AppLocalization.string("translation_style.professional.detail")
         case .concise:
-            return "Compressed wording for quick understanding and summary-like translation."
+            return AppLocalization.string("translation_style.concise.detail")
         }
     }
 
@@ -127,7 +127,7 @@ struct TranslationPromptPreferences: Codable, Equatable {
         }
 
         guard let data = try? JSONEncoder().encode(self) else {
-            throw ProviderSettingsError.requestFailed("Unable to save custom Prompt settings.")
+            throw ProviderSettingsError.requestFailed(AppLocalization.string("provider.error.save_prompt"))
         }
 
         userDefaults.set(data, forKey: Self.storageKey)
@@ -140,12 +140,15 @@ struct TranslationPromptPreferences: Codable, Equatable {
     static func validationMessage(for template: String) -> String? {
         let trimmedTemplate = template.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTemplate.isEmpty else {
-            return "Custom Prompt cannot be empty."
+            return AppLocalization.string("provider.error.empty_prompt")
         }
 
         let missingVariables = requiredVariables.filter { !trimmedTemplate.contains($0) }
         guard missingVariables.isEmpty else {
-            return "Custom Prompt must include \(missingVariables.joined(separator: " and "))."
+            return AppLocalization.format(
+                "provider.error.missing_prompt_vars",
+                missingVariables.joined(separator: AppLocalization.string("common.list.and"))
+            )
         }
 
         return nil
@@ -208,15 +211,15 @@ enum TranslationGlossary {
         editingID: UUID? = nil
     ) -> String? {
         guard !entry.trimmedSourceTerm.isEmpty else {
-            return "Source term is required."
+            return AppLocalization.string("settings.translation.glossary.source_required")
         }
 
         guard !entry.trimmedTargetTerm.isEmpty else {
-            return "Target term is required."
+            return AppLocalization.string("settings.translation.glossary.target_required")
         }
 
         if hasDuplicate(entry: entry, in: existingEntries, ignoring: editingID) {
-            return "A glossary entry with the same source term and target language already exists."
+            return AppLocalization.string("settings.translation.glossary.duplicate")
         }
 
         return nil
@@ -321,10 +324,10 @@ final class TranslationGlossaryStore: ObservableObject {
             if let editingID, let index = entries.firstIndex(where: { $0.id == editingID }) {
                 updatedEntry.id = editingID
                 entries[index] = updatedEntry
-                statusMessage = "Glossary entry updated."
+                statusMessage = AppLocalization.string("settings.translation.glossary.updated")
             } else {
                 entries.insert(updatedEntry, at: 0)
-                statusMessage = "Glossary entry added."
+                statusMessage = AppLocalization.string("settings.translation.glossary.added")
             }
 
             isStatusError = false
@@ -343,14 +346,16 @@ final class TranslationGlossaryStore: ObservableObject {
         }
 
         entries[index].isEnabled = isEnabled
-        statusMessage = isEnabled ? "Glossary entry enabled." : "Glossary entry disabled."
+        statusMessage = isEnabled
+            ? AppLocalization.string("settings.translation.glossary.enabled")
+            : AppLocalization.string("settings.translation.glossary.disabled")
         isStatusError = false
         persistEntries()
     }
 
     func delete(_ entry: TranslationGlossaryEntry) {
         entries.removeAll { $0.id == entry.id }
-        statusMessage = "Glossary entry deleted."
+        statusMessage = AppLocalization.string("settings.translation.glossary.deleted")
         isStatusError = false
         persistEntries()
     }
@@ -371,7 +376,7 @@ final class TranslationGlossaryStore: ObservableObject {
         do {
             try Self.saveEntries(entries, to: fileURL)
         } catch {
-            statusMessage = "Unable to save glossary: \(error.localizedDescription)"
+            statusMessage = AppLocalization.format("settings.translation.glossary.save_failed", error.localizedDescription)
             isStatusError = true
         }
     }
@@ -416,17 +421,17 @@ enum TranslationLanguage: String, CaseIterable, Codable, Identifiable {
     var displayName: String {
         switch self {
         case .chinese:
-            return "Chinese"
+            return AppLocalization.string("language.chinese")
         case .english:
-            return "English"
+            return AppLocalization.string("language.english")
         case .japanese:
-            return "Japanese"
+            return AppLocalization.string("language.japanese")
         case .korean:
-            return "Korean"
+            return AppLocalization.string("language.korean")
         case .french:
-            return "French"
+            return AppLocalization.string("language.french")
         case .spanish:
-            return "Spanish"
+            return AppLocalization.string("language.spanish")
         }
     }
 
@@ -460,7 +465,7 @@ enum TranslationSourceSelection: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 
     var displayName: String {
-        explicitLanguage?.displayName ?? "Auto"
+        explicitLanguage?.displayName ?? AppLocalization.string("language.source.auto")
     }
 
     var explicitLanguage: TranslationLanguage? {
@@ -484,7 +489,7 @@ enum TranslationTargetSelection: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 
     var displayName: String {
-        explicitLanguage?.displayName ?? "Auto Opposite"
+        explicitLanguage?.displayName ?? AppLocalization.string("language.target.auto_opposite")
     }
 
     var explicitLanguage: TranslationLanguage? {
@@ -511,7 +516,7 @@ struct TranslationLanguagePreferences: Codable, Equatable {
             return nil
         }
 
-        return "Source and target languages must be different."
+        return AppLocalization.string("language.validation.same")
     }
 
     static func loadSaved(from userDefaults: UserDefaults = .standard) -> TranslationLanguagePreferences {
@@ -659,15 +664,23 @@ struct LLMProviderPreset: Identifiable, Equatable {
     let name: String
     let baseURLString: String
     let modelName: String
-    let detail: String
+    let detailLocalizationKey: String
     let locksEndpoint: Bool
+
+    var displayName: String {
+        id == Self.custom.id ? AppLocalization.string("provider_preset.custom.name") : name
+    }
+
+    var detail: String {
+        AppLocalization.string(detailLocalizationKey)
+    }
 
     static let deepSeek = LLMProviderPreset(
         id: "deepseek",
         name: "DeepSeek",
         baseURLString: "https://api.deepseek.com",
         modelName: "deepseek-v4-flash",
-        detail: "Recommended default. OpenAI-compatible DeepSeek endpoint.",
+        detailLocalizationKey: "provider_preset.deepseek.detail",
         locksEndpoint: true
     )
 
@@ -676,7 +689,7 @@ struct LLMProviderPreset: Identifiable, Equatable {
         name: "GLM",
         baseURLString: "https://open.bigmodel.cn/api/paas/v4",
         modelName: "glm-4.7",
-        detail: "Zhipu GLM OpenAI-compatible endpoint.",
+        detailLocalizationKey: "provider_preset.glm.detail",
         locksEndpoint: true
     )
 
@@ -685,7 +698,7 @@ struct LLMProviderPreset: Identifiable, Equatable {
         name: "OpenAI",
         baseURLString: "https://api.openai.com/v1",
         modelName: "gpt-4o-mini",
-        detail: "OpenAI-compatible default endpoint.",
+        detailLocalizationKey: "provider_preset.openai.detail",
         locksEndpoint: true
     )
 
@@ -694,7 +707,7 @@ struct LLMProviderPreset: Identifiable, Equatable {
         name: "Custom",
         baseURLString: "",
         modelName: "",
-        detail: "Use any OpenAI-compatible provider.",
+        detailLocalizationKey: "provider_preset.custom.detail",
         locksEndpoint: false
     )
 
@@ -711,6 +724,14 @@ enum ParrotAboutInfo {
     static let releaseNotesURL = URL(string: "https://github.com/luzhengli/parrot/releases")!
     static let latestReleaseAPIURL = URL(string: "https://api.github.com/repos/luzhengli/parrot/releases/latest")!
     static let feedbackURL = URL(string: "https://github.com/luzhengli/parrot/issues/new")!
+
+    static var releaseChannelDisplayName: String {
+        AppLocalization.string("settings.about.release_channel.unsigned_rc")
+    }
+
+    static var macOSRequirementDisplayName: String {
+        AppLocalization.string("settings.about.requires.value")
+    }
 }
 
 struct ParrotSemanticVersion: Comparable, Equatable {
@@ -812,9 +833,9 @@ final class ParrotUpdateChecker: ObservableObject {
             if let httpResponse = response as? HTTPURLResponse,
                !(200..<300).contains(httpResponse.statusCode) {
                 if httpResponse.statusCode == 404 {
-                    status = .unableToCheck(message: "The configured GitHub release feed was not found. Confirm the repository is public and has a published release, then try again.")
+                    status = .unableToCheck(message: AppLocalization.string("update.feed.not_found"))
                 } else {
-                    status = .unableToCheck(message: "GitHub Releases returned HTTP \(httpResponse.statusCode). Try again later.")
+                    status = .unableToCheck(message: AppLocalization.format("update.feed.http", httpResponse.statusCode))
                 }
                 return
             }
@@ -826,7 +847,7 @@ final class ParrotUpdateChecker: ObservableObject {
                 latestRelease: release
             )
         } catch {
-            status = .unableToCheck(message: "Unable to check GitHub Releases: \(error.localizedDescription)")
+            status = .unableToCheck(message: AppLocalization.format("update.feed.unable", error.localizedDescription))
         }
     }
 
@@ -836,7 +857,7 @@ final class ParrotUpdateChecker: ObservableObject {
               ParrotSemanticVersion(version) != nil,
               let releaseNotesURL = URL(string: response.htmlURL)
         else {
-            throw ProviderSettingsError.requestFailed("The update feed did not include a valid release version or URL.")
+            throw ProviderSettingsError.requestFailed(AppLocalization.string("update.feed.invalid"))
         }
 
         let downloadAsset = response.assets.first { asset in
@@ -854,19 +875,19 @@ final class ParrotUpdateChecker: ObservableObject {
             .components(separatedBy: .newlines)
             .prefix(4)
             .joined(separator: "\n")
-            ?? "See release notes for details."
+            ?? AppLocalization.string("update.summary.default")
         let checksumSummary = checksumAsset == nil
             ? nil
-            : "Checksum metadata is available in \(checksumAsset?.name ?? "the release assets")."
+            : AppLocalization.format("update.checksum.available", checksumAsset?.name ?? AppLocalization.string("update.checksum.assets"))
 
         return ParrotReleaseInfo(
             version: version,
-            releaseDate: response.publishedAt ?? "unknown",
+            releaseDate: response.publishedAt ?? AppLocalization.string("common.unknown"),
             releaseNotesURL: releaseNotesURL,
             downloadURL: downloadURL,
             downloadAssetName: downloadAssetName,
             isPrerelease: response.prerelease,
-            summary: summary.isEmpty ? "See release notes for details." : summary,
+            summary: summary.isEmpty ? AppLocalization.string("update.summary.default") : summary,
             checksumSummary: checksumSummary
         )
     }
@@ -879,24 +900,26 @@ final class ParrotUpdateChecker: ObservableObject {
         guard let current = ParrotSemanticVersion(currentVersion),
               let latest = ParrotSemanticVersion(latestRelease.version)
         else {
-            return .unableToCheck(message: "Unable to compare current version \(currentVersion) with latest version \(latestRelease.version).")
+            return .unableToCheck(message: AppLocalization.format("update.compare.unable", currentVersion, latestRelease.version))
         }
 
         if latest > current {
-            let message = """
-            Version \(latestRelease.version) is available. Current version: \(currentVersion) (\(currentBuild)).
-            \(latestRelease.summary)
-            Parrot can download the unsigned release asset to Downloads and open it for you. macOS may still require manual approval before you replace the app.
-            \(latestRelease.checksumSummary ?? "No checksum or signature metadata was found in the release feed. Verify release assets manually before replacing the app.")
-            """
+            let message = AppLocalization.format(
+                "update.available.message",
+                latestRelease.version,
+                currentVersion,
+                currentBuild,
+                latestRelease.summary,
+                latestRelease.checksumSummary ?? AppLocalization.string("update.checksum.missing")
+            )
             return .updateAvailable(latestRelease, message: message)
         }
 
         if current > latest {
-            return .upToDate(message: "This local build (\(currentVersion), build \(currentBuild)) is newer than the latest GitHub release \(latestRelease.version). No downgrade is recommended.")
+            return .upToDate(message: AppLocalization.format("update.up_to_date.newer", currentVersion, currentBuild, latestRelease.version))
         }
 
-        return .upToDate(message: "Parrot \(currentVersion) (build \(currentBuild)) matches the latest GitHub release.")
+        return .upToDate(message: AppLocalization.format("update.up_to_date.same", currentVersion, currentBuild))
     }
 
     static func versionInfoText(
@@ -905,19 +928,22 @@ final class ParrotUpdateChecker: ObservableObject {
         status: ParrotUpdateCheckStatus
     ) -> String {
         var lines = [
-            "Parrot Version Info",
-            "Current Version: \(currentVersion)",
-            "Current Build: \(currentBuild)",
-            "Release Channel: \(ParrotAboutInfo.releaseChannel)"
+            AppLocalization.string("update.version_info.title"),
+            AppLocalization.format("update.version_info.current_version", currentVersion),
+            AppLocalization.format("update.version_info.current_build", currentBuild),
+            AppLocalization.format("update.version_info.release_channel", ParrotAboutInfo.releaseChannelDisplayName)
         ]
 
         if case .updateAvailable(let release, _) = status {
-            lines.append("Latest Version: \(release.version)")
-            lines.append("Release Date: \(release.releaseDate)")
-            lines.append("Release Notes: \(release.releaseNotesURL.absoluteString)")
-            lines.append("Download: \(release.downloadURL.absoluteString)")
-            lines.append("Prerelease: \(release.isPrerelease ? "yes" : "no")")
-            lines.append(release.checksumSummary ?? "Checksum Metadata: not found in feed")
+            lines.append(AppLocalization.format("update.version_info.latest_version", release.version))
+            lines.append(AppLocalization.format("update.version_info.release_date", release.releaseDate))
+            lines.append(AppLocalization.format("update.version_info.release_notes", release.releaseNotesURL.absoluteString))
+            lines.append(AppLocalization.format("update.version_info.download", release.downloadURL.absoluteString))
+            lines.append(AppLocalization.format(
+                "update.version_info.prerelease",
+                release.isPrerelease ? AppLocalization.string("common.yes") : AppLocalization.string("common.no")
+            ))
+            lines.append(release.checksumSummary ?? AppLocalization.string("update.version_info.checksum_missing"))
         }
 
         return lines.joined(separator: "\n")
@@ -990,7 +1016,7 @@ final class ParrotUpdateDownloader: ObservableObject {
                 for: .downloadsDirectory,
                 in: .userDomainMask
             ).first else {
-                throw ProviderSettingsError.requestFailed("Unable to locate the Downloads folder.")
+                throw ProviderSettingsError.requestFailed(AppLocalization.string("update.downloads.missing"))
             }
             return downloadsDirectory
         },
@@ -1010,7 +1036,7 @@ final class ParrotUpdateDownloader: ObservableObject {
               assetName.localizedCaseInsensitiveContains(".dmg")
                 || assetName.localizedCaseInsensitiveContains(".zip")
         else {
-            status = .unableToDownload(message: "The latest release does not include a downloadable macOS .dmg or .zip asset. Open Release Notes to download manually.")
+            status = .unableToDownload(message: AppLocalization.string("update.download.missing_asset"))
             return nil
         }
 
@@ -1025,7 +1051,7 @@ final class ParrotUpdateDownloader: ObservableObject {
             let (temporaryURL, response) = try await downloadLoader(request)
             if let httpResponse = response as? HTTPURLResponse,
                !(200..<300).contains(httpResponse.statusCode) {
-                status = .unableToDownload(message: "GitHub returned HTTP \(httpResponse.statusCode) while downloading \(assetName).")
+                status = .unableToDownload(message: AppLocalization.format("update.download.http", httpResponse.statusCode, assetName))
                 return nil
             }
 
@@ -1045,7 +1071,7 @@ final class ParrotUpdateDownloader: ObservableObject {
             status = .downloaded(fileName: assetName, fileURL: destinationURL)
             return destinationURL
         } catch {
-            status = .unableToDownload(message: "Unable to download \(assetName): \(error.localizedDescription)")
+            status = .unableToDownload(message: AppLocalization.format("update.download.unable", assetName, error.localizedDescription))
             return nil
         }
     }
@@ -1090,14 +1116,17 @@ struct ParrotDiagnosticsSummary: Equatable {
         settings: LLMProviderSettings = .loadSaved(),
         screenRecordingPermissionGranted: Bool? = nil
     ) -> ParrotDiagnosticsSummary {
-        let appVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
-        let buildNumber = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
-        let bundleIdentifier = bundle.bundleIdentifier ?? "unknown"
+        let unknown = AppLocalization.string("common.unknown")
+        let appVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? unknown
+        let buildNumber = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? unknown
+        let bundleIdentifier = bundle.bundleIdentifier ?? unknown
         let permissionStatus: String
         if let screenRecordingPermissionGranted {
-            permissionStatus = screenRecordingPermissionGranted ? "granted" : "not granted"
+            permissionStatus = screenRecordingPermissionGranted
+                ? AppLocalization.string("diagnostics.permission.granted")
+                : AppLocalization.string("diagnostics.permission.not_granted")
         } else {
-            permissionStatus = "unknown"
+            permissionStatus = AppLocalization.string("diagnostics.permission.unknown")
         }
 
         return ParrotDiagnosticsSummary(
@@ -1106,7 +1135,7 @@ struct ParrotDiagnosticsSummary: Equatable {
             bundleIdentifier: bundleIdentifier,
             macOSVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             providerPresetID: settings.providerID,
-            releaseChannel: ParrotAboutInfo.releaseChannel,
+            releaseChannel: ParrotAboutInfo.releaseChannelDisplayName,
             screenRecordingPermission: permissionStatus,
             featureFlags: [
                 "local-ocr",
@@ -1121,15 +1150,15 @@ struct ParrotDiagnosticsSummary: Equatable {
 
     var text: String {
         [
-            "Parrot Diagnostics",
-            "Version: \(appVersion)",
-            "Build: \(buildNumber)",
-            "Bundle Identifier: \(bundleIdentifier)",
-            "macOS: \(macOSVersion)",
-            "Provider Preset ID: \(providerPresetID)",
-            "Release Channel: \(releaseChannel)",
-            "Screen Recording Permission: \(screenRecordingPermission)",
-            "Feature Flags: \(featureFlags.joined(separator: ", "))"
+            AppLocalization.string("diagnostics.title"),
+            "\(AppLocalization.string("diagnostics.version")): \(appVersion)",
+            "\(AppLocalization.string("diagnostics.build")): \(buildNumber)",
+            "\(AppLocalization.string("diagnostics.bundle")): \(bundleIdentifier)",
+            "\(AppLocalization.string("diagnostics.macos")): \(macOSVersion)",
+            "\(AppLocalization.string("diagnostics.provider")): \(providerPresetID)",
+            "\(AppLocalization.string("diagnostics.release_channel")): \(releaseChannel)",
+            "\(AppLocalization.string("diagnostics.screen_recording")): \(screenRecordingPermission)",
+            "\(AppLocalization.string("diagnostics.feature_flags")): \(featureFlags.joined(separator: ", "))"
         ].joined(separator: "\n")
     }
 }
@@ -1142,11 +1171,11 @@ enum ParrotOnboardingStatus: String, Equatable {
     var displayName: String {
         switch self {
         case .notStarted:
-            return "Not started"
+            return AppLocalization.string("settings.onboarding.status.not_started")
         case .skipped:
-            return "Skipped for this version"
+            return AppLocalization.string("settings.onboarding.status.skipped")
         case .completed:
-            return "Complete"
+            return AppLocalization.string("settings.onboarding.status.completed")
         }
     }
 }
@@ -1291,19 +1320,19 @@ enum ProviderSettingsError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidBaseURL:
-            return "Enter a valid HTTPS Base URL."
+            return AppLocalization.string("provider.error.invalid_base_url")
         case .missingModel:
-            return "Enter a model name before saving or testing the provider."
+            return AppLocalization.string("provider.error.missing_model")
         case .missingAPIKey:
-            return "Enter an API Key or save one in Keychain before testing."
+            return AppLocalization.string("provider.error.missing_api_key")
         case .apiKeyRequiresReentry:
-            return "The saved API Key cannot be read without showing a system Keychain password prompt."
+            return AppLocalization.string("provider.error.api_key_reentry")
         case .authenticationFailed(let message):
-            return "Authentication failed. \(message)"
+            return AppLocalization.format("provider.error.authentication", message)
         case .requestFailed(let message):
             return message
         case .unexpectedResponse:
-            return "The provider returned an unexpected response."
+            return AppLocalization.string("provider.error.unexpected")
         }
     }
 }
@@ -1316,11 +1345,11 @@ enum UserFacingErrorRecoveryAction: Equatable {
     var title: String {
         switch self {
         case .openSetup:
-            return "Open Setup"
+            return AppLocalization.string("error.recovery.open_setup")
         case .openModelSettings:
-            return "Open Model Settings"
+            return AppLocalization.string("error.recovery.open_model")
         case .retry:
-            return "Retry"
+            return AppLocalization.string("common.retry")
         }
     }
 
@@ -1346,9 +1375,9 @@ struct UserFacingErrorPresentation {
         if let providerError = error as? ProviderSettingsError {
             self = Self(providerError: providerError)
         } else {
-            title = "Something went wrong"
+            title = AppLocalization.string("error.generic.title")
             message = error.localizedDescription
-            recoverySuggestion = "Try again. If the problem continues, check Settings and your network connection."
+            recoverySuggestion = AppLocalization.string("error.generic.recovery")
             recoveryAction = .retry
         }
     }
@@ -1356,55 +1385,55 @@ struct UserFacingErrorPresentation {
     init(providerError: ProviderSettingsError) {
         switch providerError {
         case .invalidBaseURL:
-            title = "Invalid Base URL"
-            message = "The configured provider URL is not a valid HTTPS endpoint."
-            recoverySuggestion = "Open Settings, enter the provider Base URL, then retry."
+            title = AppLocalization.string("error.invalid_base_url.title")
+            message = AppLocalization.string("error.invalid_base_url.message")
+            recoverySuggestion = AppLocalization.string("error.invalid_base_url.recovery")
             recoveryAction = .openModelSettings
         case .missingModel:
-            title = "Model name required"
-            message = "A model must be configured before Parrot can request a translation."
-            recoverySuggestion = "Open Settings, enter a model name, then retry."
+            title = AppLocalization.string("error.missing_model.title")
+            message = AppLocalization.string("error.missing_model.message")
+            recoverySuggestion = AppLocalization.string("error.missing_model.recovery")
             recoveryAction = .openModelSettings
         case .missingAPIKey:
-            title = "API Key required"
-            message = "No API Key is saved for the selected provider."
-            recoverySuggestion = "Open Settings, save the API Key to Keychain, then retry."
+            title = AppLocalization.string("error.missing_api_key.title")
+            message = AppLocalization.string("error.missing_api_key.message")
+            recoverySuggestion = AppLocalization.string("error.missing_api_key.recovery")
             recoveryAction = .openSetup
         case .apiKeyRequiresReentry:
-            title = "API Key needs to be saved again"
-            message = "macOS requires a Keychain password prompt before this debug build can read the previously saved API Key."
-            recoverySuggestion = "Open Settings and re-enter the API Key. Parrot will not show a system Keychain prompt during translation."
+            title = AppLocalization.string("error.api_key_reentry.title")
+            message = AppLocalization.string("error.api_key_reentry.message")
+            recoverySuggestion = AppLocalization.string("error.api_key_reentry.recovery")
             recoveryAction = .openSetup
         case .authenticationFailed(let providerMessage):
             let safeProviderMessage = Self.safeMessage(providerMessage)
-            title = "Authentication failed"
+            title = AppLocalization.string("error.auth.title")
             message = safeProviderMessage.isEmpty
-                ? "The provider rejected the saved API Key or account access."
-                : "The provider rejected the request: \(safeProviderMessage)"
-            recoverySuggestion = "Open Settings, replace the Keychain API Key or confirm account access, then retry."
+                ? AppLocalization.string("error.auth.empty")
+                : AppLocalization.format("error.auth.with_message", safeProviderMessage)
+            recoverySuggestion = AppLocalization.string("error.auth.recovery")
             recoveryAction = .openModelSettings
         case .requestFailed(let providerMessage):
             let safeProviderMessage = Self.safeMessage(providerMessage)
             if safeProviderMessage.localizedCaseInsensitiveContains("timed out") {
-                title = "Request timed out"
+                title = AppLocalization.string("error.timeout.title")
                 message = safeProviderMessage
-                recoverySuggestion = "Check the provider status or network connection, then use Retry."
+                recoverySuggestion = AppLocalization.string("error.timeout.recovery")
                 recoveryAction = .retry
             } else if safeProviderMessage.localizedCaseInsensitiveContains("network request failed") {
-                title = "Network request failed"
+                title = AppLocalization.string("error.network.title")
                 message = safeProviderMessage
-                recoverySuggestion = "Check the network or Base URL, then use Retry."
+                recoverySuggestion = AppLocalization.string("error.network.recovery")
                 recoveryAction = .retry
             } else {
-                title = "Provider request failed"
+                title = AppLocalization.string("error.provider.title")
                 message = safeProviderMessage
-                recoverySuggestion = "Check Settings and provider compatibility, then retry."
+                recoverySuggestion = AppLocalization.string("error.provider.recovery")
                 recoveryAction = .openModelSettings
             }
         case .unexpectedResponse:
-            title = "Unsupported provider response"
-            message = "The provider returned a response Parrot could not read."
-            recoverySuggestion = "Check that the Base URL uses an OpenAI-compatible chat completions endpoint, then retry."
+            title = AppLocalization.string("error.unsupported_response.title")
+            message = AppLocalization.string("error.unsupported_response.message")
+            recoverySuggestion = AppLocalization.string("error.unsupported_response.recovery")
             recoveryAction = .openModelSettings
         }
     }
@@ -1434,6 +1463,7 @@ final class ProviderSettingsStore: ObservableObject {
     @Published private(set) var statusMessage: String?
     @Published private(set) var isTesting = false
     @Published private(set) var isStatusError = false
+    @Published private(set) var didTestConnectionSucceed = false
 
     private let userDefaults: UserDefaults
     private let keychain: KeychainSecretStore
@@ -1470,6 +1500,7 @@ final class ProviderSettingsStore: ObservableObject {
         hasSavedAPIKey = keychain.hasSavedAPIKeyRecord(providerID: providerID)
         statusMessage = nil
         isStatusError = false
+        didTestConnectionSucceed = false
     }
 
     func saveSettings() {
@@ -1477,12 +1508,14 @@ final class ProviderSettingsStore: ObservableObject {
             try persistNonSecretSettings()
             _ = try saveAPIKeyIfNeeded()
             statusMessage = hasSavedAPIKey
-                ? "Settings saved. \(selectedPreset.name) API Key is stored in Keychain."
-                : "Settings saved."
+                ? AppLocalization.format("settings.model.status.saved_with_key", selectedPreset.displayName)
+                : AppLocalization.string("settings.model.status.saved")
             isStatusError = false
+            didTestConnectionSucceed = false
         } catch {
             statusMessage = error.userFacingMessage
             isStatusError = true
+            didTestConnectionSucceed = false
         }
     }
 
@@ -1491,19 +1524,22 @@ final class ProviderSettingsStore: ObservableObject {
             try keychain.deleteAPIKey(providerID: selectedProviderID)
             apiKeyInput = ""
             hasSavedAPIKey = false
-            statusMessage = "API Key deleted from Keychain for \(selectedPreset.name)."
+            statusMessage = AppLocalization.format("settings.model.status.key_deleted", selectedPreset.displayName)
             isStatusError = false
+            didTestConnectionSucceed = false
         } catch {
             statusMessage = error.userFacingMessage
             isStatusError = true
+            didTestConnectionSucceed = false
         }
     }
 
     @MainActor
     func testConnection() async {
         isTesting = true
-        statusMessage = "Testing provider connection..."
+        statusMessage = AppLocalization.string("settings.model.status.testing")
         isStatusError = false
+        didTestConnectionSucceed = false
 
         do {
             try persistNonSecretSettings()
@@ -1517,11 +1553,13 @@ final class ProviderSettingsStore: ObservableObject {
             let settings = currentSettings
             let client = OpenAICompatibleProviderClient(settings: settings, apiKey: apiKey)
             let responseSummary = try await client.testConnection()
-            statusMessage = "Connection test succeeded. \(responseSummary)"
+            statusMessage = AppLocalization.format("settings.model.status.test_success", responseSummary)
             isStatusError = false
+            didTestConnectionSucceed = true
         } catch {
             statusMessage = error.userFacingMessage
             isStatusError = true
+            didTestConnectionSucceed = false
         }
 
         isTesting = false
@@ -1539,7 +1577,7 @@ final class ProviderSettingsStore: ObservableObject {
         let settings = currentSettings
         try validateNonSecretSettings(settings)
         guard let data = try? JSONEncoder().encode(settings) else {
-            throw ProviderSettingsError.requestFailed("Unable to save provider settings.")
+            throw ProviderSettingsError.requestFailed(AppLocalization.string("provider.error.save_settings"))
         }
         userDefaults.set(data, forKey: LLMProviderSettings.storageKey)
         ProviderTimeoutPreference(requestTimeoutSeconds: requestTimeoutSeconds).save(to: userDefaults)
@@ -1631,7 +1669,7 @@ final class KeychainSecretStore {
         _ = keychainAccess.delete(baseQuery(providerID: providerID))
         let status = keychainAccess.add(query)
         guard status == errSecSuccess else {
-            throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: "Unable to save API Key to Keychain."))
+            throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: AppLocalization.string("provider.error.save_keychain")))
         }
 
         cacheAPIKey(apiKey, providerID: providerID)
@@ -1671,7 +1709,7 @@ final class KeychainSecretStore {
         }
 
         guard status == errSecSuccess, let data = item as? Data else {
-            throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: "Unable to read API Key from Keychain."))
+            throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: AppLocalization.string("provider.error.read_keychain")))
         }
 
         let apiKey = String(data: data, encoding: .utf8)
@@ -1688,7 +1726,7 @@ final class KeychainSecretStore {
     func deleteAPIKey(providerID: String) throws {
         let status = keychainAccess.delete(baseQuery(providerID: providerID))
         guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: "Unable to delete API Key from Keychain."))
+            throw ProviderSettingsError.requestFailed(keychainMessage(for: status, fallback: AppLocalization.string("provider.error.delete_keychain")))
         }
         clearCachedAPIKey(providerID: providerID)
         markAPIKeyRecordMissing(providerID: providerID)
@@ -1766,11 +1804,13 @@ struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
                 .init(role: "user", content: "Reply with OK.")
             ],
             maxTokens: 8,
-            timeoutMessage: "The connection test timed out. Check the Base URL or network connection.",
-            failurePrefix: "Connection test failed"
+            timeoutMessage: AppLocalization.string("provider.error.connection_timeout"),
+            failurePrefix: AppLocalization.string("provider.error.connection_failed")
         )
         let reply = completion.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        return reply?.isEmpty == false ? "Provider replied: \(reply!)." : "Provider accepted the test request."
+        return reply?.isEmpty == false
+            ? AppLocalization.format("provider.response.replied", reply!)
+            : AppLocalization.string("provider.response.accepted")
     }
 
     func translate(
@@ -1782,7 +1822,7 @@ struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
-            throw ProviderSettingsError.requestFailed("Enter text to translate.")
+            throw ProviderSettingsError.requestFailed(AppLocalization.string("provider.error.enter_text"))
         }
 
         let messages = try translationMessages(
@@ -1795,8 +1835,8 @@ struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
         let completion = try await makeChatCompletion(
             messages: messages,
             maxTokens: 2_000,
-            timeoutMessage: "Translation timed out. Check the provider or network connection.",
-            failurePrefix: "Translation failed"
+            timeoutMessage: AppLocalization.string("provider.error.translation_timeout"),
+            failurePrefix: AppLocalization.string("provider.error.translation_failed")
         )
         let translatedText = completion.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !translatedText.isEmpty else {
@@ -1816,7 +1856,7 @@ struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
     ) async throws -> String {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
-            throw ProviderSettingsError.requestFailed("Enter text to translate.")
+            throw ProviderSettingsError.requestFailed(AppLocalization.string("provider.error.enter_text"))
         }
 
         let messages = try translationMessages(
@@ -1831,7 +1871,7 @@ struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
         try await makeChatCompletionStream(
             messages: messages,
             maxTokens: 2_000,
-            timeoutMessage: "Translation timed out. Check the provider or network connection."
+            timeoutMessage: AppLocalization.string("provider.error.translation_timeout")
         ) { delta in
             finalTranslation += delta
             await onDelta(delta)
@@ -1852,12 +1892,12 @@ struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
             return .authenticationFailed(message)
         }
 
-        return .requestFailed("Provider returned HTTP \(statusCode). \(message)")
+        return .requestFailed(AppLocalization.format("provider.error.http_status", statusCode, message))
     }
 
     private func apiErrorMessage(from data: Data) -> String {
         guard let response = try? JSONDecoder().decode(OpenAIErrorResponse.self, from: data) else {
-            return "Check Base URL, model name, and provider compatibility."
+            return AppLocalization.string("provider.response.check_compatibility")
         }
 
         return sanitizedProviderMessage(response.error.message)
@@ -1912,7 +1952,7 @@ struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
             if error.code == .timedOut {
                 throw ProviderSettingsError.requestFailed(timeoutMessage)
             }
-            throw ProviderSettingsError.requestFailed("Network request failed: \(error.localizedDescription)")
+            throw ProviderSettingsError.requestFailed(AppLocalization.format("provider.error.network_failed", error.localizedDescription))
         } catch {
             throw ProviderSettingsError.requestFailed("\(failurePrefix): \(error.localizedDescription)")
         }
@@ -1986,9 +2026,9 @@ struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
             if error.code == .timedOut {
                 throw ProviderSettingsError.requestFailed(timeoutMessage)
             }
-            throw ProviderSettingsError.requestFailed("Network request failed: \(error.localizedDescription)")
+            throw ProviderSettingsError.requestFailed(AppLocalization.format("provider.error.network_failed", error.localizedDescription))
         } catch {
-            throw ProviderSettingsError.requestFailed("Translation failed: \(error.localizedDescription)")
+            throw ProviderSettingsError.requestFailed("\(AppLocalization.string("provider.error.translation_failed")): \(error.localizedDescription)")
         }
     }
 

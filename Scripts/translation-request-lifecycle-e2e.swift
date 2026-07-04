@@ -149,6 +149,8 @@ struct TranslationRequestLifecycleE2E {
 
     @MainActor
     private static func run() async throws {
+        AppLocalization.resetSessionLanguageForTesting(.english)
+
         let providerID = "lifecycle-e2e"
         let service = "translation-request-lifecycle-e2e-\(UUID().uuidString)"
         let suiteName = "translation-request-lifecycle-e2e-\(UUID().uuidString)"
@@ -287,8 +289,8 @@ struct TranslationRequestLifecycleE2E {
 
         let quickTextSource = try String(contentsOfFile: "Parrot/App/QuickTextTranslationView.swift", encoding: .utf8)
         try require(
-            quickTextSource.contains("Shift+Enter inserts a new line"),
-            "Quick Text header should include the Shift+Enter multiline hint."
+            quickTextSource.contains("AppLocalization.string(\"quick_text.header.subtitle\")"),
+            "Quick Text header should include the localized multiline keyboard hint."
         )
     }
 }

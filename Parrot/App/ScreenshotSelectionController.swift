@@ -51,8 +51,8 @@ struct ScreenshotPipelineStatus: Equatable {
     }
 
     static let recognizing = ScreenshotPipelineStatus(
-        title: "Recognizing text locally",
-        message: "OCR is running on this Mac. The screenshot image is not uploaded.",
+        title: AppLocalization.string("screenshot.ocr.recognizing.title"),
+        message: AppLocalization.string("screenshot.ocr.recognizing.message"),
         recognizedText: nil,
         phase: .recognizing
     )
@@ -228,7 +228,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         requiresLargeTextConfirmation = false
 
         if showStatus, hadActiveRequest {
-            statusMessage = "Translation canceled."
+            statusMessage = AppLocalization.string("quick_text.status.canceled")
             isStatusError = false
             errorPresentation = nil
         }
@@ -236,7 +236,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
 
     func copySource() {
         copyToPasteboard(sourceEditingState.requestText)
-        statusMessage = "Original text copied."
+        statusMessage = AppLocalization.string("screenshot.status.original_copied")
         isStatusError = false
         errorPresentation = nil
     }
@@ -248,7 +248,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         }
 
         copyToPasteboard(text)
-        statusMessage = "Translation copied."
+        statusMessage = AppLocalization.string("screenshot.status.translation_copied")
         isStatusError = false
         errorPresentation = nil
     }
@@ -271,7 +271,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
             translatedText = ""
             segmentRetryState = nil
         }
-        statusMessage = "Translating recognized text with the configured provider..."
+        statusMessage = AppLocalization.string("screenshot.status.translating")
         isStatusError = false
         errorPresentation = nil
 
@@ -322,10 +322,10 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
             historyRecorder(requestText, finalTranslation, "Screenshot")
             lastTranslatedSourceText = requestText
             if sourceEditingState.requestText == requestText {
-                statusMessage = "Translation ready."
+                statusMessage = AppLocalization.string("screenshot.status.ready")
             } else {
                 translatedText = ""
-                statusMessage = "Original text edited. Use Again to translate the updated text."
+                statusMessage = AppLocalization.string("screenshot.status.source_edited")
             }
             isStatusError = false
             errorPresentation = nil
@@ -334,7 +334,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
             // Keep the confirmation status already prepared in performTranslation.
         } catch is CancellationError {
             if requestCoordinator.isActive(requestID) {
-                statusMessage = "Translation canceled."
+                statusMessage = AppLocalization.string("quick_text.status.canceled")
                 isStatusError = false
                 errorPresentation = nil
             }
@@ -380,7 +380,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         case .requiresConfirmation(let characterCount, _):
             requiresLargeTextConfirmation = true
             translatedText = ""
-            statusMessage = "This OCR text is \(characterCount) characters. Review the cost and latency risk before translating it."
+            statusMessage = AppLocalization.format("screenshot.status.large_text", characterCount)
             isStatusError = true
             errorPresentation = nil
             throw TranslationControlFlow.awaitingLargeTextConfirmation
@@ -393,7 +393,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         client: TranslationStreamingProviding
     ) async throws -> String {
         try Task.checkCancellation()
-        statusMessage = "Translating recognized text with the configured provider..."
+        statusMessage = AppLocalization.string("screenshot.status.translating")
         let finalTranslation = try await client.translateStreaming(
             requestText,
             preferences: languagePreferences,
@@ -432,7 +432,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
                 throw CancellationError()
             }
 
-            statusMessage = "Translating \(segment.index + 1)/\(segments.count)..."
+            statusMessage = AppLocalization.format("screenshot.status.segment_progress", segment.index + 1, segments.count)
             var segmentBuffer = ""
 
             do {
@@ -462,7 +462,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
                         outputs: outputs,
                         failedSegmentIndex: segment.index
                     )
-                    statusMessage = "Segment \(segment.index + 1)/\(segments.count) failed. Retry will continue from that segment."
+                    statusMessage = AppLocalization.format("screenshot.status.segment_failed", segment.index + 1, segments.count)
                     isStatusError = true
                 }
                 throw error
@@ -503,14 +503,14 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
 
         guard !requestText.isEmpty else {
             translatedText = ""
-            statusMessage = "Original text is empty."
+            statusMessage = AppLocalization.string("screenshot.status.original_empty")
             isStatusError = true
             errorPresentation = nil
             return
         }
 
         guard let lastTranslatedSourceText, lastTranslatedSourceText != requestText else {
-            if isStatusError, statusMessage == "Original text is empty." {
+            if isStatusError, statusMessage == AppLocalization.string("screenshot.status.original_empty") {
                 statusMessage = nil
                 isStatusError = false
                 errorPresentation = nil
@@ -519,7 +519,7 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         }
 
         translatedText = ""
-        statusMessage = "Original text edited. Use Again to translate the updated text."
+        statusMessage = AppLocalization.string("screenshot.status.source_edited")
         isStatusError = false
         errorPresentation = nil
     }
@@ -540,8 +540,8 @@ final class ScreenshotOCRPipeline {
 
         guard let cgImage = selection.image.cgImageForOCR()?.scaledForOCR() else {
             return ScreenshotPipelineStatus(
-                title: "OCR unavailable",
-                message: "Unable to prepare the selected image for local text recognition. Use New Screenshot to select the region again.",
+                title: AppLocalization.string("screenshot.ocr.unavailable.title"),
+                message: AppLocalization.string("screenshot.ocr.unavailable.message"),
                 recognizedText: nil,
                 isSuccess: false
             )
@@ -569,8 +569,8 @@ final class ScreenshotOCRPipeline {
             try VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
         } catch {
             return ScreenshotPipelineStatus(
-                title: "OCR failed",
-                message: "Local text recognition failed: \(error.localizedDescription). Use New Screenshot to retry with a clearer region.",
+                title: AppLocalization.string("screenshot.ocr.failed.title"),
+                message: AppLocalization.format("screenshot.ocr.failed.message", error.localizedDescription),
                 recognizedText: nil,
                 isSuccess: false
             )
@@ -583,16 +583,16 @@ final class ScreenshotOCRPipeline {
 
         guard !recognizedText.isEmpty else {
             return ScreenshotPipelineStatus(
-                title: "No text detected",
-                message: "No translatable text was detected in the selected region. Use New Screenshot to select a clearer or larger area.",
+                title: AppLocalization.string("screenshot.ocr.no_text.title"),
+                message: AppLocalization.string("screenshot.ocr.no_text.message"),
                 recognizedText: nil,
                 isSuccess: false
             )
         }
 
         return ScreenshotPipelineStatus(
-            title: "Text recognized locally",
-            message: "OCR completed on this Mac. The screenshot image was not uploaded; only recognized text is sent to translation.",
+            title: AppLocalization.string("screenshot.ocr.success.title"),
+            message: AppLocalization.string("screenshot.ocr.success.message"),
             recognizedText: recognizedText,
             isSuccess: true
         )
@@ -688,13 +688,13 @@ final class ScreenshotSelectionController: NSObject {
         case .requestPresented:
             return
         case .deniedAfterRequest:
-            failure("Screen Recording permission is still required before screenshot translation can capture other apps.")
+            failure(AppLocalization.string("screenshot.capture.permission.required"))
             return
         }
 
         screenSnapshots = captureScreenSnapshots()
         guard !screenSnapshots.isEmpty else {
-            failure("Unable to capture the screen before selection. Check Screen Recording permission in System Settings.")
+            failure(AppLocalization.string("screenshot.capture.unable"))
             return
         }
 
@@ -734,7 +734,7 @@ final class ScreenshotSelectionController: NSObject {
         else {
             self.selectedRect = nil
             screenSnapshots.removeAll()
-            failure("Unable to crop the selected screen region. Try selecting the region again.")
+            failure(AppLocalization.string("screenshot.capture.crop_failed"))
             return
         }
 
@@ -934,7 +934,7 @@ final class ScreenshotSelectionView: NSView {
     }
 
     private func drawInstructions() {
-        let text = "Drag to select text. Esc cancels."
+        let text = AppLocalization.string("screenshot.selection.instructions")
         drawBadge(text, centeredAt: CGPoint(x: bounds.midX, y: bounds.midY))
     }
 
@@ -1008,8 +1008,8 @@ struct ScreenshotSelectionResultView: View {
         status: ScreenshotPipelineStatus,
         recognizeText: @escaping () async -> ScreenshotPipelineStatus = {
             ScreenshotPipelineStatus(
-                title: "OCR unavailable",
-                message: "Unable to start local text recognition. Use New Screenshot to select the region again.",
+                title: AppLocalization.string("screenshot.ocr.unavailable.title"),
+                message: AppLocalization.string("screenshot.ocr.unavailable.message"),
                 recognizedText: nil,
                 isSuccess: false
             )
@@ -1037,15 +1037,15 @@ struct ScreenshotSelectionResultView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ParrotWindowTitleBar(title: "Screenshot Translation") {
+            ParrotWindowTitleBar(title: AppLocalization.string("window.screenshot.title")) {
                 HStack(spacing: 8) {
                     ParrotAlwaysOnTopButton(
                         surface: .screenshotTranslation,
                         isEnabled: $isAlwaysOnTop,
                         onChange: onAlwaysOnTopChanged
                     )
-                    ParrotTitleBarIconButton(systemName: "clock.arrow.circlepath", title: "Translation History", action: onOpenHistory)
-                    ParrotTitleBarIconButton(systemName: "gearshape", title: "Settings", action: onOpenSettings)
+                    ParrotTitleBarIconButton(systemName: "clock.arrow.circlepath", title: AppLocalization.string("window.history.title"), action: onOpenHistory)
+                    ParrotTitleBarIconButton(systemName: "gearshape", title: AppLocalization.string("window.settings.title"), action: onOpenSettings)
                 }
             }
 
@@ -1078,12 +1078,12 @@ struct ScreenshotSelectionResultView: View {
     private var header: some View {
         ParrotSurfaceHeader(
             systemImageName: status.isSuccess || status.isRecognizing ? "viewfinder" : "exclamationmark.triangle.fill",
-            title: status.isRecognizing ? "Screenshot Translation" : "Translation Result",
+            title: status.isRecognizing ? AppLocalization.string("window.screenshot.title") : AppLocalization.string("window.screenshot.result_title"),
             subtitle: status.isRecognizing
-                ? "Recognizing selected text locally before translation starts."
+                ? AppLocalization.string("screenshot.header.recognizing.subtitle")
                 : status.isSuccess
-                    ? "Review and copy the extracted content."
-                    : "Review the capture problem and select a new region when ready."
+                    ? AppLocalization.string("screenshot.header.success.subtitle")
+                    : AppLocalization.string("screenshot.header.failure.subtitle")
         )
     }
 
@@ -1110,7 +1110,7 @@ struct ScreenshotSelectionResultView: View {
                     }
                     .foregroundStyle(Color.accentColor)
                 } else {
-                    Label(status.isSuccess ? "On-device OCR complete" : status.title, systemImage: status.isSuccess ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                    Label(status.isSuccess ? AppLocalization.string("screenshot.preview.ocr_complete") : status.title, systemImage: status.isSuccess ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(status.isSuccess ? Color.accentColor : Color.orange)
                 }
@@ -1127,7 +1127,7 @@ struct ScreenshotSelectionResultView: View {
             Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 3) {
-                ParrotFieldLabel(title: "Region")
+                ParrotFieldLabel(title: AppLocalization.string("screenshot.region"))
 
                 Text("x \(Int(result.screenRect.minX)), y \(Int(result.screenRect.minY))")
                     .font(.caption)
@@ -1145,7 +1145,7 @@ struct ScreenshotSelectionResultView: View {
     @ViewBuilder
     private var statusBanner: some View {
         if status.isRecognizing {
-            ParrotStatusPill(kind: .progress, message: "Recognizing text locally...")
+            ParrotStatusPill(kind: .progress, message: AppLocalization.string("screenshot.status.recognizing"))
         } else if let validationMessage = store.languageValidationMessage {
             ParrotStatusPill(kind: .warning, message: validationMessage)
         } else if let error = store.errorPresentation {
@@ -1169,7 +1169,7 @@ struct ScreenshotSelectionResultView: View {
             sourceComparisonColumn
 
             comparisonColumn(
-                title: "Translation",
+                title: AppLocalization.string("screenshot.translation"),
                 text: store.translatedText,
                 placeholder: translationPlaceholder
             )
@@ -1180,7 +1180,7 @@ struct ScreenshotSelectionResultView: View {
     private var sourceComparisonColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                ParrotFieldLabel(title: "Original", uppercase: true)
+                ParrotFieldLabel(title: AppLocalization.string("screenshot.original"), uppercase: true)
 
                 SourceLanguageMenu(
                     selection: $store.languagePreferences.sourceLanguage,
@@ -1195,7 +1195,7 @@ struct ScreenshotSelectionResultView: View {
 
                 Spacer()
 
-                Button("Copy") {
+                Button(AppLocalization.string("common.copy")) {
                     store.copySource()
                 }
                 .buttonStyle(.borderless)
@@ -1235,7 +1235,7 @@ struct ScreenshotSelectionResultView: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
-                .help("Swap source and target languages")
+                .help(AppLocalization.string("language.help.swap"))
                 .disabled(store.isTranslating)
 
                 TargetLanguageMenu(
@@ -1245,7 +1245,7 @@ struct ScreenshotSelectionResultView: View {
 
                 Spacer()
 
-                Button("Copy") {
+                Button(AppLocalization.string("common.copy")) {
                     store.copyTranslation()
                 }
                 .buttonStyle(.borderless)
@@ -1261,31 +1261,31 @@ struct ScreenshotSelectionResultView: View {
 
     private var footer: some View {
         ParrotFooterBar {
-            Button("Copy Translation") {
+            Button(AppLocalization.string("common.copy_translation")) {
                 store.copyTranslation()
             }
             .disabled(!store.canCopyTranslation)
             .buttonStyle(.borderedProminent)
 
-            Button("Retry") {
+            Button(AppLocalization.string("common.retry")) {
                 store.retryTranslation()
             }
             .disabled(!store.canRetry)
 
             if store.requiresLargeTextConfirmation {
-                Button("Translate Anyway") {
+                Button(AppLocalization.string("quick_text.button.translate_anyway")) {
                     store.confirmLargeTextTranslation()
                 }
                 .disabled(store.isTranslating)
             }
 
             if !status.isSuccess || status.isRecognizing {
-                Button("New Screenshot") {
+                Button(AppLocalization.string("screenshot.button.new")) {
                     cancelAndRetrySelection()
                 }
             }
         } trailing: {
-            Button("Close") {
+            Button(AppLocalization.string("common.close")) {
                 cancelAndClose()
             }
             .keyboardShortcut(.cancelAction)
@@ -1306,24 +1306,24 @@ struct ScreenshotSelectionResultView: View {
 
     private var translationPlaceholder: String {
         if status.isRecognizing {
-            return "Translation starts after OCR completes."
+            return AppLocalization.string("screenshot.placeholder.translation_after_ocr")
         }
 
         if store.isTranslating {
-            return "Waiting for translated text..."
+            return AppLocalization.string("screenshot.placeholder.waiting")
         }
 
         if store.isStatusError {
-            return "Translation failed. Press Retry after checking settings or network."
+            return AppLocalization.string("screenshot.placeholder.failed")
         }
 
-        return status.isSuccess ? "" : "No translation available."
+        return status.isSuccess ? "" : AppLocalization.string("screenshot.placeholder.none")
     }
 
     private var sourcePlaceholder: String {
         status.isRecognizing
-            ? "Recognizing text locally..."
-            : status.isSuccess ? "" : "No recognized text to translate."
+            ? AppLocalization.string("screenshot.placeholder.recognizing")
+            : status.isSuccess ? "" : AppLocalization.string("screenshot.placeholder.no_text")
     }
 
     private func runInitialOCRAndTranslation() async {

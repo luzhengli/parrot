@@ -149,7 +149,7 @@ struct TranslationHistoryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ParrotWindowTitleBar(title: "Translation History") {
+            ParrotWindowTitleBar(title: AppLocalization.string("window.history.title")) {
                 ParrotAlwaysOnTopButton(
                     surface: .history,
                     isEnabled: $isAlwaysOnTop,
@@ -183,33 +183,33 @@ struct TranslationHistoryView: View {
                 onCopyOriginal: { store.copyOriginal(record) }
             )
         }
-        .alert("Clear Translation History?", isPresented: $isShowingClearConfirmation) {
-            Button("Clear History", role: .destructive) {
+        .alert(AppLocalization.string("history.clear.confirm.title"), isPresented: $isShowingClearConfirmation) {
+            Button(AppLocalization.string("history.clear.confirm.button"), role: .destructive) {
                 store.clear()
-                statusMessage = "Local text-only translation history cleared."
+                statusMessage = AppLocalization.string("history.clear.done")
             }
 
-            Button("Cancel", role: .cancel) {}
+            Button(AppLocalization.string("common.cancel"), role: .cancel) {}
         } message: {
-            Text("This deletes local text records only. It does not delete API keys, provider settings, screenshots, or app preferences.")
+            Text(AppLocalization.string("history.clear.confirm.message"))
         }
     }
 
     private var header: some View {
         ParrotSurfaceHeader(
             systemImageName: "clock.arrow.circlepath",
-            title: "Translation History",
+            title: AppLocalization.string("window.history.title"),
             subtitle: store.isHistoryEnabled
-                ? "Recent translations are saved locally on this Mac."
-                : "History is disabled. Existing records remain available until you clear them."
+                ? AppLocalization.string("history.header.enabled")
+                : AppLocalization.string("history.header.disabled")
         )
     }
 
     private var emptyState: some View {
         ParrotEmptyState(
             systemImageName: "tray",
-            title: "No translation history yet",
-            message: "Successful quick text and screenshot translations will appear here while history is enabled."
+            title: AppLocalization.string("history.empty.title"),
+            message: AppLocalization.string("history.empty.message")
         )
         .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
@@ -232,12 +232,12 @@ struct TranslationHistoryView: View {
 
     private var footer: some View {
         ParrotFooterBar {
-            Button("Clear History", role: .destructive) {
+            Button(AppLocalization.string("history.clear.confirm.button"), role: .destructive) {
                 isShowingClearConfirmation = true
             }
             .disabled(store.records.isEmpty)
         } trailing: {
-            Button("Close") {
+            Button(AppLocalization.string("common.close")) {
                 onClose()
             }
             .keyboardShortcut(.cancelAction)
@@ -254,7 +254,7 @@ private struct HistoryRecordRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label(record.sourceType, systemImage: iconName)
+                Label(displaySourceType, systemImage: iconName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -266,14 +266,14 @@ private struct HistoryRecordRow: View {
             }
 
             HStack(alignment: .top, spacing: 12) {
-                textColumn(title: "Original", text: record.sourceText)
-                textColumn(title: "Translation", text: record.translatedText)
+                textColumn(title: AppLocalization.string("history.original"), text: record.sourceText)
+                textColumn(title: AppLocalization.string("history.translation"), text: record.translatedText)
             }
 
             HStack {
-                Button("View Details", action: onOpenDetails)
-                Button("Copy Translation", action: onCopyTranslation)
-                Button("Copy Original", action: onCopyOriginal)
+                Button(AppLocalization.string("history.view_details"), action: onOpenDetails)
+                Button(AppLocalization.string("common.copy_translation"), action: onCopyTranslation)
+                Button(AppLocalization.string("common.copy_original"), action: onCopyOriginal)
             }
         }
         .padding(14)
@@ -284,6 +284,12 @@ private struct HistoryRecordRow: View {
 
     private var iconName: String {
         record.sourceType == "Screenshot" ? "text.viewfinder" : "text.cursor"
+    }
+
+    private var displaySourceType: String {
+        record.sourceType == "Screenshot"
+            ? AppLocalization.string("history.source.screenshot")
+            : AppLocalization.string("history.source.quick_text")
     }
 
     private func textColumn(title: String, text: String) -> some View {
@@ -315,26 +321,26 @@ private struct TranslationHistoryDetailView: View {
             HStack(alignment: .center, spacing: 12) {
                 ParrotSurfaceHeader(
                     systemImageName: iconName,
-                    title: record.sourceType,
+                    title: displaySourceType,
                     subtitle: record.createdAt.formatted(date: .abbreviated, time: .shortened)
                 )
 
                 Spacer()
 
-                Button("Close") {
+                Button(AppLocalization.string("common.close")) {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
             }
 
             HStack(alignment: .top, spacing: 14) {
-                detailColumn(title: "Original", text: record.sourceText)
-                detailColumn(title: "Translation", text: record.translatedText)
+                detailColumn(title: AppLocalization.string("history.original"), text: record.sourceText)
+                detailColumn(title: AppLocalization.string("history.translation"), text: record.translatedText)
             }
 
             HStack {
-                Button("Copy Translation", action: onCopyTranslation)
-                Button("Copy Original", action: onCopyOriginal)
+                Button(AppLocalization.string("common.copy_translation"), action: onCopyTranslation)
+                Button(AppLocalization.string("common.copy_original"), action: onCopyOriginal)
                 Spacer()
             }
         }
@@ -344,6 +350,12 @@ private struct TranslationHistoryDetailView: View {
 
     private var iconName: String {
         record.sourceType == "Screenshot" ? "text.viewfinder" : "text.cursor"
+    }
+
+    private var displaySourceType: String {
+        record.sourceType == "Screenshot"
+            ? AppLocalization.string("history.source.screenshot")
+            : AppLocalization.string("history.source.quick_text")
     }
 
     private func detailColumn(title: String, text: String) -> some View {
