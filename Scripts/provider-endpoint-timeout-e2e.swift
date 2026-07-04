@@ -245,6 +245,16 @@ struct ProviderEndpointTimeoutE2E {
             "Settings toggle should apply Dock visibility immediately."
         )
         try require(
+            appDelegateSource.contains("let visibleWindows = isVisible ? [] : NSApp.windows.filter") &&
+                appDelegateSource.contains("restoreVisibleWindowsAfterDockIconToggle(visibleWindows, keyWindow: keyWindow)"),
+            "Disabling Dock icon should preserve currently visible windows after activation policy changes."
+        )
+        try require(
+            appDelegateSource.contains("window.orderFrontRegardless()") &&
+                appDelegateSource.contains("keyWindow?.makeKeyAndOrderFront(nil)"),
+            "Dock icon visibility changes should restore visible windows and the previous key window."
+        )
+        try require(
             appDelegateSource.contains("applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)"),
             "Dock icon clicks should be handled when all Parrot windows are closed."
         )

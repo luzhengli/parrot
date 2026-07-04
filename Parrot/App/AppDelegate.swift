@@ -454,10 +454,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func applyDockIconVisibility(_ isVisible: Bool) {
+        let visibleWindows = isVisible ? [] : NSApp.windows.filter { window in
+            window.isVisible && !window.isMiniaturized
+        }
+        let keyWindow = isVisible ? nil : NSApp.keyWindow
+
         NSApp.setActivationPolicy(isVisible ? .regular : .accessory)
         if isVisible {
             NSApp.activate(ignoringOtherApps: true)
+        } else {
+            restoreVisibleWindowsAfterDockIconToggle(visibleWindows, keyWindow: keyWindow)
         }
+    }
+
+    private func restoreVisibleWindowsAfterDockIconToggle(_ windows: [NSWindow], keyWindow: NSWindow?) {
+        guard !windows.isEmpty else {
+            return
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+        for window in windows {
+            window.orderFrontRegardless()
+        }
+        keyWindow?.makeKeyAndOrderFront(nil)
     }
 
     private func presentWindow<Content: View>(
