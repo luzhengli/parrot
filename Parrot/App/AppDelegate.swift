@@ -46,6 +46,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard !flag else {
+            return true
+        }
+
+        showQuickTextTranslation()
+        return false
+    }
+
     private func makeStatusMenu() -> NSMenu {
         let menu = NSMenu()
 

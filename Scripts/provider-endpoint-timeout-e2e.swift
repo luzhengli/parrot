@@ -244,6 +244,14 @@ struct ProviderEndpointTimeoutE2E {
             appDelegateSource.contains("NSApp.setActivationPolicy(isVisible ? .regular : .accessory)"),
             "Settings toggle should apply Dock visibility immediately."
         )
+        try require(
+            appDelegateSource.contains("applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)"),
+            "Dock icon clicks should be handled when all Parrot windows are closed."
+        )
+        try require(
+            appDelegateSource.contains("guard !flag else") && appDelegateSource.contains("showQuickTextTranslation()"),
+            "Dock reopen handling should open Quick Text only when no visible Parrot window exists."
+        )
 
         let settingsSource = try String(contentsOfFile: "Parrot/App/ProviderSettingsView.swift", encoding: .utf8)
         try require(
