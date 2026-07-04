@@ -705,6 +705,462 @@ struct LLMProviderPreset: Identifiable, Equatable {
     }
 }
 
+enum ParrotAboutInfo {
+    static let releaseChannel = "Unsigned RC"
+    static let macOSRequirement = "macOS 14.0 or later"
+    static let releaseNotesURL = URL(string: "https://github.com/luzhengli/parrot/releases")!
+    static let latestReleaseAPIURL = URL(string: "https://api.github.com/repos/luzhengli/parrot/releases/latest")!
+    static let feedbackURL = URL(string: "https://github.com/luzhengli/parrot/issues/new")!
+}
+
+struct ParrotSemanticVersion: Comparable, Equatable {
+    let major: Int
+    let minor: Int
+    let patch: Int
+    let prerelease: String?
+
+    init?(_ string: String) {
+        let rawTrimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = rawTrimmed.lowercased().hasPrefix("v")
+            ? String(rawTrimmed.dropFirst())
+            : rawTrimmed
+        let versionAndPrerelease = trimmed.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
+        let numericParts = versionAndPrerelease[0]
+            .split(separator: ".")
+            .compactMap { Int($0) }
+
+        guard numericParts.count >= 2 else {
+            return nil
+        }
+
+        major = numericParts[0]
+        minor = numericParts[1]
+        patch = numericParts.count > 2 ? numericParts[2] : 0
+        prerelease = versionAndPrerelease.count > 1 ? String(versionAndPrerelease[1]) : nil
+    }
+
+    static func < (lhs: ParrotSemanticVersion, rhs: ParrotSemanticVersion) -> Bool {
+        if lhs.major != rhs.major {
+            return lhs.major < rhs.major
+        }
+        if lhs.minor != rhs.minor {
+            return lhs.minor < rhs.minor
+        }
+        if lhs.patch != rhs.patch {
+            return lhs.patch < rhs.patch
+        }
+
+        switch (lhs.prerelease, rhs.prerelease) {
+        case (nil, nil):
+            return false
+        case (nil, _?):
+            return false
+        case (_?, nil):
+            return true
+        case (let lhsPrerelease?, let rhsPrerelease?):
+            return lhsPrerelease.localizedStandardCompare(rhsPrerelease) == .orderedAscending
+        }
+    }
+}
+
+struct ParrotReleaseInfo: Equatable {
+    let version: String
+    let releaseDate: String
+    let releaseNotesURL: URL
+    let downloadURL: URL
+    let isPrerelease: Bool
+    let summary: String
+    let checksumSummary: String?
+}
+
+enum ParrotUpdateCheckStatus: Equatable {
+    case idle
+    case checking
+    case upToDate(message: String)
+    case updateAvailable(ParrotReleaseInfo, message: String)
+    case unableToCheck(message: String)
+}
+
+@MainActor
+final class ParrotUpdateChecker: ObservableObject {
+    typealias DataLoader = (URLRequest) async throws -> (Data, URLResponse)
+
+    @Published private(set) var status: ParrotUpdateCheckStatus = .idle
+
+    private let dataLoader: DataLoader
+
+    init(dataLoader: @escaping DataLoader = { request in
+        try await URLSession.shared.data(for: request)
+    }) {
+        self.dataLoader = dataLoader
+    }
+
+    func checkForUpdates(
+        currentVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
+        currentBuild: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+    ) async {
+        status = .checking
+
+        do {
+            var request = URLRequest(url: ParrotAboutInfo.latestReleaseAPIURL)
+            request.httpMethod = "GET"
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue("Parrot/\(currentVersion) (\(ParrotAboutInfo.releaseChannel))", forHTTPHeaderField: "User-Agent")
+
+            let (data, response) = try await dataLoader(request)
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200..<300).contains(httpResponse.statusCode) {
+                status = .unableToCheck(message: "GitHub Releases returned HTTP \(httpResponse.statusCode). Try again later.")
+                return
+            }
+
+            let release = try Self.parseLatestRelease(from: data)
+            status = Self.status(
+                currentVersion: currentVersion,
+                currentBuild: currentBuild,
+                latestRelease: release
+            )
+        } catch {
+            status = .unableToCheck(message: "Unable to check GitHub Releases: \(error.localizedDescription)")
+        }
+    }
+
+    static func parseLatestRelease(from data: Data) throws -> ParrotReleaseInfo {
+        let response = try JSONDecoder().decode(GitHubReleaseResponse.self, from: data)
+        guard let version = response.normalizedVersion,
+              ParrotSemanticVersion(version) != nil,
+              let releaseNotesURL = URL(string: response.htmlURL)
+        else {
+            throw ProviderSettingsError.requestFailed("The update feed did not include a valid release version or URL.")
+        }
+
+        let downloadAsset = response.assets.first { asset in
+            asset.name.localizedCaseInsensitiveContains(".dmg")
+                || asset.name.localizedCaseInsensitiveContains(".zip")
+        }
+        let checksumAsset = response.assets.first { asset in
+            asset.name.localizedCaseInsensitiveContains("sha256")
+                || asset.name.localizedCaseInsensitiveContains("checksum")
+        }
+        let downloadURL = downloadAsset.flatMap { URL(string: $0.browserDownloadURL) } ?? releaseNotesURL
+        let summary = response.body?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .newlines)
+            .prefix(4)
+            .joined(separator: "\n")
+            ?? "See release notes for details."
+        let checksumSummary = checksumAsset == nil
+            ? nil
+            : "Checksum metadata is available in \(checksumAsset?.name ?? "the release assets")."
+
+        return ParrotReleaseInfo(
+            version: version,
+            releaseDate: response.publishedAt ?? "unknown",
+            releaseNotesURL: releaseNotesURL,
+            downloadURL: downloadURL,
+            isPrerelease: response.prerelease,
+            summary: summary.isEmpty ? "See release notes for details." : summary,
+            checksumSummary: checksumSummary
+        )
+    }
+
+    static func status(
+        currentVersion: String,
+        currentBuild: String,
+        latestRelease: ParrotReleaseInfo
+    ) -> ParrotUpdateCheckStatus {
+        guard let current = ParrotSemanticVersion(currentVersion),
+              let latest = ParrotSemanticVersion(latestRelease.version)
+        else {
+            return .unableToCheck(message: "Unable to compare current version \(currentVersion) with latest version \(latestRelease.version).")
+        }
+
+        if latest > current {
+            let message = """
+            Version \(latestRelease.version) is available. Current version: \(currentVersion) (\(currentBuild)).
+            \(latestRelease.summary)
+            Manual download only for \(ParrotAboutInfo.releaseChannel); Parrot will not install updates automatically.
+            \(latestRelease.checksumSummary ?? "No checksum or signature metadata was found in the release feed. Verify release assets manually before replacing the app.")
+            """
+            return .updateAvailable(latestRelease, message: message)
+        }
+
+        if current > latest {
+            return .upToDate(message: "This local build (\(currentVersion), build \(currentBuild)) is newer than the latest GitHub release \(latestRelease.version). No downgrade is recommended.")
+        }
+
+        return .upToDate(message: "Parrot \(currentVersion) (build \(currentBuild)) matches the latest GitHub release.")
+    }
+
+    static func versionInfoText(
+        currentVersion: String,
+        currentBuild: String,
+        status: ParrotUpdateCheckStatus
+    ) -> String {
+        var lines = [
+            "Parrot Version Info",
+            "Current Version: \(currentVersion)",
+            "Current Build: \(currentBuild)",
+            "Release Channel: \(ParrotAboutInfo.releaseChannel)"
+        ]
+
+        if case .updateAvailable(let release, _) = status {
+            lines.append("Latest Version: \(release.version)")
+            lines.append("Release Date: \(release.releaseDate)")
+            lines.append("Release Notes: \(release.releaseNotesURL.absoluteString)")
+            lines.append("Download: \(release.downloadURL.absoluteString)")
+            lines.append("Prerelease: \(release.isPrerelease ? "yes" : "no")")
+            lines.append(release.checksumSummary ?? "Checksum Metadata: not found in feed")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private struct GitHubReleaseResponse: Decodable {
+        let tagName: String
+        let name: String?
+        let htmlURL: String
+        let publishedAt: String?
+        let body: String?
+        let prerelease: Bool
+        let assets: [GitHubReleaseAsset]
+
+        var normalizedVersion: String? {
+            let rawVersion = tagName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !rawVersion.isEmpty else {
+                return nil
+            }
+            return rawVersion.lowercased().hasPrefix("v")
+                ? String(rawVersion.dropFirst())
+                : rawVersion
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case tagName = "tag_name"
+            case name
+            case htmlURL = "html_url"
+            case publishedAt = "published_at"
+            case body
+            case prerelease
+            case assets
+        }
+    }
+
+    private struct GitHubReleaseAsset: Decodable {
+        let name: String
+        let browserDownloadURL: String
+
+        private enum CodingKeys: String, CodingKey {
+            case name
+            case browserDownloadURL = "browser_download_url"
+        }
+    }
+}
+
+struct ParrotDiagnosticsSummary: Equatable {
+    var appVersion: String
+    var buildNumber: String
+    var bundleIdentifier: String
+    var macOSVersion: String
+    var providerPresetID: String
+    var releaseChannel: String
+    var screenRecordingPermission: String
+    var featureFlags: [String]
+
+    static func current(
+        bundle: Bundle = .main,
+        settings: LLMProviderSettings = .loadSaved(),
+        screenRecordingPermissionGranted: Bool? = nil
+    ) -> ParrotDiagnosticsSummary {
+        let appVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let buildNumber = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        let bundleIdentifier = bundle.bundleIdentifier ?? "unknown"
+        let permissionStatus: String
+        if let screenRecordingPermissionGranted {
+            permissionStatus = screenRecordingPermissionGranted ? "granted" : "not granted"
+        } else {
+            permissionStatus = "unknown"
+        }
+
+        return ParrotDiagnosticsSummary(
+            appVersion: appVersion,
+            buildNumber: buildNumber,
+            bundleIdentifier: bundleIdentifier,
+            macOSVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            providerPresetID: settings.providerID,
+            releaseChannel: ParrotAboutInfo.releaseChannel,
+            screenRecordingPermission: permissionStatus,
+            featureFlags: [
+                "local-ocr",
+                "keychain-api-key",
+                "text-only-history",
+                "custom-shortcuts",
+                "long-text-segmentation",
+                "unsigned-release"
+            ]
+        )
+    }
+
+    var text: String {
+        [
+            "Parrot Diagnostics",
+            "Version: \(appVersion)",
+            "Build: \(buildNumber)",
+            "Bundle Identifier: \(bundleIdentifier)",
+            "macOS: \(macOSVersion)",
+            "Provider Preset ID: \(providerPresetID)",
+            "Release Channel: \(releaseChannel)",
+            "Screen Recording Permission: \(screenRecordingPermission)",
+            "Feature Flags: \(featureFlags.joined(separator: ", "))"
+        ].joined(separator: "\n")
+    }
+}
+
+enum ParrotOnboardingStatus: String, Equatable {
+    case notStarted
+    case skipped
+    case completed
+
+    var displayName: String {
+        switch self {
+        case .notStarted:
+            return "Not started"
+        case .skipped:
+            return "Skipped for this version"
+        case .completed:
+            return "Complete"
+        }
+    }
+}
+
+struct ParrotOnboardingState: Equatable {
+    static let currentSchemaVersion = 1
+    static let statusKey = "ParrotOnboardingStatus"
+    static let schemaVersionKey = "ParrotOnboardingSchemaVersion"
+
+    var status: ParrotOnboardingStatus
+    var schemaVersion: Int
+
+    static func load(from userDefaults: UserDefaults = .standard) -> ParrotOnboardingState {
+        let rawStatus = userDefaults.string(forKey: statusKey)
+        let status = rawStatus.flatMap(ParrotOnboardingStatus.init(rawValue:)) ?? .notStarted
+        let schemaVersion = userDefaults.object(forKey: schemaVersionKey) == nil
+            ? currentSchemaVersion
+            : userDefaults.integer(forKey: schemaVersionKey)
+        return ParrotOnboardingState(status: status, schemaVersion: schemaVersion)
+    }
+
+    static func shouldPresentOnLaunch(
+        providerConfigurationIsValid: Bool,
+        userDefaults: UserDefaults = .standard
+    ) -> Bool {
+        guard providerConfigurationIsValid else {
+            return true
+        }
+
+        let state = load(from: userDefaults)
+        guard state.schemaVersion == currentSchemaVersion else {
+            return true
+        }
+
+        return state.status == .notStarted
+    }
+
+    static func markSkipped(in userDefaults: UserDefaults = .standard) -> ParrotOnboardingState {
+        save(status: .skipped, to: userDefaults)
+    }
+
+    static func markCompleted(in userDefaults: UserDefaults = .standard) -> ParrotOnboardingState {
+        save(status: .completed, to: userDefaults)
+    }
+
+    static func reset(in userDefaults: UserDefaults = .standard) -> ParrotOnboardingState {
+        userDefaults.removeObject(forKey: statusKey)
+        userDefaults.removeObject(forKey: schemaVersionKey)
+        return load(from: userDefaults)
+    }
+
+    static func save(status: ParrotOnboardingStatus, to userDefaults: UserDefaults = .standard) -> ParrotOnboardingState {
+        userDefaults.set(status.rawValue, forKey: statusKey)
+        userDefaults.set(currentSchemaVersion, forKey: schemaVersionKey)
+        return load(from: userDefaults)
+    }
+}
+
+struct ParrotLaunchHubPreferences: Equatable {
+    static let showOnStartupKey = "ParrotShowLaunchHubOnStartup"
+
+    var showOnStartup: Bool
+
+    static func load(from userDefaults: UserDefaults = .standard) -> ParrotLaunchHubPreferences {
+        let showOnStartup = userDefaults.object(forKey: showOnStartupKey) == nil
+            ? true
+            : userDefaults.bool(forKey: showOnStartupKey)
+        return ParrotLaunchHubPreferences(showOnStartup: showOnStartup)
+    }
+
+    func save(to userDefaults: UserDefaults = .standard) {
+        userDefaults.set(showOnStartup, forKey: Self.showOnStartupKey)
+    }
+
+    @discardableResult
+    static func setShowOnStartup(
+        _ showOnStartup: Bool,
+        in userDefaults: UserDefaults = .standard
+    ) -> ParrotLaunchHubPreferences {
+        let preferences = ParrotLaunchHubPreferences(showOnStartup: showOnStartup)
+        preferences.save(to: userDefaults)
+        return preferences
+    }
+}
+
+struct ParrotDockIconPreferences: Equatable {
+    static let showDockIconKey = "ParrotShowDockIcon"
+
+    var showDockIcon: Bool
+
+    static func load(from userDefaults: UserDefaults = .standard) -> ParrotDockIconPreferences {
+        ParrotDockIconPreferences(showDockIcon: userDefaults.bool(forKey: showDockIconKey))
+    }
+
+    func save(to userDefaults: UserDefaults = .standard) {
+        userDefaults.set(showDockIcon, forKey: Self.showDockIconKey)
+    }
+
+    @discardableResult
+    static func setShowDockIcon(
+        _ showDockIcon: Bool,
+        in userDefaults: UserDefaults = .standard
+    ) -> ParrotDockIconPreferences {
+        let preferences = ParrotDockIconPreferences(showDockIcon: showDockIcon)
+        preferences.save(to: userDefaults)
+        return preferences
+    }
+}
+
+enum ParrotStartupDestination: Equatable {
+    case setup
+    case launchHub
+    case none
+}
+
+struct ParrotStartupPresentation {
+    static func destination(
+        providerConfigurationIsValid: Bool,
+        userDefaults: UserDefaults = .standard
+    ) -> ParrotStartupDestination {
+        if ParrotOnboardingState.shouldPresentOnLaunch(
+            providerConfigurationIsValid: providerConfigurationIsValid,
+            userDefaults: userDefaults
+        ) {
+            return .setup
+        }
+
+        let launchPreferences = ParrotLaunchHubPreferences.load(from: userDefaults)
+        return launchPreferences.showOnStartup ? .launchHub : .none
+    }
+}
+
 enum ProviderSettingsError: LocalizedError {
     case invalidBaseURL
     case missingModel
@@ -719,7 +1175,7 @@ enum ProviderSettingsError: LocalizedError {
         case .invalidBaseURL:
             return "Enter a valid HTTPS Base URL."
         case .missingModel:
-            return "Enter a model name before testing the provider."
+            return "Enter a model name before saving or testing the provider."
         case .missingAPIKey:
             return "Enter an API Key or save one in Keychain before testing."
         case .apiKeyRequiresReentry:
@@ -734,10 +1190,39 @@ enum ProviderSettingsError: LocalizedError {
     }
 }
 
+enum UserFacingErrorRecoveryAction: Equatable {
+    case openSetup
+    case openModelSettings
+    case retry
+
+    var title: String {
+        switch self {
+        case .openSetup:
+            return "Open Setup"
+        case .openModelSettings:
+            return "Open Model Settings"
+        case .retry:
+            return "Retry"
+        }
+    }
+
+    var systemImageName: String {
+        switch self {
+        case .openSetup:
+            return "checklist"
+        case .openModelSettings:
+            return "slider.horizontal.3"
+        case .retry:
+            return "arrow.clockwise"
+        }
+    }
+}
+
 struct UserFacingErrorPresentation {
     let title: String
     let message: String
     let recoverySuggestion: String
+    let recoveryAction: UserFacingErrorRecoveryAction
 
     init(error: Error) {
         if let providerError = error as? ProviderSettingsError {
@@ -746,6 +1231,7 @@ struct UserFacingErrorPresentation {
             title = "Something went wrong"
             message = error.localizedDescription
             recoverySuggestion = "Try again. If the problem continues, check Settings and your network connection."
+            recoveryAction = .retry
         }
     }
 
@@ -755,18 +1241,22 @@ struct UserFacingErrorPresentation {
             title = "Invalid Base URL"
             message = "The configured provider URL is not a valid HTTPS endpoint."
             recoverySuggestion = "Open Settings, enter the provider Base URL, then retry."
+            recoveryAction = .openModelSettings
         case .missingModel:
             title = "Model name required"
             message = "A model must be configured before Parrot can request a translation."
             recoverySuggestion = "Open Settings, enter a model name, then retry."
+            recoveryAction = .openModelSettings
         case .missingAPIKey:
             title = "API Key required"
             message = "No API Key is saved for the selected provider."
             recoverySuggestion = "Open Settings, save the API Key to Keychain, then retry."
+            recoveryAction = .openSetup
         case .apiKeyRequiresReentry:
             title = "API Key needs to be saved again"
             message = "macOS requires a Keychain password prompt before this debug build can read the previously saved API Key."
             recoverySuggestion = "Open Settings and re-enter the API Key. Parrot will not show a system Keychain prompt during translation."
+            recoveryAction = .openSetup
         case .authenticationFailed(let providerMessage):
             let safeProviderMessage = Self.safeMessage(providerMessage)
             title = "Authentication failed"
@@ -774,25 +1264,30 @@ struct UserFacingErrorPresentation {
                 ? "The provider rejected the saved API Key or account access."
                 : "The provider rejected the request: \(safeProviderMessage)"
             recoverySuggestion = "Open Settings, replace the Keychain API Key or confirm account access, then retry."
+            recoveryAction = .openModelSettings
         case .requestFailed(let providerMessage):
             let safeProviderMessage = Self.safeMessage(providerMessage)
             if safeProviderMessage.localizedCaseInsensitiveContains("timed out") {
                 title = "Request timed out"
                 message = safeProviderMessage
                 recoverySuggestion = "Check the provider status or network connection, then use Retry."
+                recoveryAction = .retry
             } else if safeProviderMessage.localizedCaseInsensitiveContains("network request failed") {
                 title = "Network request failed"
                 message = safeProviderMessage
                 recoverySuggestion = "Check the network or Base URL, then use Retry."
+                recoveryAction = .retry
             } else {
                 title = "Provider request failed"
                 message = safeProviderMessage
                 recoverySuggestion = "Check Settings and provider compatibility, then retry."
+                recoveryAction = .openModelSettings
             }
         case .unexpectedResponse:
             title = "Unsupported provider response"
             message = "The provider returned a response Parrot could not read."
             recoverySuggestion = "Check that the Base URL uses an OpenAI-compatible chat completions endpoint, then retry."
+            recoveryAction = .openModelSettings
         }
     }
 
@@ -924,11 +1419,19 @@ final class ProviderSettingsStore: ObservableObject {
 
     private func persistNonSecretSettings() throws {
         let settings = currentSettings
+        try validateNonSecretSettings(settings)
         guard let data = try? JSONEncoder().encode(settings) else {
             throw ProviderSettingsError.requestFailed("Unable to save provider settings.")
         }
         userDefaults.set(data, forKey: LLMProviderSettings.storageKey)
         ProviderTimeoutPreference(requestTimeoutSeconds: requestTimeoutSeconds).save(to: userDefaults)
+    }
+
+    private func validateNonSecretSettings(_ settings: LLMProviderSettings) throws {
+        _ = try ProviderEndpointNormalizer.chatCompletionsURL(from: settings.baseURLString)
+        guard !settings.modelName.isEmpty else {
+            throw ProviderSettingsError.missingModel
+        }
     }
 
     private func saveAPIKeyIfNeeded() throws -> String? {

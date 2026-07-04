@@ -207,10 +207,10 @@ final class QuickTextTranslationStore: ObservableObject {
                 client: client,
                 retryFailedSegmentOnly: retryFailedSegmentOnly
             )
-        case .requiresConfirmation(let characterCount, _):
+        case .requiresConfirmation(let characterCount, let segments):
             requiresLargeTextConfirmation = true
             translatedText = ""
-            statusMessage = "This text is \(characterCount) characters. Review the cost and latency risk before translating it."
+            statusMessage = "This text is \(characterCount) characters across about \(segments.count) segments. Translation runs sequentially, may take longer or cost more, can be canceled, and failed segments can be retried."
             isStatusError = true
             throw TranslationControlFlow.awaitingLargeTextConfirmation
         }
@@ -343,24 +343,38 @@ final class QuickTextTranslationStore: ObservableObject {
 
 struct QuickTextTranslationView: View {
     @StateObject private var store = QuickTextTranslationStore()
+    @State private var isAlwaysOnTop: Bool
     let onClose: () -> Void
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
+    let onOpenSetup: () -> Void
+    let onAlwaysOnTopChanged: (Bool) -> Void
 
     init(
         onClose: @escaping () -> Void,
         onOpenHistory: @escaping () -> Void = {},
-        onOpenSettings: @escaping () -> Void = {}
+        onOpenSettings: @escaping () -> Void = {},
+        onOpenSetup: @escaping () -> Void = {},
+        isAlwaysOnTop: Bool = false,
+        onAlwaysOnTopChanged: @escaping (Bool) -> Void = { _ in }
     ) {
+        _isAlwaysOnTop = State(initialValue: isAlwaysOnTop)
         self.onClose = onClose
         self.onOpenHistory = onOpenHistory
         self.onOpenSettings = onOpenSettings
+        self.onOpenSetup = onOpenSetup
+        self.onAlwaysOnTopChanged = onAlwaysOnTopChanged
     }
 
     var body: some View {
         VStack(spacing: 0) {
             ParrotWindowTitleBar(title: "Quick Text Translation") {
                 HStack(spacing: 8) {
+                    ParrotAlwaysOnTopButton(
+                        surface: .quickText,
+                        isEnabled: $isAlwaysOnTop,
+                        onChange: onAlwaysOnTopChanged
+                    )
                     ParrotTitleBarIconButton(systemName: "clock.arrow.circlepath", title: "Translation History", action: onOpenHistory)
                     ParrotTitleBarIconButton(systemName: "gearshape", title: "Settings", action: onOpenSettings)
                 }
@@ -393,7 +407,7 @@ struct QuickTextTranslationView: View {
         ParrotSurfaceHeader(
             systemImageName: "translate",
             title: "Quick Text Translation",
-            subtitle: "Enter translates, Cmd+Enter copies the translation and closes, Esc closes."
+            subtitle: "Enter translates, Shift+Enter inserts a new line, Cmd+Enter copies and closes, Esc closes."
         )
     }
 
@@ -408,7 +422,12 @@ struct QuickTextTranslationView: View {
             ParrotStatusBanner(
                 kind: .error,
                 title: error.title,
-                message: "\(error.message) \(error.recoverySuggestion)"
+                message: errorBannerMessage(for: error),
+                actionTitle: error.recoveryAction.title,
+                actionSystemImageName: error.recoveryAction.systemImageName,
+                action: {
+                    performRecoveryAction(error.recoveryAction)
+                }
             )
         } else if store.isTranslating {
             ParrotStatusBanner(
@@ -417,7 +436,7 @@ struct QuickTextTranslationView: View {
             )
         } else if let statusMessage = store.statusMessage {
             ParrotStatusBanner(
-                kind: .success,
+                kind: store.isStatusError ? .warning : .success,
                 message: statusMessage
             )
         }
@@ -558,6 +577,23 @@ struct QuickTextTranslationView: View {
 
     private func retryTranslation() {
         store.startTranslation(retryFailedSegmentOnly: true)
+    }
+
+    private func performRecoveryAction(_ action: UserFacingErrorRecoveryAction) {
+        switch action {
+        case .openSetup:
+            onOpenSetup()
+        case .openModelSettings:
+            onOpenSettings()
+        case .retry:
+            retryTranslation()
+        }
+    }
+
+    private func errorBannerMessage(for error: UserFacingErrorPresentation) -> String {
+        [store.statusMessage, "\(error.message) \(error.recoverySuggestion)"]
+            .compactMap { $0 }
+            .joined(separator: " ")
     }
 
     private func copyAndClose() {

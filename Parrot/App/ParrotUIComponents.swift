@@ -144,15 +144,121 @@ struct ParrotTitleBarIconButton: View {
     }
 }
 
+enum ParrotAlwaysOnTopSurface: String, CaseIterable {
+    case quickText
+    case screenshotTranslation
+    case history
+    case settings
+    case about
+
+    var storageKey: String {
+        switch self {
+        case .quickText:
+            return "quickText.alwaysOnTop"
+        case .screenshotTranslation:
+            return "screenshotTranslation.alwaysOnTop"
+        case .history:
+            return "history.alwaysOnTop"
+        case .settings:
+            return "settings.alwaysOnTop"
+        case .about:
+            return "about.alwaysOnTop"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .quickText:
+            return "Quick Text"
+        case .screenshotTranslation:
+            return "Screenshot Translation"
+        case .history:
+            return "History"
+        case .settings:
+            return "Settings"
+        case .about:
+            return "About"
+        }
+    }
+}
+
+enum ParrotAlwaysOnTopPreferences {
+    static func isEnabled(
+        for surface: ParrotAlwaysOnTopSurface,
+        userDefaults: UserDefaults = .standard
+    ) -> Bool {
+        userDefaults.bool(forKey: surface.storageKey)
+    }
+
+    static func set(
+        _ isEnabled: Bool,
+        for surface: ParrotAlwaysOnTopSurface,
+        userDefaults: UserDefaults = .standard
+    ) {
+        userDefaults.set(isEnabled, forKey: surface.storageKey)
+    }
+}
+
+struct ParrotAlwaysOnTopButton: View {
+    let surface: ParrotAlwaysOnTopSurface
+    @Binding var isEnabled: Bool
+    let onChange: (Bool) -> Void
+
+    var body: some View {
+        Button {
+            let nextValue = !isEnabled
+            isEnabled = nextValue
+            onChange(nextValue)
+        } label: {
+            Image(systemName: isEnabled ? "pin.fill" : "pin")
+                .font(.system(size: 15, weight: .medium))
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isEnabled ? Color.accentColor : Color.secondary)
+        .background {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(isEnabled ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.001))
+        }
+        .help(helpText)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(isEnabled ? "On" : "Off")
+    }
+
+    private var helpText: String {
+        isEnabled
+            ? "Turn off Always on Top for \(surface.displayName)"
+            : "Keep \(surface.displayName) on Top"
+    }
+
+    private var accessibilityLabel: String {
+        "\(surface.displayName) Always on Top"
+    }
+}
+
 struct ParrotStatusBanner: View {
     let kind: ParrotStatusKind
     let title: String?
     let message: String
+    let actionTitle: String?
+    let actionSystemImageName: String?
+    let action: (() -> Void)?
 
-    init(kind: ParrotStatusKind, title: String? = nil, message: String) {
+    init(
+        kind: ParrotStatusKind,
+        title: String? = nil,
+        message: String,
+        actionTitle: String? = nil,
+        actionSystemImageName: String? = nil,
+        action: (() -> Void)? = nil
+    ) {
         self.kind = kind
         self.title = title
         self.message = message
+        self.actionTitle = actionTitle
+        self.actionSystemImageName = actionSystemImageName
+        self.action = action
     }
 
     var body: some View {
@@ -185,6 +291,19 @@ struct ParrotStatusBanner: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    if let actionSystemImageName {
+                        Label(actionTitle, systemImage: actionSystemImageName)
+                    } else {
+                        Text(actionTitle)
+                    }
+                }
+                .controlSize(.small)
+                .buttonStyle(.bordered)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

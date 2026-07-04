@@ -22,6 +22,15 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
 struct OCRSourceTextEditingE2E {
     @MainActor
     static func main() throws {
+        let recognizingStatus = ScreenshotPipelineStatus.recognizing
+        try require(recognizingStatus.isRecognizing, "Initial screenshot status should support a recognizing phase.")
+        try require(!recognizingStatus.isSuccess, "Recognizing OCR should not be treated as OCR success.")
+        try require(recognizingStatus.recognizedText == nil, "Recognizing OCR should not expose recognized text yet.")
+        try require(
+            recognizingStatus.message.localizedCaseInsensitiveContains("not uploaded"),
+            "Recognizing status should preserve screenshot upload privacy copy."
+        )
+
         var sourceState = OCRSourceTextEditingState(recognizedText: "\nRaw OCR text\n")
         try require(sourceState.originalRecognizedText == "Raw OCR text", "Initial OCR text should be trimmed.")
         try require(sourceState.editedText == "Raw OCR text", "Editable source should default to the OCR text.")

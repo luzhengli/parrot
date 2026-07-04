@@ -7,17 +7,21 @@ struct ProviderSettingsView: View {
 
     enum Section: String, CaseIterable, Identifiable {
         case setup = "Setup"
+        case launch = "Launch"
         case model = "Model"
         case shortcuts = "Shortcuts"
         case translation = "Translation"
         case privacy = "Privacy"
+        case about = "About"
 
         var id: String { rawValue }
 
         var contentHeight: CGFloat {
             switch self {
             case .setup:
-                return 700
+                return 820
+            case .launch:
+                return 560
             case .model:
                 return 700
             case .shortcuts:
@@ -26,6 +30,8 @@ struct ProviderSettingsView: View {
                 return 900
             case .privacy:
                 return 520
+            case .about:
+                return 860
             }
         }
 
@@ -33,6 +39,8 @@ struct ProviderSettingsView: View {
             switch self {
             case .setup:
                 return "checklist"
+            case .launch:
+                return "rectangle.on.rectangle"
             case .model:
                 return "cpu"
             case .shortcuts:
@@ -41,6 +49,8 @@ struct ProviderSettingsView: View {
                 return "text.bubble"
             case .privacy:
                 return "lock.shield"
+            case .about:
+                return "info.circle"
             }
         }
     }
@@ -48,6 +58,7 @@ struct ProviderSettingsView: View {
     @StateObject private var store = ProviderSettingsStore()
     @StateObject private var shortcutStore = ShortcutSettingsStore()
     @StateObject private var glossaryStore = TranslationGlossaryStore.shared
+    @StateObject private var updateChecker = ParrotUpdateChecker()
     @ObservedObject private var historyStore = TranslationHistoryStore.shared
     @State private var selectedSection: Section
     @State private var translationStyle = TranslationStyle.loadSaved()
@@ -60,12 +71,23 @@ struct ProviderSettingsView: View {
     @State private var glossaryDraft = TranslationGlossaryEntry()
     @State private var editingGlossaryID: UUID?
     @State private var glossarySearchText = ""
+    @State private var aboutStatusMessage: String?
+    @State private var onboardingState = ParrotOnboardingState.load()
+    @State private var onboardingStatusMessage: String?
+    @State private var launchHubPreferences = ParrotLaunchHubPreferences.load()
+    @State private var dockIconPreferences = ParrotDockIconPreferences.load()
+    @State private var launchStatusMessage: String?
+    @State private var settingsAlwaysOnTop: Bool
+    @State private var aboutAlwaysOnTop: Bool
 
     let onShortcutsSaved: () -> Void
     let onSectionChanged: (Section) -> Void
     let onOpenQuickText: () -> Void
     let onOpenScreenshot: () -> Void
     let onOpenHistory: () -> Void
+    let onOpenLaunchHub: () -> Void
+    let onDockIconVisibilityChanged: (Bool) -> Void
+    let onAlwaysOnTopChanged: (ParrotAlwaysOnTopSurface, Bool) -> Void
 
     init(
         initialSection: Section = .model,
@@ -73,19 +95,37 @@ struct ProviderSettingsView: View {
         onSectionChanged: @escaping (Section) -> Void = { _ in },
         onOpenQuickText: @escaping () -> Void = {},
         onOpenScreenshot: @escaping () -> Void = {},
-        onOpenHistory: @escaping () -> Void = {}
+        onOpenHistory: @escaping () -> Void = {},
+        onOpenLaunchHub: @escaping () -> Void = {},
+        onDockIconVisibilityChanged: @escaping (Bool) -> Void = { _ in },
+        isSettingsAlwaysOnTop: Bool = false,
+        isAboutAlwaysOnTop: Bool = false,
+        onAlwaysOnTopChanged: @escaping (ParrotAlwaysOnTopSurface, Bool) -> Void = { _, _ in }
     ) {
         _selectedSection = State(initialValue: initialSection)
+        _settingsAlwaysOnTop = State(initialValue: isSettingsAlwaysOnTop)
+        _aboutAlwaysOnTop = State(initialValue: isAboutAlwaysOnTop)
         self.onShortcutsSaved = onShortcutsSaved
         self.onSectionChanged = onSectionChanged
         self.onOpenQuickText = onOpenQuickText
         self.onOpenScreenshot = onOpenScreenshot
         self.onOpenHistory = onOpenHistory
+        self.onOpenLaunchHub = onOpenLaunchHub
+        self.onDockIconVisibilityChanged = onDockIconVisibilityChanged
+        self.onAlwaysOnTopChanged = onAlwaysOnTopChanged
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            ParrotWindowTitleBar(title: "Settings", height: 52)
+            ParrotWindowTitleBar(title: "Settings", height: 52) {
+                ParrotAlwaysOnTopButton(
+                    surface: activeAlwaysOnTopSurface,
+                    isEnabled: activeAlwaysOnTopBinding,
+                    onChange: { isEnabled in
+                        onAlwaysOnTopChanged(activeAlwaysOnTopSurface, isEnabled)
+                    }
+                )
+            }
 
             HStack(spacing: 0) {
                 sidebar
@@ -105,6 +145,39 @@ struct ProviderSettingsView: View {
         .frame(width: Self.settingsContentWidth, height: selectedSection.contentHeight, alignment: .top)
         .onChange(of: selectedSection) { _, newSection in
             onSectionChanged(newSection)
+            let surface = alwaysOnTopSurface(for: newSection)
+            onAlwaysOnTopChanged(surface, isAlwaysOnTopEnabled(for: surface))
+        }
+    }
+
+    private var activeAlwaysOnTopSurface: ParrotAlwaysOnTopSurface {
+        alwaysOnTopSurface(for: selectedSection)
+    }
+
+    private var activeAlwaysOnTopBinding: Binding<Bool> {
+        Binding(
+            get: {
+                isAlwaysOnTopEnabled(for: activeAlwaysOnTopSurface)
+            },
+            set: { isEnabled in
+                setAlwaysOnTop(isEnabled, for: activeAlwaysOnTopSurface)
+            }
+        )
+    }
+
+    private func alwaysOnTopSurface(for section: Section) -> ParrotAlwaysOnTopSurface {
+        section == .about ? .about : .settings
+    }
+
+    private func isAlwaysOnTopEnabled(for surface: ParrotAlwaysOnTopSurface) -> Bool {
+        surface == .about ? aboutAlwaysOnTop : settingsAlwaysOnTop
+    }
+
+    private func setAlwaysOnTop(_ isEnabled: Bool, for surface: ParrotAlwaysOnTopSurface) {
+        if surface == .about {
+            aboutAlwaysOnTop = isEnabled
+        } else {
+            settingsAlwaysOnTop = isEnabled
         }
     }
 
@@ -203,6 +276,8 @@ struct ProviderSettingsView: View {
         switch selectedSection {
         case .setup:
             setupChecklist
+        case .launch:
+            launchSettings
         case .model:
             modelSettings
         case .shortcuts:
@@ -211,42 +286,205 @@ struct ProviderSettingsView: View {
             translationSettings
         case .privacy:
             historySettings
+        case .about:
+            aboutSettings
         }
     }
 
     private var setupChecklist: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                onboardingGuide
+
+                Divider()
+
+                ParrotStatusBanner(
+                    kind: .info,
+                    title: "Configuration Health",
+                    message: "Finish the essentials once, then Parrot stays out of the way. Quick Text works without Screen Recording permission."
+                )
+
+                setupChecklistRow(
+                    title: "API Key",
+                    detail: store.hasSavedAPIKey
+                        ? "A non-secret setup record exists and the secret remains in Keychain."
+                        : "Save a provider API Key before translating.",
+                    isPassing: store.hasSavedAPIKey,
+                    actionTitle: "Configure",
+                    action: { selectedSection = .model }
+                )
+
+                setupChecklistRow(
+                    title: "Provider Endpoint",
+                    detail: providerEndpointIsValid
+                        ? "Base URL and model look ready for an OpenAI-compatible chat completions request."
+                        : "Check the Base URL format and model name.",
+                    isPassing: providerEndpointIsValid,
+                    actionTitle: "Review Model",
+                    action: { selectedSection = .model }
+                )
+
+                setupChecklistRow(
+                    title: "Connection Test",
+                    detail: store.statusMessage ?? "Use the same endpoint, timeout, model, and API Key path that translation uses.",
+                    isPassing: connectionTestSucceeded,
+                    actionTitle: store.isTesting ? nil : "Test Connection",
+                    action: {
+                        Task {
+                            await store.testConnection()
+                        }
+                    }
+                )
+
+                setupChecklistRow(
+                    title: "Shortcuts",
+                    detail: "Quick Text: \(shortcutStore.preferences[.quickTextTranslation].displayString). Screenshot: \(shortcutStore.preferences[.screenshotTranslation].displayString). Settings: \(shortcutStore.preferences[.openSettings].displayString).",
+                    isPassing: shortcutStore.validationMessages.isEmpty,
+                    actionTitle: "View Shortcuts",
+                    action: { selectedSection = .shortcuts }
+                )
+
+                setupChecklistRow(
+                    title: "Screen Recording",
+                    detail: screenRecordingPermissionGranted
+                        ? "Screenshot Translation can capture other apps for local OCR."
+                        : "Only Screenshot Translation needs this permission. Quick Text can be used without it.",
+                    isPassing: screenRecordingPermissionGranted,
+                    actionTitle: "Open System Settings",
+                    action: openScreenRecordingSettings
+                )
+            }
+            .frame(maxWidth: 650, alignment: .leading)
+            .padding(.trailing, 4)
+        }
+    }
+
+    private var launchSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
             ParrotStatusBanner(
                 kind: .info,
-                title: "Configuration Health",
-                message: "Finish the essentials once, then Parrot stays out of the way. Quick Text works without Screen Recording permission."
+                title: "Startup Entry",
+                message: "Launch Hub opens after onboarding is complete and provider setup is valid. Invalid setup or onboarding always takes priority."
             )
 
-            setupChecklistRow(
-                title: "API Key",
-                detail: store.hasSavedAPIKey
-                    ? "A non-secret setup record exists and the secret remains in Keychain."
-                    : "Save a provider API Key before translating.",
-                isPassing: store.hasSavedAPIKey,
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle("Show Launch Hub on Startup", isOn: launchHubStartupBinding)
+
+                Text(launchHubPreferences.showOnStartup
+                     ? "Parrot will show Launch Hub on startup when no setup or onboarding window needs attention."
+                     : "Parrot will stay quiet on startup unless provider setup or onboarding needs attention.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
+
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle("Show Dock icon", isOn: dockIconBinding)
+
+                Text(dockIconPreferences.showDockIcon
+                     ? "Parrot appears in the Dock and App Switcher. Closing windows keeps Parrot running; use Quit Parrot to exit."
+                     : "Parrot stays in menu-bar mode. You can still open it from Launch Hub, the menu bar, or shortcuts.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Entry Points")
+                    .font(.headline)
+
+                launchInfoRow(
+                    systemImageName: "text.cursor",
+                    title: "Quick Text",
+                    message: shortcutStore.preferences[.quickTextTranslation].displayString
+                )
+                launchInfoRow(
+                    systemImageName: "text.viewfinder",
+                    title: "Screenshot OCR",
+                    message: shortcutStore.preferences[.screenshotTranslation].displayString
+                )
+                launchInfoRow(
+                    systemImageName: "gearshape",
+                    title: "Settings",
+                    message: shortcutStore.preferences[.openSettings].displayString
+                )
+            }
+            .padding(12)
+            .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
+
+            if let launchStatusMessage {
+                StatusMessageView(message: launchStatusMessage, isError: false)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    onOpenLaunchHub()
+                } label: {
+                    Label("Open Launch Hub", systemImage: "rectangle.on.rectangle")
+                }
+
+                Button("Reset Startup Display") {
+                    setLaunchHubStartupEnabled(true)
+                }
+
+                Spacer()
+            }
+        }
+        .frame(maxWidth: 650, alignment: .leading)
+    }
+
+    private var onboardingGuide: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ParrotStatusBanner(
+                kind: onboardingState.status == .completed ? .success : .info,
+                title: "Onboarding Guide",
+                message: onboardingGuideMessage
+            )
+
+            HStack(spacing: 8) {
+                Label("Status: \(onboardingState.status.displayName)", systemImage: "flag")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("Schema \(ParrotOnboardingState.currentSchemaVersion)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+            }
+
+            onboardingStepRow(
+                number: 1,
+                title: "Welcome",
+                detail: "Parrot lives in the menu bar. It translates typed text or locally recognized screenshot text, and it keeps API Keys in Keychain.",
+                isPassing: true,
+                actionTitle: "Privacy Summary",
+                action: { selectedSection = .about }
+            )
+
+            onboardingStepRow(
+                number: 2,
+                title: "Provider",
+                detail: providerReadyForTranslation
+                    ? "Provider, endpoint, model, and Keychain setup look ready."
+                    : "Choose a provider, confirm the HTTPS endpoint and model, then save the API Key to Keychain.",
+                isPassing: providerReadyForTranslation,
                 actionTitle: "Configure",
                 action: { selectedSection = .model }
             )
 
-            setupChecklistRow(
-                title: "Provider Endpoint",
-                detail: providerEndpointIsValid
-                    ? "Base URL and model look ready for an OpenAI-compatible chat completions request."
-                    : "Check the Base URL format and model name.",
-                isPassing: providerEndpointIsValid,
-                actionTitle: "Review Model",
-                action: { selectedSection = .model }
-            )
-
-            setupChecklistRow(
-                title: "Connection Test",
-                detail: store.statusMessage ?? "Use the same endpoint, timeout, model, and API Key path that translation uses.",
-                isPassing: store.statusMessage?.localizedCaseInsensitiveContains("succeeded") == true,
-                actionTitle: store.isTesting ? nil : "Test Connection",
+            onboardingStepRow(
+                number: 3,
+                title: "Test Connection",
+                detail: connectionTestSucceeded
+                    ? "The configured provider accepted the test request."
+                    : "Run the same connection path used by Quick Text and Screenshot Translation.",
+                isPassing: connectionTestSucceeded,
+                actionTitle: store.isTesting ? nil : "Test",
                 action: {
                     Task {
                         await store.testConnection()
@@ -254,27 +492,119 @@ struct ProviderSettingsView: View {
                 }
             )
 
-            setupChecklistRow(
-                title: "Shortcuts",
+            onboardingStepRow(
+                number: 4,
+                title: "Learn Shortcuts",
                 detail: "Quick Text: \(shortcutStore.preferences[.quickTextTranslation].displayString). Screenshot: \(shortcutStore.preferences[.screenshotTranslation].displayString). Settings: \(shortcutStore.preferences[.openSettings].displayString).",
                 isPassing: shortcutStore.validationMessages.isEmpty,
-                actionTitle: "View Shortcuts",
+                actionTitle: "Review",
                 action: { selectedSection = .shortcuts }
             )
 
-            setupChecklistRow(
-                title: "Screen Recording",
+            onboardingStepRow(
+                number: 5,
+                title: "First Translation",
+                detail: "Open Quick Text, type a short sentence, and translate it. This step does not use Screen Recording.",
+                isPassing: providerReadyForTranslation,
+                actionTitle: "Open Quick Text",
+                action: onOpenQuickText
+            )
+
+            onboardingStepRow(
+                number: 6,
+                title: "Screenshot OCR",
                 detail: screenRecordingPermissionGranted
-                    ? "Screenshot Translation can capture other apps for local OCR."
-                    : "Only Screenshot Translation needs this permission. Quick Text can be used without it.",
+                    ? "Screen Recording is enabled for optional screenshot translation."
+                    : "Optional. Screenshot Translation uses Screen Recording only for local capture and OCR; Quick Text still works if you skip it.",
                 isPassing: screenRecordingPermissionGranted,
+                isOptional: true,
                 actionTitle: "Open System Settings",
                 action: openScreenRecordingSettings
             )
 
-            Spacer(minLength: 0)
+            if let onboardingStatusMessage {
+                StatusMessageView(message: onboardingStatusMessage, isError: false)
+            }
+
+            HStack(spacing: 8) {
+                Button("Mark Complete") {
+                    markOnboardingComplete()
+                }
+                .disabled(!providerReadyForTranslation)
+
+                Button("Skip for This Version") {
+                    skipOnboarding()
+                }
+
+                if onboardingState.status != .notStarted {
+                    Button("Reset Guide") {
+                        resetOnboarding()
+                    }
+                }
+
+                Spacer()
+            }
         }
-        .frame(maxWidth: 650, maxHeight: .infinity, alignment: .topLeading)
+        .padding(12)
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
+    }
+
+    private func onboardingStepRow(
+        number: Int,
+        title: String,
+        detail: String,
+        isPassing: Bool,
+        isOptional: Bool = false,
+        actionTitle: String?,
+        action: @escaping () -> Void
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(isPassing ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor))
+                    .overlay {
+                        Circle()
+                            .strokeBorder(isPassing ? Color.accentColor.opacity(0.35) : Color(nsColor: .separatorColor), lineWidth: 1)
+                    }
+
+                if isPassing {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.accentColor)
+                } else {
+                    Text("\(number)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 22, height: 22)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+
+                    if isOptional {
+                        Text("Optional")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            if let actionTitle {
+                Button(actionTitle, action: action)
+                    .controlSize(.small)
+            }
+        }
     }
 
     private func setupChecklistRow(
@@ -443,6 +773,217 @@ struct ProviderSettingsView: View {
                     ? "Successful translations are saved locally as text records and never include screenshot images or API Keys."
                     : "New translations will not be saved while history is disabled. Existing records remain available until you clear them."
             )
+        }
+    }
+
+    private var aboutSettings: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Parrot")
+                        .font(.title3.weight(.semibold))
+
+                    Text("Unsigned release candidate for local macOS translation workflows.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    settingsInfoRow("Version", value: appVersion)
+                    settingsInfoRow("Build", value: buildNumber)
+                    settingsInfoRow("Bundle ID", value: bundleIdentifier)
+                    settingsInfoRow("Requires", value: ParrotAboutInfo.macOSRequirement)
+                    settingsInfoRow("Release Channel", value: ParrotAboutInfo.releaseChannel)
+                }
+                .padding(12)
+                .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
+
+                ParrotStatusBanner(
+                    kind: .warning,
+                    title: "Unsigned RC",
+                    message: "This build is not Developer ID signed or notarized. macOS Gatekeeper may require manual approval before launch."
+                )
+
+                updateCheckSection
+
+                aboutPrivacySummary
+
+                diagnosticsSummarySection
+
+                if let aboutStatusMessage {
+                    StatusMessageView(message: aboutStatusMessage, isError: false)
+                }
+
+                HStack(spacing: 8) {
+                    Button {
+                        checkForUpdates()
+                    } label: {
+                        if updateChecker.status == .checking {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Check for Updates", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    }
+                    .disabled(updateChecker.status == .checking)
+
+                    Button {
+                        openReleaseNotes()
+                    } label: {
+                        Label("Open Release Notes", systemImage: "doc.text")
+                    }
+
+                    Button {
+                        copyDiagnosticsSummary()
+                    } label: {
+                        Label("Copy Diagnostics Summary", systemImage: "doc.on.doc")
+                    }
+
+                    Button {
+                        sendFeedback()
+                    } label: {
+                        Label("Send Feedback", systemImage: "bubble.left.and.bubble.right")
+                    }
+
+                    Spacer()
+                }
+            }
+            .frame(maxWidth: 650, alignment: .leading)
+            .padding(.trailing, 4)
+        }
+    }
+
+    private var aboutPrivacySummary: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Privacy Summary")
+                .font(.headline)
+
+            privacySummaryRow(
+                systemImageName: "key.fill",
+                title: "API Key in Keychain",
+                message: "Parrot stores API keys only in macOS Keychain and keeps only a non-secret setup record in UserDefaults."
+            )
+            privacySummaryRow(
+                systemImageName: "text.viewfinder",
+                title: "Local OCR",
+                message: "Screenshot images are processed locally for text recognition and are not saved to history."
+            )
+            privacySummaryRow(
+                systemImageName: "paperplane",
+                title: "Recognized text only",
+                message: "Only recognized or typed text is sent to the configured provider during translation."
+            )
+            privacySummaryRow(
+                systemImageName: "clock.arrow.circlepath",
+                title: "Text-only history",
+                message: "History stores local text records only, can be disabled, and can be cleared from Privacy settings."
+            )
+        }
+        .padding(12)
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
+    }
+
+    private var updateCheckSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                Text("Updates")
+                    .font(.headline)
+
+                Spacer()
+
+                Button {
+                    checkForUpdates()
+                } label: {
+                    if updateChecker.status == .checking {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Check", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
+                .disabled(updateChecker.status == .checking)
+            }
+
+            updateStatusView
+        }
+        .padding(12)
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
+    }
+
+    @ViewBuilder
+    private var updateStatusView: some View {
+        switch updateChecker.status {
+        case .idle:
+            Text("Manual update checks use GitHub Releases. Parrot does not send API keys, provider settings, translation text, screenshots, history, or diagnostics.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        case .checking:
+            ParrotStatusBanner(
+                kind: .progress,
+                title: "Checking for Updates",
+                message: "Contacting GitHub Releases for the latest Parrot release."
+            )
+        case .upToDate(let message):
+            ParrotStatusBanner(
+                kind: .success,
+                title: "Up to Date",
+                message: message
+            )
+        case .unableToCheck(let message):
+            ParrotStatusBanner(
+                kind: .error,
+                title: "Unable to Check",
+                message: message
+            )
+        case .updateAvailable(let release, let message):
+            VStack(alignment: .leading, spacing: 10) {
+                ParrotStatusBanner(
+                    kind: .info,
+                    title: "Update Available",
+                    message: message
+                )
+
+                HStack(spacing: 8) {
+                    Button {
+                        NSWorkspace.shared.open(release.releaseNotesURL)
+                    } label: {
+                        Label("Open Release Notes", systemImage: "doc.text")
+                    }
+
+                    Button {
+                        NSWorkspace.shared.open(release.downloadURL)
+                    } label: {
+                        Label("Download Update", systemImage: "arrow.down.circle")
+                    }
+
+                    Button {
+                        copyUpdateVersionInfo()
+                    } label: {
+                        Label("Copy Version Info", systemImage: "doc.on.doc")
+                    }
+                }
+            }
+        }
+    }
+
+    private var diagnosticsSummarySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Diagnostics Summary")
+                .font(.headline)
+
+            Text("This summary excludes API keys, endpoint hosts, source text, provider responses, history content, screenshots, window titles, and source app names.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(currentDiagnosticsSummary.text)
+                .font(.system(.caption, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
         }
     }
 
@@ -722,12 +1263,166 @@ struct ProviderSettingsView: View {
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(.primary)
 
-                Text("Configure Model, Shortcuts, Translation, and Privacy for the current Parrot workflows.")
+                Text("Configure Launch, Model, Shortcuts, Translation, Privacy, and release information for the current Parrot workflows.")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func settingsInfoRow(_ title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 118, alignment: .trailing)
+
+            Text(value)
+                .font(.system(size: 12))
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func privacySummaryRow(
+        systemImageName: String,
+        title: String,
+        message: String
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: systemImageName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 18, height: 18)
+                .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func launchInfoRow(
+        systemImageName: String,
+        title: String,
+        message: String
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: systemImageName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 12)
+
+            Text(message)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+    }
+
+    private var bundleIdentifier: String {
+        Bundle.main.bundleIdentifier ?? "unknown"
+    }
+
+    private var currentDiagnosticsSummary: ParrotDiagnosticsSummary {
+        ParrotDiagnosticsSummary.current(
+            settings: LLMProviderSettings(
+                providerID: store.selectedProviderID,
+                baseURLString: store.baseURLString,
+                modelName: store.modelName
+            ),
+            screenRecordingPermissionGranted: screenRecordingPermissionGranted
+        )
+    }
+
+    private func copyDiagnosticsSummary() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(currentDiagnosticsSummary.text, forType: .string)
+        aboutStatusMessage = "Diagnostics summary copied without API keys, endpoints, source text, provider responses, history, or screenshots."
+    }
+
+    private func checkForUpdates() {
+        aboutStatusMessage = nil
+        Task {
+            await updateChecker.checkForUpdates(
+                currentVersion: appVersion,
+                currentBuild: buildNumber
+            )
+        }
+    }
+
+    private func copyUpdateVersionInfo() {
+        let text = ParrotUpdateChecker.versionInfoText(
+            currentVersion: appVersion,
+            currentBuild: buildNumber,
+            status: updateChecker.status
+        )
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        aboutStatusMessage = "Version info copied without API keys, provider settings, user text, history, screenshots, or diagnostics."
+    }
+
+    private func openReleaseNotes() {
+        NSWorkspace.shared.open(ParrotAboutInfo.releaseNotesURL)
+        aboutStatusMessage = "Opened release notes in the browser."
+    }
+
+    private func sendFeedback() {
+        NSWorkspace.shared.open(ParrotAboutInfo.feedbackURL)
+        aboutStatusMessage = "Opened GitHub Issues for feedback."
+    }
+
+    private func markOnboardingComplete() {
+        onboardingState = ParrotOnboardingState.markCompleted()
+        onboardingStatusMessage = "Onboarding marked complete for this version."
+    }
+
+    private func skipOnboarding() {
+        onboardingState = ParrotOnboardingState.markSkipped()
+        onboardingStatusMessage = "Onboarding skipped for this version. You can restart it here later."
+    }
+
+    private func resetOnboarding() {
+        onboardingState = ParrotOnboardingState.reset()
+        onboardingStatusMessage = "Onboarding reset."
+    }
+
+    private func setLaunchHubStartupEnabled(_ isEnabled: Bool) {
+        launchHubPreferences = ParrotLaunchHubPreferences.setShowOnStartup(isEnabled)
+        launchStatusMessage = isEnabled
+            ? "Launch Hub will open on startup after setup and onboarding are complete."
+            : "Launch Hub startup display is off. Setup and onboarding can still open when needed."
+    }
+
+    private func setDockIconVisible(_ isVisible: Bool) {
+        dockIconPreferences = ParrotDockIconPreferences.setShowDockIcon(isVisible)
+        onDockIconVisibilityChanged(isVisible)
+        launchStatusMessage = isVisible
+            ? "Dock icon enabled. Parrot now appears in the Dock and App Switcher."
+            : "Dock icon hidden. Parrot remains available from Launch Hub, the menu bar, and shortcuts."
     }
 
     private var providerSelection: Binding<String> {
@@ -740,6 +1435,25 @@ struct ProviderSettingsView: View {
     private var providerEndpointIsValid: Bool {
         (try? ProviderEndpointNormalizer.chatCompletionsURL(from: store.baseURLString)) != nil
             && !store.modelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var providerReadyForTranslation: Bool {
+        store.hasSavedAPIKey && providerEndpointIsValid
+    }
+
+    private var connectionTestSucceeded: Bool {
+        store.statusMessage?.localizedCaseInsensitiveContains("succeeded") == true
+    }
+
+    private var onboardingGuideMessage: String {
+        switch onboardingState.status {
+        case .notStarted:
+            return "Complete these steps once for this version. You can skip the guide and reopen it from Settings > Setup."
+        case .skipped:
+            return "Skipped for this version. Parrot will not reopen onboarding automatically unless setup becomes invalid or the onboarding schema changes."
+        case .completed:
+            return "Complete for this version. Future launches will stay quiet unless setup becomes invalid or a later onboarding schema requires attention."
+        }
     }
 
     private var screenRecordingPermissionGranted: Bool {
@@ -757,6 +1471,20 @@ struct ProviderSettingsView: View {
         Binding(
             get: { historyStore.isHistoryEnabled },
             set: { historyStore.setHistoryEnabled($0) }
+        )
+    }
+
+    private var launchHubStartupBinding: Binding<Bool> {
+        Binding(
+            get: { launchHubPreferences.showOnStartup },
+            set: { setLaunchHubStartupEnabled($0) }
+        )
+    }
+
+    private var dockIconBinding: Binding<Bool> {
+        Binding(
+            get: { dockIconPreferences.showDockIcon },
+            set: { setDockIconVisible($0) }
         )
     }
 

@@ -59,6 +59,266 @@
       "notes": "Added Docs/release-process.md and Scripts/package-release.sh. The release process documents SemVer, v<MARKETING_VERSION> tags, GitHub Release assets, Gatekeeper warnings, checksum verification, and no-retag safety rules. The packaging script reads MARKETING_VERSION, CURRENT_PROJECT_VERSION, and PRODUCT_BUNDLE_IDENTIFIER from Config/Release.xcconfig, enforces SemVer, rejects formal releases from dirty worktrees or non-matching tags, supports local --allow-untagged dev packages, builds Release with CODE_SIGNING_ALLOWED=NO, verifies app bundle identifier/version/build metadata, ad-hoc signs the full app bundle for local resource-seal integrity with a stable local designated requirement based on the bundle identifier, verifies codesign --deep --strict before packaging, rejects pure cdhash designated requirements so Screen Recording TCC grants are not tied to a per-build hash, detects architecture, and creates .dmg, .zip, SHA256SUMS.txt, and RELEASE_NOTES.md under Dist/. Follow-up fix for v0.1.2-alpha Gatekeeper 'app is damaged' dialog: the previous package had only executable-level ad-hoc/linker signing and no sealed resources, causing codesign verification to fail with 'code has no resources but signature indicates they must be present'. Follow-up fix for v0.1.3-alpha Screen Recording permission loop: the previous pure ad-hoc release had designated requirement cdhash-only, which produced duplicate Parrot.app entries in System Settings and allowed users to enable an old hash while the current app remained unauthorized. Verified bash -n Scripts/package-release.sh, git diff --check, full Scripts/package-release.sh --allow-untagged Release build, shasum -a 256 -c SHA256SUMS.txt for the generated dmg and zip, mounted the generated DMG and verified Parrot.app with codesign --verify --deep --strict --verbose=4, confirmed the generated Release app, DMG app, ZIP app, and installed /Applications/Parrot.app all report designated => identifier \"com.example.parrot\", confirmed the DMG app has Sealed Resources version 2 and CodeResources, confirmed spctl still rejects only because there is no Developer ID signature, and unzipped the ZIP artifact to verify the packaged app signature. Real System Settings inspection on 2026-06-23 confirmed two Parrot.app Screen Recording entries from old cdhash identities, matching the reported restart-still-unauthorized symptom."
     },
     {
+      "id": "rc.release-lane-decision",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "RC implementation starts from an explicit release lane decision and records the resulting signing, notarization, bundle identifier, asset, and verification posture.",
+      "acceptance": [
+        "Confirm whether the RC lane is unsigned public RC or public signed release.",
+        "Record bundle identifier, signing state, notarization state, release channel copy, target asset type, and required verification commands.",
+        "Record unsigned-lane downstream copy requirements for README, About, Release Notes, and update copy without marking those later gates complete.",
+        "Keep public signed release inputs out of scope until the user changes the lane.",
+        "Do not change the bundle identifier, signing team, deployment target, or app version as part of the lane record."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "User confirmed the RC lane in chat on 2026-07-04 as unsigned public RC (`还是使用未签名发布`). Recorded release posture: keep PRODUCT_BUNDLE_IDENTIFIER=com.example.parrot, DEVELOPMENT_TEAM empty, no Developer ID signing, no notarization/stapling, unsigned/ad-hoc local signing only, and publish clearly as an unsigned RC with Gatekeeper limitations. Target assets remain .dmg, .zip, SHA256SUMS.txt, and GitHub-style RELEASE_NOTES.md from Scripts/package-release.sh --allow-untagged or the formal release path described in Docs/release-process.md. Required verification remains ./init.sh, Scripts/run-core-e2e.sh, Scripts/package-release.sh --allow-untagged, shasum -a 256 -c SHA256SUMS.txt in the generated Dist directory, and codesign verification for generated app bundles. Public signed release inputs are out of scope unless the user changes the lane. Downstream unsigned copy requirements for README, About, Release Notes, update copy, and user-facing Gatekeeper guidance remain separate RC gates."
+    },
+    {
+      "id": "rc.settings-save-validation",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Settings validates OpenAI-compatible provider configuration before persisting non-secret settings or reporting a successful save/test.",
+      "acceptance": [
+        "Save rejects a Base URL that cannot normalize to an HTTPS chat completions endpoint.",
+        "Save rejects an empty or whitespace-only model name.",
+        "Invalid Save attempts do not display `Settings saved` and do not persist invalid provider settings.",
+        "Test Connection uses the same validation before continuing and leaves the last valid provider settings intact when validation fails.",
+        "Legal root, /v1, and full /chat/completions HTTPS Base URLs still save successfully.",
+        "API keys remain Keychain-only; provider validation does not introduce secret persistence outside Keychain."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "ProviderSettingsStore.persistNonSecretSettings now validates currentSettings with ProviderEndpointNormalizer.chatCompletionsURL(from:) and a non-empty trimmed model name before encoding settings to UserDefaults. Save Settings and Test Connection already share persistNonSecretSettings, so non-HTTPS or otherwise non-normalizable Base URLs and empty model names fail before invalid settings can overwrite the stored provider record. The missing-model user-facing message now covers both saving and testing. Scripts/provider-endpoint-timeout-e2e.swift now asserts non-HTTPS Save and empty-model Save show errors, never show `Settings saved`, and write no provider settings; valid root, /v1, and full /chat/completions HTTPS URLs still save; invalid Test Connection attempts leave the previous valid settings intact. Verified with Scripts/run-core-e2e.sh on 2026-07-04; the only warnings were existing kSecUseAuthenticationUIFail and CGWindowListCreateImage deprecations. No Keychain storage code or API key persistence path was changed."
+    },
+    {
+      "id": "rc.error-recovery-ctas",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Translation failure states show a structured, safe error and one contextual recovery action in the affected translation window.",
+      "acceptance": [
+        "Quick Text provider errors display a structured title, explanation, recovery suggestion, and contextual CTA.",
+        "Screenshot Translation provider errors use the same structured error presentation instead of only a raw status string.",
+        "Missing API Key and Keychain re-entry failures route to `Open Setup`.",
+        "Invalid Base URL, missing model, authentication failure, generic provider failure, and unsupported provider response route to `Open Model Settings`.",
+        "Network failures and request timeouts keep users in the translation window with `Retry`.",
+        "Error UI continues to sanitize provider messages and does not leak API keys, Bearer tokens, or token-like text.",
+        "CTA actions open existing local Settings/Setup windows or retry the current request; they do not record source text, provider responses, screenshots, or API keys."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md for this UI-facing gate and kept the implementation native and low-noise: the existing ParrotStatusBanner now supports one compact bordered action button, without adding menu items or decorative surfaces. UserFacingErrorPresentation now carries a UserFacingErrorRecoveryAction: missing API key and Keychain re-entry route to Open Setup; invalid Base URL, missing model, authentication failure, generic provider failure, and unexpected provider responses route to Open Model Settings; network failures and timeouts route to Retry. QuickTextTranslationView and ScreenshotSelectionResultView both render provider failures as title/message/recovery banners with the mapped CTA. AppDelegate now passes existing Setup and Model Settings routes into both windows. ScreenshotTranslationComparisonStore now keeps structured errorPresentation state like Quick Text. The Quick Text large-text confirmation status now renders as a warning instead of a success banner. Scripts/provider-endpoint-timeout-e2e.swift now asserts the CTA mapping and verifies authentication error text redaction. Verified with Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04; warnings were the known kSecUseAuthenticationUIFail, CGWindowListCreateImage, and Xcode/CoreSimulator noise. No Keychain storage, history persistence, screenshot persistence, provider request payload, menu structure, bundle identifier, signing, or release version behavior changed."
+    },
+    {
+      "id": "rc.about-privacy-feedback",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Settings exposes About, privacy, diagnostics, release notes, and feedback information without adding low-frequency items to the menu bar.",
+      "acceptance": [
+        "Settings includes an About section reachable from the Settings sidebar.",
+        "About shows app version, build number, bundle identifier, macOS requirement, and unsigned RC release channel.",
+        "About includes privacy copy aligned with current implementation: API Key in Keychain, local OCR, only recognized or typed text sent to the configured provider, and text-only history that can be disabled or cleared.",
+        "About provides Open Release Notes, Copy Diagnostics Summary, and Send Feedback actions.",
+        "Diagnostics summary includes only version, build, bundle id, macOS version, provider preset id, release channel, permission status, and feature flags.",
+        "Diagnostics summary excludes API keys, Bearer tokens, token-like text, provider endpoint hosts, model names, source text, provider responses, history content, screenshots, window titles, and source app names.",
+        "No About, Release Notes, or Feedback item is added to the menu-bar menu."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD About/Privacy/Feedback requirements before editing. ProviderSettingsView now adds Settings > About after Privacy, with restrained native SwiftUI layout, semantic colors, existing Parrot panels/banners, no new menu items, and no new custom color/font/radius/motion decisions. About displays the running bundle version, build, bundle identifier, macOS 14.0+ requirement, and `Unsigned RC` release channel. It includes an unsigned Gatekeeper warning, privacy summary for Keychain-only API keys, local OCR, recognized/typed text-only provider requests, and local text-only history. Open Release Notes opens https://github.com/luzhengli/parrot/releases; Send Feedback opens https://github.com/luzhengli/parrot/issues/new; Copy Diagnostics Summary copies the allowlisted ParrotDiagnosticsSummary. ParrotDiagnosticsSummary only emits version, build, bundle id, macOS version, provider preset id, release channel, screen recording permission status, and static feature flags. Scripts/provider-endpoint-timeout-e2e.swift now verifies diagnostics include required allowlisted fields and exclude endpoint host, model name, API-key-like text, Bearer token text, source text, provider responses, history content, and screenshots. Verified with Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04; known warnings remain kSecUseAuthenticationUIFail, CGWindowListCreateImage, and Xcode/CoreSimulator noise. No Keychain behavior, history persistence, screenshot persistence, provider payloads, menu structure, bundle identifier, signing team, deployment target, or version settings changed."
+    },
+    {
+      "id": "rc.readme-release-notes",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "User-facing README and generated release notes describe the current RC app, unsigned limitations, installation, permissions, privacy, troubleshooting, and feedback.",
+      "acceptance": [
+        "README no longer describes Parrot as an early scaffold or says core translation features are still under development.",
+        "README describes current functionality, default shortcuts, provider setup, Screen Recording, Keychain-only API key storage, history, long-text behavior, privacy boundaries, known limitations, and feedback/troubleshooting paths.",
+        "README version information is synced to Release configuration or points readers to Config/Release.xcconfig as the version source.",
+        "Generated RELEASE_NOTES.md includes install steps, checksum verification, Gatekeeper guidance, first-run setup, permissions, privacy, known limitations, and feedback.",
+        "Unsigned RC limitations are explicit in README and generated release notes.",
+        "Agent-facing workflow files remain referenced only as developer/agent handoff material, not as the main user guidance."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "README.md was replaced with current user-facing RC documentation: unsigned release candidate status, features, requirements, default shortcuts (Cmd+Shift+T, Cmd+Shift+2, Cmd+Option+,), install and Gatekeeper steps, first-run provider setup, provider endpoint rules, Keychain-only API key storage, local OCR, recognized/typed text-only provider requests, local text-only history, diagnostics exclusions, FAQ for Gatekeeper, Screen Recording, duplicate permission entries, Keychain re-entry, data location, uninstall, known limitations, developer verification, and Release configuration source. The old early-scaffold/core-under-development copy and hard-coded README version 0.1.0 were removed; README now says Release builds read version/build from Config/Release.xcconfig and records the current Release config as 0.1.4 build 6. Scripts/package-release.sh now writes generated RELEASE_NOTES.md with install, checksum verification, first-run, Screen Recording, Keychain, privacy, diagnostics exclusions, known unsigned/ad-hoc limitations, duplicate TCC entry guidance, Keychain re-entry guidance, automatic-update limitation, and GitHub Issues feedback. Verified bash -n Scripts/package-release.sh; rg confirmed the old scaffold phrases are absent and the required unsigned/permission/privacy copy is present; escalated Scripts/package-release.sh --allow-untagged regenerated Dist/dev-48d69be-dirty; shasum -a 256 -c SHA256SUMS.txt passed for generated DMG and ZIP; generated RELEASE_NOTES.md contains First run, Permissions and privacy, Known limitations, and Feedback; codesign --verify --deep --strict passed for .DerivedData/Build/Products/Release/Parrot.app. Dist outputs remain ignored dev artifacts."
+    },
+    {
+      "id": "rc.onboarding-setup-guide",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Settings Setup acts as a lightweight versioned onboarding guide for first install, invalid provider setup, shortcuts, first translation, and optional screenshot OCR permission.",
+      "acceptance": [
+        "Fresh install or current schema not-started state presents Settings > Setup on launch when provider configuration is otherwise valid.",
+        "Invalid provider configuration always presents Setup/Onboarding on launch, even when onboarding was skipped or completed for the current schema.",
+        "Onboarding includes steps for welcome/privacy, provider configuration, connection test, shortcut discovery, first Quick Text translation, and optional Screenshot OCR permission.",
+        "Users can skip onboarding for the current schema, mark it complete, reset it, and reopen it from Settings > Setup.",
+        "Skipped or completed onboarding for the current schema does not auto-reopen while provider configuration remains valid; older schema state reopens.",
+        "Onboarding state persists locally as status/schema metadata only and does not store API keys, provider endpoints, model names, user translation text, provider responses, screenshots, or diagnostics content.",
+        "The menu-bar menu remains short and does not add a persistent Setup or Onboarding item."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD onboarding requirements before editing. ProviderSettings.swift now defines ParrotOnboardingState with current schema version, notStarted/skipped/completed status, local UserDefaults persistence, invalid-provider override, same-schema skip/complete suppression, schema-change reopening, and reset support. AppDelegate launch gating now opens Settings > Setup when provider setup is invalid or onboarding should present, while the old persistent Setup Checklist menu item is removed to keep the menu short. Settings > Setup now starts with a native onboarding guide covering welcome/privacy, Model provider setup, Test Connection, Shortcuts, first Quick Text translation, and optional Screenshot OCR permission; actions use existing app entry points and local state. Users can Mark Complete when provider setup is ready, Skip for This Version, and Reset Guide. Scripts/provider-endpoint-timeout-e2e.swift now verifies fresh install, invalid provider override, skipped/current-schema suppression, completed/current-schema suppression, older-schema reopening, and reset behavior with isolated UserDefaults. Verified Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04; also ran ./init.sh --run, confirmed the fixed Debug app process from .DerivedData, confirmed codesign designated requirement identifier com.example.parrot, and source-checked that the menu exposes Quick Text Translation, Screenshot Translation, Translation History, Pause Shortcuts, Settings, and Quit Parrot without a Setup Checklist item. Known warnings remain kSecUseAuthenticationUIFail, CGWindowListCreateImage, and Xcode/CoreSimulator noise. No Keychain storage, provider payloads, screenshot persistence, history persistence, bundle identifier, signing team, deployment target, or version settings changed."
+    },
+    {
+      "id": "rc.launch-hub-startup",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Launch Hub provides a foreground startup entry after setup/onboarding are satisfied, with a persisted startup-display preference and Settings recovery path.",
+      "acceptance": [
+        "Startup routing prioritizes invalid provider setup and onboarding before Launch Hub, so Setup/Onboarding and Launch Hub do not both open for the same launch decision.",
+        "When provider setup is valid, onboarding is skipped or completed for the current schema, and Show Launch Hub on Startup is enabled, startup routes to Launch Hub.",
+        "Users can disable Launch Hub startup from Launch Hub with Don't Show on Startup.",
+        "Settings includes a Launch section with Show Launch Hub on Startup and Open Launch Hub controls so users can restore the startup entry.",
+        "Launch Hub provides entry buttons for Quick Text, Screenshot OCR, History, Settings, Onboarding Guide, and About/Feedback, and displays the current core shortcuts.",
+        "Launch Hub routes update and feedback discovery to Settings > About without adding a menu-bar update item or implying automatic installation.",
+        "Launch Hub does not store translation text, screenshots, history content, API keys, provider endpoints, model names, window titles, menu-bar layout, notch state, screen size, or diagnostics content.",
+        "The menu-bar menu remains short and does not add a persistent Launch Hub item.",
+        "Dock icon activation-policy switching remains deferred to the later Dock icon gate."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD Launch Hub/startup-state requirements before editing. Added ParrotLaunchHubPreferences with default-on Show Launch Hub on Startup persistence and ParrotStartupPresentation to centralize startup priority: invalid provider or onboarding setup returns Setup first; otherwise enabled launch preference returns Launch Hub; disabled preference returns none. AppDelegate now calls this startup router after the status item and shortcuts are ready, presents Launch Hub with accessory activation, makeKey/orderFront, and orderFrontRegardless on startup, and keeps existing Setup/Settings/Quick Text/Screenshot/History routes. LaunchHubView is a compact native SwiftUI window with Quick Text, Screenshot OCR, History, Settings, Onboarding Guide, and Updates & Feedback actions plus current shortcut display and Don't Show on Startup; Updates & Feedback opens Settings > About, where the real update check lives. ProviderSettingsView now includes Settings > Launch with Show Launch Hub on Startup, Open Launch Hub, Reset Startup Display, and entry-point shortcut rows. The hub does not add a menu-bar update item, and it does not implement Dock icon activation-policy switching, which remains a separate later gate. Scripts/provider-endpoint-timeout-e2e.swift now verifies default launch preference, invalid-provider override, fresh valid-provider onboarding priority, skipped/completed current-schema Launch Hub routing, disabled startup quiet routing, re-enabled routing, and older-schema Setup priority with isolated UserDefaults. Verified Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04; escalated ./init.sh --run launched the fixed Debug app; pgrep confirmed the running process is .DerivedData/Build/Products/Debug/Parrot.app/Contents/MacOS/Parrot; codesign -dr confirmed identifier com.example.parrot. WindowServer returned count=0 for all window queries and osascript Accessibility was blocked in this automation profile, so direct window-title observation was unavailable; this is recorded as a GUI-smoke limitation rather than a Launch Hub-specific failure. No API Key storage, provider payloads, screenshot persistence, history persistence, menu item list, bundle identifier, signing team, deployment target, or release version changed."
+    },
+    {
+      "id": "rc.screenshot-ocr-async-loading",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Screenshot Translation opens immediately after selection with a local OCR loading state, then updates to OCR success/failure and starts the existing translation flow only while the window is still active.",
+      "acceptance": [
+        "After screenshot selection, AppDelegate presents Screenshot Translation immediately with Recognizing text locally status instead of blocking on Vision OCR.",
+        "Vision OCR runs off the main startup path and completion updates the Original pane only when the view task has not been cancelled.",
+        "OCR success loads the recognized text into the editable Original pane and automatically enters the existing translation chain.",
+        "OCR failure or no text keeps a readable state with New Screenshot available and no translation request.",
+        "Closing the window or starting a new screenshot prevents late OCR completion or translation callbacks from updating the closed window or writing successful history.",
+        "The loading, success, failure, and empty states preserve the privacy boundary: screenshots are processed locally, not uploaded, not saved to history, and screenshot geometry is not persisted.",
+        "Existing OCR source editing, provider prompt, language/style/prompt/glossary, request lifecycle, and text-only history tests remain passing."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD async OCR loading requirements before editing. ScreenshotPipelineStatus now has recognizing/success/failure phases and a Recognizing text locally status with local/no-upload privacy copy. AppDelegate no longer calls Vision OCR before creating the result window; it presents ScreenshotSelectionResultView immediately with .recognizing and passes an async OCR closure. ScreenshotOCRPipeline.receive is async, prepares the CGImage, runs VNRecognizeTextRequest from a user-initiated detached task, and updates its in-memory lastRecognizedText only when the parent task was not cancelled. ScreenshotSelectionResultView now owns OCR startup through its SwiftUI task, renders ProgressView/ParrotStatusPill loading, updates status only if the task is still active, loads successful OCR text into the editable source store, and then calls translateIfNeeded. Closing or New Screenshot cancels the view task and existing translation store, so late OCR/translation does not update the closed window or write success history. OCR failure/no-text still shows the existing New Screenshot recovery path. Scripts/ocr-source-text-editing-e2e.swift now asserts the recognizing phase is not treated as success and preserves the no-upload privacy message; Scripts/run-core-e2e.sh passed, covering OCR source editing, request lifecycle, provider endpoint/timeout, language/style/prompt/glossary, long text, keychain, and floating-window regressions. ./init.sh passed; escalated ./init.sh --run launched the fixed Debug app; pgrep confirmed the running process is .DerivedData/Build/Products/Debug/Parrot.app/Contents/MacOS/Parrot; codesign -dr confirmed identifier com.example.parrot. Real screenshot GUI selection could not be observed in this automation profile because global event/window introspection remains limited and WindowServer returned count=0 for all window queries; this is recorded as a GUI-smoke limitation. No API Key storage, provider payload content, screenshot upload, screenshot image persistence, history schema, menu item list, bundle identifier, signing team, deployment target, or release version changed."
+    },
+    {
+      "id": "rc.check-for-updates",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Settings > About provides a manual GitHub Releases update check with up-to-date, update-available, and unable-to-check states for the unsigned RC lane.",
+      "acceptance": [
+        "Users can trigger Check for Updates from Settings > About.",
+        "Launch Hub routes update discovery to Settings > About without adding a menu-bar update item.",
+        "The checker uses the running bundle version/build for comparison and does not hard-code the current app version.",
+        "Update feed parsing supports GitHub Releases latest response fields for version tag, release date, notes URL, download asset, prerelease flag, bounded summary, and checksum asset detection.",
+        "Current version equal to or higher than latest reports Up to Date and does not prompt downgrade.",
+        "Latest version higher than current reports Update Available with version, date, release summary, Open Release Notes, Download Update, and Copy Version Info.",
+        "Network, HTTP, invalid feed, or version parsing failures report Unable to Check without affecting Quick Text, Screenshot OCR, History, Settings, or Provider configuration.",
+        "Download Update opens the browser only; no automatic install, background update, Sparkle flow, or silent replacement is implied.",
+        "Unsigned RC copy states manual download and warns when checksum/signature metadata is not present in the feed.",
+        "The update check does not send API keys, provider endpoint/model settings, translation text, history content, screenshots, or diagnostics summary."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD Check for Updates requirements before editing. Added ParrotUpdateChecker, ParrotSemanticVersion, ParrotReleaseInfo, and ParrotUpdateCheckStatus in ProviderSettings.swift. The checker uses https://api.github.com/repos/luzhengli/parrot/releases/latest, sets a Parrot User-Agent with the current runtime version/channel, parses tag_name/html_url/published_at/body/prerelease/assets, chooses DMG or ZIP assets for manual download, detects checksum/SHA256 assets when present, bounds the release summary, and compares SemVer against CFBundleShortVersionString plus CFBundleVersion passed from the About view. Settings > About now has an Updates panel with idle/checking/up-to-date/update-available/unable-to-check states, a manual Check button, Open Release Notes, Download Update, and Copy Version Info. Launch Hub's release shortcut now says Updates & Feedback and routes to Settings > About; the menu bar still has no update item. The UI explicitly keeps unsigned RC updates manual and does not imply automatic install or verified replacement when checksum/signature metadata is absent. Scripts/provider-endpoint-timeout-e2e.swift now verifies version parsing/comparison, bounded summary, prerelease preservation, DMG asset selection, checksum asset detection, fake successful update check, local-newer up-to-date behavior, and invalid-feed Unable to Check without network. Verified Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04; escalated ./init.sh --run launched the fixed Debug app; pgrep confirmed the running process is .DerivedData/Build/Products/Debug/Parrot.app/Contents/MacOS/Parrot; codesign -dr confirmed identifier com.example.parrot. Real About window interaction and live GitHub network check were not performed in this automation profile; parser and state behavior are covered with injected fake responses. No API Key storage, provider payloads, screenshot persistence, history persistence, menu item list, bundle identifier, signing team, deployment target, or release version changed."
+    },
+    {
+      "id": "rc.history-clear-confirmation",
+      "priority": "P1",
+      "category": "release-candidate",
+      "description": "Translation History requires explicit confirmation before deleting local text-only history records.",
+      "acceptance": [
+        "Clear History from the History window presents a confirmation before deleting records.",
+        "The confirmation explains that only local text records are deleted.",
+        "The confirmation states that API keys, provider settings, screenshots, and app preferences are not deleted.",
+        "Cancel preserves existing history records.",
+        "Confirm clears the local text history records and shows a short completion status.",
+        "Disabling history still preserves existing records until the user explicitly clears them.",
+        "The change does not alter history schema, provider settings, Keychain behavior, screenshot persistence, app preferences, menu structure, bundle identifier, signing, deployment target, or release version."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD History clear confirmation requirement before editing. TranslationHistoryView now keeps explicit confirmation state, changes the footer Clear History button to present a native destructive alert, and only calls TranslationHistoryStore.clear() from the confirmed destructive action. The alert copy says it deletes local text records only and does not delete API keys, provider settings, screenshots, or app preferences. Cancel is a native cancel action with no deletion side effect. Confirming clear removes the local history records and shows a compact success banner: Local text-only translation history cleared. Added Scripts/history-clear-confirmation-e2e.swift and wired it into Scripts/run-core-e2e.sh; the regression verifies disabled history preserves existing records, disabled history does not add new records, confirmed clear removes records, and the History view source retains the confirmation alert, destructive action, cancel action, local text-only copy, non-deleted data copy, and completion status. Verified Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04; escalated ./init.sh --run launched the fixed Debug app; pgrep confirmed the running process is .DerivedData/Build/Products/Debug/Parrot.app/Contents/MacOS/Parrot; codesign -dr confirmed identifier com.example.parrot. Direct alert clicking was not observable in this automation profile because window/title Accessibility observation remains unavailable, so this gate uses source-linked UI contract verification plus build/run smoke. No API Key storage, provider settings, screenshot persistence, history schema, app preference schema, menu item list, bundle identifier, signing team, deployment target, or release version changed."
+    },
+    {
+      "id": "rc.page-level-always-on-top",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Core Parrot surfaces provide independent page-level Always on Top controls backed by per-surface preferences and NSWindow.Level.",
+      "acceptance": [
+        "Quick Text has a visible Always on Top pin button before the History button.",
+        "Screenshot Translation and screenshot-capture error surfaces have a visible Always on Top pin button, with the Screenshot Translation button before the History button.",
+        "History has its own Always on Top pin button.",
+        "Settings has its own Always on Top pin button, and the About/Update section uses an independent About preference when active.",
+        "Each surface persists to its own local preference key: quickText.alwaysOnTop, screenshotTranslation.alwaysOnTop, history.alwaysOnTop, settings.alwaysOnTop, and about.alwaysOnTop.",
+        "Toggling one surface does not change other surfaces' persisted state.",
+        "Saved pin state restores by setting only the current NSWindow.Level to floating or normal; it does not change app activation policy, global shortcuts, menu structure, or other windows.",
+        "The screenshot selection overlay keeps its temporary screen-saver-level behavior and does not gain a persistent pin preference.",
+        "Pin controls provide state feedback through icon tint/background plus tooltip and accessibility label/value.",
+        "The change does not persist screenshots, screenshot geometry, window titles, source app names, API keys, provider settings, translation text, history content, or diagnostics content."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD page-level pinning requirements before editing. Added ParrotAlwaysOnTopSurface, ParrotAlwaysOnTopPreferences, and ParrotAlwaysOnTopButton in ParrotUIComponents.swift. The per-surface keys are quickText.alwaysOnTop, screenshotTranslation.alwaysOnTop, history.alwaysOnTop, settings.alwaysOnTop, and about.alwaysOnTop. AppDelegate now restores saved pin state when showing Quick Text, Screenshot Translation, History, Settings, or About, and applies the current surface by setting only the current NSWindow.Level to .floating or .normal. Quick Text and Screenshot Translation title bars now place the pin button before History; screenshot capture errors share the screenshotTranslation surface; History now uses the integrated title bar with its own pin; Settings uses the settings surface for normal sections and the about surface when the About/Update section is active. Screenshot selection overlay remains unchanged at .screenSaver and has no persistent pin preference. Added Scripts/always-on-top-preferences-e2e.swift and wired it into Scripts/run-core-e2e.sh; the regression verifies independent preference defaults/toggles, exact storage keys, Quick Text/Screenshot pin-before-History source contract, History/Settings/About wiring, AppDelegate NSWindow.Level mapping, and overlay isolation. Verified Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04; escalated ./init.sh --run launched the fixed Debug app; pgrep confirmed the running process is .DerivedData/Build/Products/Debug/Parrot.app/Contents/MacOS/Parrot; codesign -dr confirmed identifier com.example.parrot. Native AX smoke confirmed the menu remains Quick Text Translation, Screenshot Translation, Translation History, Pause Shortcuts, Settings, Quit Parrot, and that Quick Text Translation, Translation History, and Settings can be open together. AX exposed the SwiftUI icon buttons without stable names, and a coordinate-click attempt hit the Codex window because it was frontmost at that point, so direct runtime pin-toggle/window-level observation was not completed; the pin-toggle contract is covered by the source-linked regression and full Debug build/run. No API Key storage, provider settings, provider payloads, screenshot persistence, history schema/content, diagnostics content, app activation policy, menu item list, bundle identifier, signing team, deployment target, or release version changed."
+    },
+    {
+      "id": "rc.quick-text-copy-polish",
+      "priority": "P1",
+      "category": "release-candidate",
+      "description": "Quick Text copy explains multiline input and large-text confirmation in user-facing terms.",
+      "acceptance": [
+        "Quick Text visible copy includes `Shift+Enter inserts a new line`.",
+        "The multiline hint stays in the compact header copy and does not add a new control or reduce the main input area.",
+        "Over-limit large-text confirmation includes character count and estimated segment count.",
+        "Over-limit large-text confirmation explains sequential translation, possible extra time or cost, cancellation, and failed-segment retry.",
+        "User confirmation is still required before any provider request is sent for text above the automatic limit.",
+        "Unconfirmed, canceled, or not-yet-confirmed large text still does not write translation history.",
+        "The change does not alter provider payload construction, segmentation thresholds, request lifecycle, Keychain behavior, history schema, screenshot persistence, menu structure, bundle identifier, signing, deployment target, or release version."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD P1 copy polish requirements before editing. Quick Text header copy now says: Enter translates, Shift+Enter inserts a new line, Cmd+Enter copies and closes, Esc closes. The hint stays in the existing compact ParrotSurfaceHeader subtitle and adds no new controls or layout rows. The over-limit large-text confirmation now reports the character count and estimated segment count, and explains that translation runs sequentially, may take longer or cost more, can be canceled, and failed segments can be retried. The existing lifecycle behavior is preserved: text above the automatic limit sets requiresLargeTextConfirmation, does not call the provider before explicit confirmation, and does not write history while unconfirmed. Scripts/translation-request-lifecycle-e2e.swift now asserts the richer confirmation copy, provider-not-called behavior, no-history behavior, and the Shift+Enter source copy. Verified Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04; escalated ./init.sh --run launched the fixed Debug app; pgrep confirmed the running process is .DerivedData/Build/Products/Debug/Parrot.app/Contents/MacOS/Parrot; codesign -dr confirmed identifier com.example.parrot. No provider payload construction, segmentation thresholds, request lifecycle semantics, Keychain behavior, history schema, screenshot persistence, menu item list, bundle identifier, signing team, deployment target, or release version changed."
+    },
+    {
+      "id": "rc.dock-icon-toggle",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "Settings > Launch can opt Parrot into a Dock/App Switcher icon while preserving the default lightweight menu-bar behavior.",
+      "acceptance": [
+        "Show Dock icon defaults off.",
+        "Settings > Launch exposes a Show Dock icon toggle.",
+        "Turning Show Dock icon on persists the preference and applies regular activation policy so Parrot appears as a normal Dock/App Switcher app.",
+        "Turning Show Dock icon off persists the preference and returns foreground windows to accessory/menu-bar behavior.",
+        "Startup uses regular activation policy only when the saved Dock icon preference is enabled; otherwise Parrot starts in menu-bar mode until it needs to present a foreground window.",
+        "The setting copy explains that enabled Dock mode shows Parrot in the Dock and App Switcher.",
+        "The setting copy explains that closing windows keeps Parrot running and users should use Quit Parrot to exit.",
+        "The setting copy explains that when Dock mode is off, Parrot remains available through Launch Hub, menu bar, and shortcuts.",
+        "The menu-bar icon and short menu remain available; Dock icon is supplemental.",
+        "The toggle does not change Launch Hub startup preference, global shortcuts, screenshot permissions, provider settings, history saving, page pinning preferences, bundle identifier, signing, deployment target, or release version."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Read DESIGN.md and the RC PRD Dock icon requirements before editing. Added ParrotDockIconPreferences with default-off local UserDefaults persistence under ParrotShowDockIcon. AppDelegate startup now uses .regular only when the saved Dock icon preference is enabled, otherwise starts in .prohibited; foreground window presentation and screenshot selection use .regular when Dock icon is enabled and .accessory when it is off. Settings > Launch now includes a Show Dock icon toggle with copy stating that enabled mode shows Parrot in the Dock and App Switcher, closing windows keeps Parrot running until Quit Parrot, and disabled mode keeps Parrot available from Launch Hub, the menu bar, or shortcuts. The toggle applies activation policy immediately through AppDelegate without changing Launch Hub startup, menu items, shortcuts, screenshot permission, provider settings, history, or page pinning. Scripts/provider-endpoint-timeout-e2e.swift now verifies default-off persistence, enabled/disabled persistence, AppDelegate activation-policy source wiring, and Settings copy. Verified Scripts/run-core-e2e.sh and ./init.sh on 2026-07-04. Runtime smoke: temporarily wrote ParrotShowDockIcon=true, escalated ./init.sh --run relaunched the fixed Debug app, and a Swift AppKit query of NSRunningApplication activationPolicy returned [0] for regular; then deleted ParrotShowDockIcon, relaunched with ./init.sh --run, and the same query returned [1] for accessory with the preference key absent again. pgrep confirmed the running process is .DerivedData/Build/Products/Debug/Parrot.app/Contents/MacOS/Parrot; codesign -dr confirmed identifier com.example.parrot. No Launch Hub startup preference, global shortcut behavior, screenshot permission flow, provider settings, history schema, page pinning preference, menu item list, bundle identifier, signing team, deployment target, or release version changed."
+    },
+    {
+      "id": "rc.final-unsigned-package-validation",
+      "priority": "P0",
+      "category": "release-candidate",
+      "description": "The completed RC gates are validated as an unsigned public RC package with checksummed DMG and ZIP artifacts.",
+      "acceptance": [
+        "The selected lane remains unsigned public RC, not public signed release.",
+        "Run the Debug build and core source-linked regression suite after the final RC feature changes.",
+        "Run the unsigned packaging flow with Scripts/package-release.sh --allow-untagged.",
+        "Verify the generated Dist directory includes unsigned .dmg and .zip assets, RELEASE_NOTES.md, and SHA256SUMS.txt.",
+        "Verify shasum -a 256 -c SHA256SUMS.txt succeeds for the generated package assets.",
+        "Confirm generated release notes state the package is unsigned/ad-hoc signed, not Developer ID signed, and not notarized.",
+        "Do not require signed-release-only spctl/notarization gates while the release lane remains unsigned.",
+        "Record any remaining automation limitations for real GUI smoke rather than treating unobserved UI clicks as verified."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "User reaffirmed the release lane as unsigned public RC. Final RC verification used the existing unsigned/ad-hoc package lane and did not switch bundle identifier, signing team, deployment target, app version, Developer ID signing, notarization, or stapling. After the final Dock icon gate, Scripts/run-core-e2e.sh, ./init.sh, and escalated ./init.sh --run passed; the Debug runtime smoke confirmed Dock-icon activation-policy behavior and restored the default-off preference. The unsigned packaging flow produced Dist/dev-48d69be-dirty with Parrot-0.1.4-dev+48d69be.dirty-macos-arm64-unsigned.dmg, Parrot-0.1.4-dev+48d69be.dirty-macos-arm64-unsigned.zip, RELEASE_NOTES.md, and SHA256SUMS.txt. shasum -a 256 -c SHA256SUMS.txt passed for both generated assets. Generated release notes identify the package as unsigned/ad-hoc signed, not Developer ID signed or notarized, include Gatekeeper/right-click Open guidance, first-run setup, permissions/privacy boundaries, known limitations, feedback URL, bundle id com.example.parrot, version 0.1.4, build 6, and no automatic update installation claim. Signed-release-only spctl/notarization checks remain out of scope for this lane. Real GUI automation limitations remain recorded in the specific RC gate notes: shortcut/window title, alert click, and pin-toggle observation were limited by the current macOS automation session, so those gates use source-linked UI contract tests, build/run smoke, and targeted AX/runtime checks where available."
+    },
+    {
       "id": "foundation.design-system-harness",
       "priority": "P1",
       "category": "foundation",
@@ -524,6 +784,10 @@
     {
       "path": "Docs/ai-translation-macos-v2-prd.md",
       "use_when": "Only when the user explicitly requests V2 PRD reference, alignment, review, or PRD/planning work."
+    },
+    {
+      "path": "Docs/ai-translation-macos-release-candidate-prd.md",
+      "use_when": "Only when the user explicitly requests release-candidate, formal-release, user-facing launch, PRD reference, alignment, review, or PRD/planning work."
     },
     {
       "path": "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",

@@ -4,6 +4,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindowController: NSWindowController?
+    private var launchHubWindowController: NSWindowController?
     private var quickTextWindowController: NSWindowController?
     private var screenshotWindowController: NSWindowController?
     private var historyWindowController: NSWindowController?
@@ -21,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.prohibited)
+        applyStartupActivationPolicy()
 
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.statusItem = statusItem
@@ -41,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         startGlobalShortcuts()
 
         DispatchQueue.main.async { [weak self] in
-            self?.showProviderSetupIfNeeded()
+            self?.presentStartupEntryIfNeeded()
         }
     }
 
@@ -75,12 +76,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         self.shortcutsMenuItem = shortcutsMenuItem
         menu.addItem(shortcutsMenuItem)
         menu.addItem(.separator())
-        menu.addItem(makeMenuItem(
-            title: "Setup Checklist",
-            action: #selector(showSetupChecklist),
-            keyEquivalent: "",
-            systemImageName: "checklist"
-        ))
         menu.addItem(makeMenuItem(
             title: "Settings",
             action: #selector(showSettings),
@@ -170,6 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func showQuickTextTranslation() {
+        let alwaysOnTopSurface = ParrotAlwaysOnTopSurface.quickText
         let view = QuickTextTranslationView(
             onClose: { [weak self] in
                 self?.quickTextWindowController?.close()
@@ -179,6 +175,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             },
             onOpenSettings: { [weak self] in
                 self?.showSettings()
+            },
+            onOpenSetup: { [weak self] in
+                self?.showSetupChecklist()
+            },
+            isAlwaysOnTop: ParrotAlwaysOnTopPreferences.isEnabled(for: alwaysOnTopSurface),
+            onAlwaysOnTopChanged: { [weak self] isEnabled in
+                self?.setAlwaysOnTop(isEnabled, for: alwaysOnTopSurface, controller: self?.quickTextWindowController)
             }
         )
         presentFloatingWindow(
@@ -187,21 +190,88 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             rootView: view,
             contentSize: NSSize(width: 900, height: 640),
             placement: .quickText,
-            usesIntegratedTitleBar: true
+            usesIntegratedTitleBar: true,
+            alwaysOnTopSurface: alwaysOnTopSurface
         )
     }
 
     @objc private func showScreenshotTranslation() {
-        NSApp.setActivationPolicy(.accessory)
+        prepareForegroundWindowPresentation()
         screenshotSelectionController.beginSelection()
     }
 
     @objc private func showTranslationHistory() {
-        let view = TranslationHistoryView { [weak self] in
-            self?.historyWindowController?.close()
+        let alwaysOnTopSurface = ParrotAlwaysOnTopSurface.history
+        let view = TranslationHistoryView(
+            isAlwaysOnTop: ParrotAlwaysOnTopPreferences.isEnabled(for: alwaysOnTopSurface),
+            onClose: { [weak self] in
+                self?.historyWindowController?.close()
+            },
+            onAlwaysOnTopChanged: { [weak self] isEnabled in
+                self?.setAlwaysOnTop(isEnabled, for: alwaysOnTopSurface, controller: self?.historyWindowController)
+            }
+        )
+        presentWindow(
+            &historyWindowController,
+            title: "Translation History",
+            rootView: view,
+            usesIntegratedTitleBar: true,
+            alwaysOnTopSurface: alwaysOnTopSurface
+        )
+        historyWindowController?.window?.setContentSize(NSSize(width: 760, height: 620))
+    }
+
+    private func showLaunchHub(orderFrontRegardless: Bool = false) {
+        let shortcuts = ShortcutPreferences.loadSaved()
+        let view = LaunchHubView(
+            quickTextShortcut: shortcuts[.quickTextTranslation].displayString,
+            screenshotShortcut: shortcuts[.screenshotTranslation].displayString,
+            settingsShortcut: shortcuts[.openSettings].displayString,
+            onOpenQuickText: { [weak self] in
+                self?.launchHubWindowController?.close()
+                self?.showQuickTextTranslation()
+            },
+            onOpenScreenshot: { [weak self] in
+                self?.launchHubWindowController?.close()
+                self?.showScreenshotTranslation()
+            },
+            onOpenHistory: { [weak self] in
+                self?.launchHubWindowController?.close()
+                self?.showTranslationHistory()
+            },
+            onOpenSettings: { [weak self] in
+                self?.launchHubWindowController?.close()
+                self?.showSettings()
+            },
+            onOpenSetup: { [weak self] in
+                self?.launchHubWindowController?.close()
+                self?.showSetupChecklist()
+            },
+            onOpenAbout: { [weak self] in
+                self?.launchHubWindowController?.close()
+                self?.presentSettings(initialSection: .about)
+            },
+            onDisableStartup: { [weak self] in
+                ParrotLaunchHubPreferences.setShowOnStartup(false)
+                self?.launchHubWindowController?.close()
+            },
+            onClose: { [weak self] in
+                self?.launchHubWindowController?.close()
+            }
+        )
+
+        launchHubWindowController?.close()
+        launchHubWindowController = nil
+        presentWindow(
+            &launchHubWindowController,
+            title: "Launch Hub",
+            rootView: view,
+            usesIntegratedTitleBar: true
+        )
+        launchHubWindowController?.window?.setContentSize(NSSize(width: 720, height: 520))
+        if orderFrontRegardless {
+            launchHubWindowController?.window?.orderFrontRegardless()
         }
-        presentWindow(&historyWindowController, title: "Translation History", rootView: view)
-        historyWindowController?.window?.setContentSize(NSSize(width: 760, height: 580))
     }
 
     @objc private func showSettings() {
@@ -218,13 +288,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settingsWindowController = nil
         }
 
+        let alwaysOnTopSurface = settingsAlwaysOnTopSurface(for: initialSection)
         let view = ProviderSettingsView(
             initialSection: initialSection,
             onShortcutsSaved: { [weak self] in
                 self?.reloadGlobalShortcuts()
             },
             onSectionChanged: { [weak self] section in
-                self?.resizeSettingsWindow(for: section, animate: true)
+                guard let self else {
+                    return
+                }
+                resizeSettingsWindow(for: section, animate: true)
+                applyAlwaysOnTop(
+                    for: settingsAlwaysOnTopSurface(for: section),
+                    to: settingsWindowController?.window
+                )
             },
             onOpenQuickText: { [weak self] in
                 self?.showQuickTextTranslation()
@@ -234,10 +312,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             },
             onOpenHistory: { [weak self] in
                 self?.showTranslationHistory()
+            },
+            onOpenLaunchHub: { [weak self] in
+                self?.showLaunchHub()
+            },
+            onDockIconVisibilityChanged: { [weak self] isVisible in
+                self?.applyDockIconVisibility(isVisible)
+            },
+            isSettingsAlwaysOnTop: ParrotAlwaysOnTopPreferences.isEnabled(for: .settings),
+            isAboutAlwaysOnTop: ParrotAlwaysOnTopPreferences.isEnabled(for: .about),
+            onAlwaysOnTopChanged: { [weak self] surface, isEnabled in
+                self?.setAlwaysOnTop(isEnabled, for: surface, controller: self?.settingsWindowController)
             }
         )
-        presentWindow(&settingsWindowController, title: "Settings", rootView: view, usesIntegratedTitleBar: true)
+        presentWindow(
+            &settingsWindowController,
+            title: "Settings",
+            rootView: view,
+            usesIntegratedTitleBar: true,
+            alwaysOnTopSurface: alwaysOnTopSurface
+        )
         resizeSettingsWindow(for: initialSection, animate: false)
+        applyAlwaysOnTop(for: alwaysOnTopSurface, to: settingsWindowController?.window)
     }
 
     private func resizeSettingsWindow(for section: ProviderSettingsView.Section, animate: Bool) {
@@ -257,17 +353,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrame(frame, display: true, animate: animate)
     }
 
-    private func showProviderSetupIfNeeded() {
+    private func presentStartupEntryIfNeeded() {
+        switch ParrotStartupPresentation.destination(
+            providerConfigurationIsValid: providerConfigurationIsValid()
+        ) {
+        case .setup:
+            presentSettings(initialSection: .setup)
+        case .launchHub:
+            showLaunchHub(orderFrontRegardless: true)
+        case .none:
+            break
+        }
+    }
+
+    private func providerConfigurationIsValid() -> Bool {
         let settings = LLMProviderSettings.loadSaved()
         let hasAPIKeyRecord = KeychainSecretStore().hasSavedAPIKeyRecord(providerID: settings.providerID)
         let hasValidEndpoint = (try? ProviderEndpointNormalizer.chatCompletionsURL(from: settings.baseURLString)) != nil
             && !settings.modelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-
-        guard !hasAPIKeyRecord || !hasValidEndpoint else {
-            return
-        }
-
-        presentSettings(initialSection: .setup)
+        return hasAPIKeyRecord && hasValidEndpoint
     }
 
     @objc private func toggleShortcuts() {
@@ -304,11 +408,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.terminate(nil)
     }
 
+    private func setAlwaysOnTop(
+        _ isEnabled: Bool,
+        for surface: ParrotAlwaysOnTopSurface,
+        controller: NSWindowController?
+    ) {
+        ParrotAlwaysOnTopPreferences.set(isEnabled, for: surface)
+        applyAlwaysOnTop(isEnabled, to: controller?.window)
+    }
+
+    private func applyAlwaysOnTop(
+        for surface: ParrotAlwaysOnTopSurface,
+        to window: NSWindow?
+    ) {
+        applyAlwaysOnTop(
+            ParrotAlwaysOnTopPreferences.isEnabled(for: surface),
+            to: window
+        )
+    }
+
+    private func applyAlwaysOnTop(_ isEnabled: Bool, to window: NSWindow?) {
+        window?.level = isEnabled ? .floating : .normal
+    }
+
+    private func settingsAlwaysOnTopSurface(for section: ProviderSettingsView.Section) -> ParrotAlwaysOnTopSurface {
+        section == .about ? .about : .settings
+    }
+
+    private func applyStartupActivationPolicy() {
+        NSApp.setActivationPolicy(ParrotDockIconPreferences.load().showDockIcon ? .regular : .prohibited)
+    }
+
+    private func prepareForegroundWindowPresentation() {
+        NSApp.setActivationPolicy(ParrotDockIconPreferences.load().showDockIcon ? .regular : .accessory)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func applyDockIconVisibility(_ isVisible: Bool) {
+        NSApp.setActivationPolicy(isVisible ? .regular : .accessory)
+        if isVisible {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
     private func presentWindow<Content: View>(
         _ controller: inout NSWindowController?,
         title: String,
         rootView: Content,
-        usesIntegratedTitleBar: Bool = false
+        usesIntegratedTitleBar: Bool = false,
+        alwaysOnTopSurface: ParrotAlwaysOnTopSurface? = nil
     ) {
         if controller == nil {
             controller = makeWindowController(
@@ -318,8 +466,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             )
         }
 
-        NSApp.setActivationPolicy(.accessory)
-        NSApp.activate(ignoringOtherApps: true)
+        prepareForegroundWindowPresentation()
+        if let alwaysOnTopSurface {
+            applyAlwaysOnTop(for: alwaysOnTopSurface, to: controller?.window)
+        }
         controller?.showWindow(nil)
         controller?.window?.makeKeyAndOrderFront(nil)
     }
@@ -330,7 +480,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         rootView: Content,
         contentSize: NSSize,
         placement: FloatingWindowWorkflow,
-        usesIntegratedTitleBar: Bool = false
+        usesIntegratedTitleBar: Bool = false,
+        alwaysOnTopSurface: ParrotAlwaysOnTopSurface? = nil
     ) {
         if controller == nil {
             controller = makeWindowController(
@@ -350,9 +501,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.identifier = NSUserInterfaceItemIdentifier(placement.windowIdentifier)
         window.delegate = self
         applyFloatingWindowPlacement(to: window, placement: placement)
+        if let alwaysOnTopSurface {
+            applyAlwaysOnTop(for: alwaysOnTopSurface, to: window)
+        }
 
-        NSApp.setActivationPolicy(.accessory)
-        NSApp.activate(ignoringOtherApps: true)
+        prepareForegroundWindowPresentation()
         controller?.showWindow(nil)
         window.makeKeyAndOrderFront(nil)
     }
@@ -461,10 +614,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func handleScreenshotSelection(_ result: ScreenshotSelectionResult) {
-        let status = screenshotOCRPipeline.receive(result)
+        let alwaysOnTopSurface = ParrotAlwaysOnTopSurface.screenshotTranslation
         let view = ScreenshotSelectionResultView(
             result: result,
-            status: status,
+            status: .recognizing,
+            recognizeText: { [screenshotOCRPipeline] in
+                await screenshotOCRPipeline.receive(result)
+            },
             onClose: { [weak self] in
                 self?.screenshotWindowController?.close()
             },
@@ -477,6 +633,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             },
             onOpenSettings: { [weak self] in
                 self?.showSettings()
+            },
+            onOpenSetup: { [weak self] in
+                self?.showSetupChecklist()
+            },
+            isAlwaysOnTop: ParrotAlwaysOnTopPreferences.isEnabled(for: alwaysOnTopSurface),
+            onAlwaysOnTopChanged: { [weak self] isEnabled in
+                self?.setAlwaysOnTop(isEnabled, for: alwaysOnTopSurface, controller: self?.screenshotWindowController)
             }
         )
         screenshotWindowController?.close()
@@ -487,13 +650,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             rootView: view,
             contentSize: NSSize(width: 1024, height: 720),
             placement: .screenshotResult(result.screenRect),
-            usesIntegratedTitleBar: true
+            usesIntegratedTitleBar: true,
+            alwaysOnTopSurface: alwaysOnTopSurface
         )
     }
 
     private func showScreenshotSelectionError(_ message: String) {
+        let alwaysOnTopSurface = ParrotAlwaysOnTopSurface.screenshotTranslation
         let view = ScreenshotCaptureErrorView(
             message: message,
+            isAlwaysOnTop: ParrotAlwaysOnTopPreferences.isEnabled(for: alwaysOnTopSurface),
             onOpenSettings: {
                 Self.openScreenRecordingSettings()
             },
@@ -503,6 +669,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             },
             onClose: { [weak self] in
                 self?.screenshotWindowController?.close()
+            },
+            onAlwaysOnTopChanged: { [weak self] isEnabled in
+                self?.setAlwaysOnTop(isEnabled, for: alwaysOnTopSurface, controller: self?.screenshotWindowController)
             }
         )
         screenshotWindowController?.close()
@@ -513,7 +682,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             rootView: view,
             contentSize: NSSize(width: 580, height: 400),
             placement: .screenshotError,
-            usesIntegratedTitleBar: true
+            usesIntegratedTitleBar: true,
+            alwaysOnTopSurface: alwaysOnTopSurface
         )
     }
 
@@ -547,6 +717,187 @@ private enum FloatingWindowWorkflow {
         }
 
         return identifier == quickTextIdentifier || identifier == screenshotIdentifier
+    }
+}
+
+private struct LaunchHubView: View {
+    let quickTextShortcut: String
+    let screenshotShortcut: String
+    let settingsShortcut: String
+    let onOpenQuickText: () -> Void
+    let onOpenScreenshot: () -> Void
+    let onOpenHistory: () -> Void
+    let onOpenSettings: () -> Void
+    let onOpenSetup: () -> Void
+    let onOpenAbout: () -> Void
+    let onDisableStartup: () -> Void
+    let onClose: () -> Void
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ParrotWindowTitleBar(title: "Launch Hub")
+
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .center, spacing: 14) {
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.tint)
+                        .frame(width: 52, height: 52)
+                        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(Color.accentColor.opacity(0.12), lineWidth: 1)
+                        }
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Parrot")
+                            .font(.system(size: 24, weight: .semibold))
+
+                        Text("Quick access to translation, history, setup, and release information.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                ParrotStatusBanner(
+                    kind: .info,
+                    message: "Launch Hub appears on startup after onboarding is complete so Parrot stays reachable even when the menu-bar icon is hidden."
+                )
+
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                    LaunchHubActionButton(
+                        title: "Quick Text",
+                        detail: "Translate typed text.",
+                        systemImageName: "text.cursor",
+                        shortcut: quickTextShortcut,
+                        isPrimary: true,
+                        action: onOpenQuickText
+                    )
+
+                    LaunchHubActionButton(
+                        title: "Screenshot OCR",
+                        detail: "Capture text for local OCR.",
+                        systemImageName: "text.viewfinder",
+                        shortcut: screenshotShortcut,
+                        action: onOpenScreenshot
+                    )
+
+                    LaunchHubActionButton(
+                        title: "History",
+                        detail: "Review local text records.",
+                        systemImageName: "clock.arrow.circlepath",
+                        shortcut: nil,
+                        action: onOpenHistory
+                    )
+
+                    LaunchHubActionButton(
+                        title: "Settings",
+                        detail: "Model, shortcuts, translation, privacy.",
+                        systemImageName: "gearshape",
+                        shortcut: settingsShortcut,
+                        action: onOpenSettings
+                    )
+
+                    LaunchHubActionButton(
+                        title: "Onboarding Guide",
+                        detail: "Reopen setup steps.",
+                        systemImageName: "checklist",
+                        shortcut: nil,
+                        action: onOpenSetup
+                    )
+
+                    LaunchHubActionButton(
+                        title: "Updates & Feedback",
+                        detail: "Check releases, privacy, diagnostics.",
+                        systemImageName: "info.circle",
+                        shortcut: nil,
+                        action: onOpenAbout
+                    )
+                }
+            }
+            .padding(22)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            ParrotFooterBar {
+                Button("Don't Show on Startup") {
+                    onDisableStartup()
+                }
+                .help("Turn off automatic Launch Hub startup. Restore it in Settings > Launch.")
+            } trailing: {
+                Button("Close") {
+                    onClose()
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+        }
+        .frame(width: 720, height: 520, alignment: .top)
+        .onExitCommand(perform: onClose)
+    }
+}
+
+private struct LaunchHubActionButton: View {
+    let title: String
+    let detail: String
+    let systemImageName: String
+    let shortcut: String?
+    var isPrimary = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: systemImageName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(isPrimary ? Color.accentColor : Color.secondary)
+                    .frame(width: 28, height: 28)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let shortcut {
+                        Text(shortcut)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(minHeight: 92, maxHeight: 92, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .parrotPanel(
+                fill: isPrimary
+                    ? Color.accentColor.opacity(0.08)
+                    : Color(nsColor: .controlBackgroundColor).opacity(0.45),
+                stroke: isPrimary
+                    ? Color.accentColor.opacity(0.18)
+                    : Color(nsColor: .separatorColor).opacity(0.55)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 
@@ -634,10 +985,34 @@ struct ScreenshotCaptureErrorView: View {
     let onOpenSettings: () -> Void
     let onRetry: () -> Void
     let onClose: () -> Void
+    let onAlwaysOnTopChanged: (Bool) -> Void
+    @State private var isAlwaysOnTop: Bool
+
+    init(
+        message: String,
+        isAlwaysOnTop: Bool = false,
+        onOpenSettings: @escaping () -> Void,
+        onRetry: @escaping () -> Void,
+        onClose: @escaping () -> Void,
+        onAlwaysOnTopChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.message = message
+        self.onOpenSettings = onOpenSettings
+        self.onRetry = onRetry
+        self.onClose = onClose
+        self.onAlwaysOnTopChanged = onAlwaysOnTopChanged
+        _isAlwaysOnTop = State(initialValue: isAlwaysOnTop)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            ParrotWindowTitleBar(title: "Screenshot Translation")
+            ParrotWindowTitleBar(title: "Screenshot Translation") {
+                ParrotAlwaysOnTopButton(
+                    surface: .screenshotTranslation,
+                    isEnabled: $isAlwaysOnTop,
+                    onChange: onAlwaysOnTopChanged
+                )
+            }
 
             VStack(alignment: .leading, spacing: 14) {
                 ParrotSurfaceHeader(

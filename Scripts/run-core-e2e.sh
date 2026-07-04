@@ -40,6 +40,15 @@ run_swift_e2e translation-request-lifecycle-e2e \
   Parrot/App/QuickTextTranslationView.swift \
   Scripts/translation-request-lifecycle-e2e.swift
 
+run_swift_e2e history-clear-confirmation-e2e \
+  Parrot/App/TranslationHistory.swift \
+  Parrot/App/ParrotUIComponents.swift \
+  Scripts/history-clear-confirmation-e2e.swift
+
+run_swift_e2e always-on-top-preferences-e2e \
+  Parrot/App/ParrotUIComponents.swift \
+  Scripts/always-on-top-preferences-e2e.swift
+
 run_swift_e2e keychain-cache-e2e \
   Parrot/App/ProviderEndpoint.swift \
   Parrot/App/ProviderSettings.swift \

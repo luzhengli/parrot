@@ -131,12 +131,38 @@ private extension JSONDecoder {
 struct TranslationHistoryView: View {
     @ObservedObject private var store = TranslationHistoryStore.shared
     @State private var selectedRecord: TranslationHistoryRecord?
+    @State private var isShowingClearConfirmation = false
+    @State private var statusMessage: String?
+    @State private var isAlwaysOnTop: Bool
     let onClose: () -> Void
+    let onAlwaysOnTopChanged: (Bool) -> Void
+
+    init(
+        isAlwaysOnTop: Bool = false,
+        onClose: @escaping () -> Void,
+        onAlwaysOnTopChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        _isAlwaysOnTop = State(initialValue: isAlwaysOnTop)
+        self.onClose = onClose
+        self.onAlwaysOnTopChanged = onAlwaysOnTopChanged
+    }
 
     var body: some View {
         VStack(spacing: 0) {
+            ParrotWindowTitleBar(title: "Translation History") {
+                ParrotAlwaysOnTopButton(
+                    surface: .history,
+                    isEnabled: $isAlwaysOnTop,
+                    onChange: onAlwaysOnTopChanged
+                )
+            }
+
             VStack(alignment: .leading, spacing: 16) {
                 header
+
+                if let statusMessage {
+                    ParrotStatusBanner(kind: .success, message: statusMessage)
+                }
 
                 if store.records.isEmpty {
                     emptyState
@@ -148,7 +174,7 @@ struct TranslationHistoryView: View {
 
             footer
         }
-        .frame(width: 760, height: 580)
+        .frame(width: 760, height: 620)
         .onExitCommand(perform: onClose)
         .sheet(item: $selectedRecord) { record in
             TranslationHistoryDetailView(
@@ -156,6 +182,16 @@ struct TranslationHistoryView: View {
                 onCopyTranslation: { store.copyTranslation(record) },
                 onCopyOriginal: { store.copyOriginal(record) }
             )
+        }
+        .alert("Clear Translation History?", isPresented: $isShowingClearConfirmation) {
+            Button("Clear History", role: .destructive) {
+                store.clear()
+                statusMessage = "Local text-only translation history cleared."
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes local text records only. It does not delete API keys, provider settings, screenshots, or app preferences.")
         }
     }
 
@@ -197,7 +233,7 @@ struct TranslationHistoryView: View {
     private var footer: some View {
         ParrotFooterBar {
             Button("Clear History", role: .destructive) {
-                store.clear()
+                isShowingClearConfirmation = true
             }
             .disabled(store.records.isEmpty)
         } trailing: {

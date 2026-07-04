@@ -282,12 +282,24 @@ Developer ID signed or notarized.
 
 - DMG: open the image and drag \`$APP_NAME\` to \`Applications\`.
 - ZIP: unzip the archive and move \`$APP_NAME\` to \`Applications\`.
+- This is an unsigned RC package. Use right-click > Open if macOS blocks the
+  first launch for a trusted local test build.
 
 ## Verify
 
 \`\`\`sh
 shasum -a 256 -c SHA256SUMS.txt
 \`\`\`
+
+## First run
+
+1. Open Settings > Setup or Settings > Model.
+2. Choose a provider, enter an HTTPS OpenAI-compatible Base URL and model if
+   needed, then save the API Key to Keychain.
+3. Use Test Connection before translating.
+4. Quick Text works without Screen Recording permission.
+5. Screenshot Translation needs Screen Recording permission because it captures
+   a local screenshot region for on-device OCR.
 
 ## macOS Gatekeeper
 
@@ -298,6 +310,33 @@ If quarantine blocks a trusted local test build, remove the quarantine flag:
 \`\`\`sh
 xattr -dr com.apple.quarantine /path/to/$APP_NAME
 \`\`\`
+
+## Permissions and privacy
+
+- API Keys are stored only in macOS Keychain.
+- Screenshots are processed locally for OCR and are not uploaded by default.
+- Only recognized or typed text is sent to the configured provider during
+  translation.
+- Local history stores text records only. It can be disabled or cleared from
+  Settings > Privacy.
+- Diagnostics summaries exclude API Keys, endpoint hosts, model names, source
+  text, provider responses, history content, screenshots, window titles, and
+  source app names.
+
+## Known limitations
+
+- This package is ad-hoc signed, unsigned, and not notarized.
+- Screen Recording permission may need to be granted again when moving between
+  old ad-hoc builds or app bundle locations.
+- Older unsigned builds can leave duplicate Parrot.app entries in macOS Screen
+  Recording settings. Enable the entry for the current /Applications copy.
+- If Keychain access fails after upgrading from an old debug or unsigned build,
+  re-enter the API Key in Settings > Model.
+- Automatic update download and installation is not implemented yet.
+
+## Feedback
+
+Report issues at https://github.com/luzhengli/parrot/issues/new.
 
 ## Build metadata
 

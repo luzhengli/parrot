@@ -278,7 +278,17 @@ struct TranslationRequestLifecycleE2E {
         await task?.value
 
         try require(store.requiresLargeTextConfirmation, "Over-limit long text should require explicit confirmation before sending.")
+        try require(store.statusMessage?.contains("characters across about") == true, "Large text confirmation should include character and segment counts.")
+        try require(store.statusMessage?.contains("Translation runs sequentially") == true, "Large text confirmation should explain sequential translation.")
+        try require(store.statusMessage?.contains("can be canceled") == true, "Large text confirmation should explain cancellation.")
+        try require(store.statusMessage?.contains("failed segments can be retried") == true, "Large text confirmation should explain retry behavior.")
         try require(provider.requestedTexts.isEmpty, "Over-limit long text should not silently call the provider.")
         try require(history.isEmpty, "Unconfirmed long text should not write history.")
+
+        let quickTextSource = try String(contentsOfFile: "Parrot/App/QuickTextTranslationView.swift", encoding: .utf8)
+        try require(
+            quickTextSource.contains("Shift+Enter inserts a new line"),
+            "Quick Text header should include the Shift+Enter multiline hint."
+        )
     }
 }
