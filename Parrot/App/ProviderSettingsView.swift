@@ -6,6 +6,7 @@ struct ProviderSettingsView: View {
     static let settingsContentWidth: CGFloat = 980
 
     enum Section: String, CaseIterable, Identifiable {
+        case setup = "Setup"
         case model = "Model"
         case shortcuts = "Shortcuts"
         case translation = "Translation"
@@ -15,6 +16,8 @@ struct ProviderSettingsView: View {
 
         var contentHeight: CGFloat {
             switch self {
+            case .setup:
+                return 700
             case .model:
                 return 700
             case .shortcuts:
@@ -28,6 +31,8 @@ struct ProviderSettingsView: View {
 
         var iconName: String {
             switch self {
+            case .setup:
+                return "checklist"
             case .model:
                 return "cpu"
             case .shortcuts:
@@ -44,7 +49,7 @@ struct ProviderSettingsView: View {
     @StateObject private var shortcutStore = ShortcutSettingsStore()
     @StateObject private var glossaryStore = TranslationGlossaryStore.shared
     @ObservedObject private var historyStore = TranslationHistoryStore.shared
-    @State private var selectedSection: Section = .model
+    @State private var selectedSection: Section
     @State private var translationStyle = TranslationStyle.loadSaved()
     @State private var floatingWindowPositionPreference = FloatingWindowPositionPreference.loadSaved()
     @State private var hasSavedFloatingWindowPositionPreference = FloatingWindowPositionPreference.hasSavedPreference()
@@ -63,12 +68,14 @@ struct ProviderSettingsView: View {
     let onOpenHistory: () -> Void
 
     init(
+        initialSection: Section = .model,
         onShortcutsSaved: @escaping () -> Void = {},
         onSectionChanged: @escaping (Section) -> Void = { _ in },
         onOpenQuickText: @escaping () -> Void = {},
         onOpenScreenshot: @escaping () -> Void = {},
         onOpenHistory: @escaping () -> Void = {}
     ) {
+        _selectedSection = State(initialValue: initialSection)
         self.onShortcutsSaved = onShortcutsSaved
         self.onSectionChanged = onSectionChanged
         self.onOpenQuickText = onOpenQuickText
@@ -194,6 +201,8 @@ struct ProviderSettingsView: View {
     @ViewBuilder
     private var selectedSettingsSection: some View {
         switch selectedSection {
+        case .setup:
+            setupChecklist
         case .model:
             modelSettings
         case .shortcuts:
@@ -203,6 +212,104 @@ struct ProviderSettingsView: View {
         case .privacy:
             historySettings
         }
+    }
+
+    private var setupChecklist: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ParrotStatusBanner(
+                kind: .info,
+                title: "Configuration Health",
+                message: "Finish the essentials once, then Parrot stays out of the way. Quick Text works without Screen Recording permission."
+            )
+
+            setupChecklistRow(
+                title: "API Key",
+                detail: store.hasSavedAPIKey
+                    ? "A non-secret setup record exists and the secret remains in Keychain."
+                    : "Save a provider API Key before translating.",
+                isPassing: store.hasSavedAPIKey,
+                actionTitle: "Configure",
+                action: { selectedSection = .model }
+            )
+
+            setupChecklistRow(
+                title: "Provider Endpoint",
+                detail: providerEndpointIsValid
+                    ? "Base URL and model look ready for an OpenAI-compatible chat completions request."
+                    : "Check the Base URL format and model name.",
+                isPassing: providerEndpointIsValid,
+                actionTitle: "Review Model",
+                action: { selectedSection = .model }
+            )
+
+            setupChecklistRow(
+                title: "Connection Test",
+                detail: store.statusMessage ?? "Use the same endpoint, timeout, model, and API Key path that translation uses.",
+                isPassing: store.statusMessage?.localizedCaseInsensitiveContains("succeeded") == true,
+                actionTitle: store.isTesting ? nil : "Test Connection",
+                action: {
+                    Task {
+                        await store.testConnection()
+                    }
+                }
+            )
+
+            setupChecklistRow(
+                title: "Shortcuts",
+                detail: "Quick Text: \(shortcutStore.preferences[.quickTextTranslation].displayString). Screenshot: \(shortcutStore.preferences[.screenshotTranslation].displayString). Settings: \(shortcutStore.preferences[.openSettings].displayString).",
+                isPassing: shortcutStore.validationMessages.isEmpty,
+                actionTitle: "View Shortcuts",
+                action: { selectedSection = .shortcuts }
+            )
+
+            setupChecklistRow(
+                title: "Screen Recording",
+                detail: screenRecordingPermissionGranted
+                    ? "Screenshot Translation can capture other apps for local OCR."
+                    : "Only Screenshot Translation needs this permission. Quick Text can be used without it.",
+                isPassing: screenRecordingPermissionGranted,
+                actionTitle: "Open System Settings",
+                action: openScreenRecordingSettings
+            )
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: 650, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func setupChecklistRow(
+        title: String,
+        detail: String,
+        isPassing: Bool,
+        actionTitle: String?,
+        action: @escaping () -> Void
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: isPassing ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(isPassing ? Color.green : Color.secondary)
+                .frame(width: 22, height: 22)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            if let actionTitle {
+                Button(actionTitle, action: action)
+                    .controlSize(.small)
+            }
+        }
+        .padding(12)
+        .parrotPanel(fill: Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
 
     private var modelSettings: some View {
@@ -239,6 +346,23 @@ struct ProviderSettingsView: View {
                     TextField(store.selectedPreset.modelName, text: $store.modelName)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: .infinity)
+                }
+
+                SettingsFormRow("Timeout") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Stepper(
+                            "\(Int(store.requestTimeoutSeconds.rounded())) seconds",
+                            value: timeoutBinding,
+                            in: ProviderTimeoutPreference.minimumRequestTimeoutSeconds...ProviderTimeoutPreference.maximumRequestTimeoutSeconds,
+                            step: 5
+                        )
+                        .controlSize(.small)
+
+                        Text("Applies to connection tests, Quick Text, and Screenshot Translation requests. The default is 25 seconds.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 SettingsFormRow("API Key", alignment: .top, labelTopPadding: 7) {
@@ -613,6 +737,22 @@ struct ProviderSettingsView: View {
         )
     }
 
+    private var providerEndpointIsValid: Bool {
+        (try? ProviderEndpointNormalizer.chatCompletionsURL(from: store.baseURLString)) != nil
+            && !store.modelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var screenRecordingPermissionGranted: Bool {
+        CGPreflightScreenCaptureAccess()
+    }
+
+    private var timeoutBinding: Binding<Double> {
+        Binding(
+            get: { store.requestTimeoutSeconds },
+            set: { store.requestTimeoutSeconds = ProviderTimeoutPreference.clamped($0) }
+        )
+    }
+
     private var historyEnabledBinding: Binding<Bool> {
         Binding(
             get: { historyStore.isHistoryEnabled },
@@ -714,6 +854,12 @@ struct ProviderSettingsView: View {
         store.hasSavedAPIKey
             ? "A Keychain API Key is saved. Enter a new key to replace it if macOS asks for Keychain access during debugging."
             : "The API Key is saved only to Keychain. Parrot keeps only a non-secret setup flag in UserDefaults."
+    }
+
+    private func openScreenRecordingSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+            ?? URL(fileURLWithPath: "/System/Applications/System Settings.app")
+        NSWorkspace.shared.open(url)
     }
 }
 

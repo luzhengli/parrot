@@ -429,6 +429,87 @@
       "passes": true,
       "last_verified": "2026-07-04",
       "notes": "Implemented Settings > Translation > Floating Windows with Screen Center, Mouse Nearby, and Last Position. The saved preference is stored in UserDefaults and applies to Quick Text Translation plus Screenshot Translation result/error windows. With no explicit saved override, Quick Text keeps the existing Screen Center default while Screenshot Translation results prefer the in-memory selected screenshot region and clamp back inside the visible screen when space is constrained. Last Position stores only the translation window top-left point after user movement; no screenshot images, OCR source images, API Keys, selected screenshot rectangles, or provider/prompt/history behavior were persisted or changed. Verified with source-linked E2E Scripts/floating-window-position-preferences-e2e.swift covering default/invalid preference fallback, persistence, last-position storage, screen-center/mouse-nearby/last-position frame calculation, screenshot-region-nearby placement, constrained visible-screen fallback, and no image/screenRect/base64 preference persistence. Also ran git diff --check, feature_list.json JSON validation, ./init.sh Debug build/signing, and ./init.sh --run launch. Real GUI smoke for different preferences was attempted with a temporary AppKit CGEvent/CGWindowList helper after launch, but the current automation session did not deliver Cmd+Shift+T to Parrot, so no Quick Text window was observed; the focused E2E plus Debug build/run are the acceptance evidence in this environment. 2026-07-04 UI/UX refactor verification: DESIGN.md and explicit /Design prototypes were reviewed; the changed surface now uses shared native header/status/panel/footer components, semantic macOS colors, system font, native controls, and 8px-or-less rounded panels. Verified by ./init.sh Debug build/signing plus /private/tmp/parrot-ui-view-smoke; related source E2Es passed where applicable. Real CGEvent shortcut smoke was limited by hiservices-xpcservice event-delivery warnings in this automation session."
+    },
+    {
+      "id": "v2.translation-request-lifecycle",
+      "priority": "P0",
+      "category": "reliability",
+      "description": "Translation requests are bound to request ids so cancel, close, Esc, retry, again, and newer requests cannot write stale UI or history.",
+      "acceptance": [
+        "Cancel, Close, Esc, window close, Retry, Again, and a newer request cancel any older active translation request.",
+        "Late streaming callbacks from an old request do not append translated text to a closed or expired window.",
+        "Canceled or expired requests do not write translation history.",
+        "Segment failure preserves completed text in the current UI and lets Retry continue from the failed segment.",
+        "Cancellation is not shown as a provider error or repeated error alert."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Implemented TranslationRequestLifecycle.swift with request ids and active task cancellation. QuickTextTranslationStore and ScreenshotTranslationComparisonStore now cancel old requests before starting new ones, cancel on Close/Esc/onDisappear, gate streaming deltas and history writes by request id, and treat CancellationError as a non-error state. Verification: Scripts/run-core-e2e.sh passed; translation-request-lifecycle-e2e covers delayed token, cancel, new request replacing old request, late old callbacks, segmented failure retry, large-text confirmation, and canceled/unconfirmed requests not writing history. ./init.sh and ./init.sh --run passed. Real global shortcut/window-close GUI injection remains limited in this automation session, so request behavior is covered by injected fake streaming provider and source-linked UI stores."
+    },
+    {
+      "id": "v2.provider-endpoint-timeout",
+      "priority": "P0",
+      "category": "settings",
+      "description": "Provider Base URL normalization, timeout settings, and sanitized provider errors are shared by connection tests and real translation requests.",
+      "acceptance": [
+        "Root Base URL, /v1 Base URL, and full /chat/completions URL normalize to exactly one chat completions endpoint.",
+        "Connection test and real translation share the same endpoint normalization code.",
+        "Timeout setting defaults to the previous 25 second request behavior and applies to Quick Text and Screenshot Translation requests.",
+        "Provider HTTP status and a sanitized service error summary are shown without leaking API Keys, Bearer tokens, or token-like values."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Added ProviderEndpoint.swift with ProviderEndpointNormalizer, ProviderTimeoutPreference, ProviderErrorSanitizer, and a TranslationStreamingProviding seam. OpenAICompatibleProviderClient now uses the shared normalizer for both testConnection and translateStreaming, reads ProviderTimeoutPreference for URLRequest/URLSession timeouts, and preserves CancellationError. Settings > Model now exposes a native timeout Stepper defaulting to 25 seconds. Verification: provider-endpoint-timeout-e2e in Scripts/run-core-e2e.sh covers root, /v1, full endpoint normalization, HTTPS rejection, timeout persistence/clamping/resource timeout calculations, and token-like error redaction. ./init.sh and ./init.sh --run passed."
+    },
+    {
+      "id": "v2.setup-checklist",
+      "priority": "P0",
+      "category": "onboarding-settings",
+      "description": "First launch or invalid configuration opens a lightweight configuration health checklist without forcing Screen Recording permission.",
+      "acceptance": [
+        "Missing non-secret API Key setup record or invalid provider settings opens a Setup checklist on launch.",
+        "Checklist guides the user to API Key setup, connection test, shortcuts, and Screen Recording explanation.",
+        "Quick Text remains usable without Screen Recording permission.",
+        "Configured users are not interrupted every launch.",
+        "Checklist does not store API Keys in UserDefaults or request screenshot permission proactively."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Added Settings > Setup with native checklist rows for API Key setup record, Provider endpoint/model validity, connection test, shortcuts, and Screen Recording. AppDelegate adds a Setup Checklist menu item and opens Setup on launch only when the selected provider lacks the non-secret API setup record or provider endpoint/model is invalid. Screen Recording status uses CGPreflightScreenCaptureAccess only and the button opens System Settings; it does not force authorization. Verification: ./init.sh and ./init.sh --run passed, and feature_list JSON validation passed. Full GUI shortcut/menu smoke was not attempted beyond launch because this automation session has known CGEvent/AX delivery limitations from prior runs."
+    },
+    {
+      "id": "v2.long-text-segmented-translation",
+      "priority": "P0",
+      "category": "translation",
+      "description": "Long text is segmented sequentially with progress, cancellation, failure recovery, and history gating.",
+      "acceptance": [
+        "Text under the single-request threshold keeps the current single streaming request path.",
+        "Text from 2000-8000 characters uses paragraph-first sequential segmented translation.",
+        "Text above 8000 characters requires explicit confirmation before any provider request is sent.",
+        "Progress shows the current segment count, for example Translating 2/6.",
+        "Cancel stops remaining segments and does not write success history.",
+        "A failed segment preserves completed UI text and Retry continues from the failed segment.",
+        "Markdown, code blocks, URLs, variables, and paragraph structure are preserved as far as the deterministic segmenter allows."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Added LongTextTranslation.swift with 2500 character single-request threshold, 8000 character automatic segmented limit, 1800 character segment target, paragraph/code-fence-aware splitting, and explicit over-limit confirmation. Quick Text and Screenshot Translation use the planner; segmented mode runs sequentially and updates progress as Translating n/m. Verification: long-text-translation-e2e covers single path, 2000-8000 segmentation, code block and URL preservation, over-8000 confirmation, and confirmed large-text segmentation. translation-request-lifecycle-e2e covers segmented failure retry and no history write for partial/canceled results. Scripts/run-core-e2e.sh, ./init.sh, and ./init.sh --run passed."
+    },
+    {
+      "id": "v2.engineering-test-seams",
+      "priority": "P0",
+      "category": "foundation",
+      "description": "V2.0 establishes first-stage engineering seams and a repeatable core E2E entry for pure logic and source-linked integration tests.",
+      "acceptance": [
+        "Provider endpoint/timeout/error handling, request lifecycle, and long-text splitting are separated into focused source files.",
+        "Translation stores accept fake streaming providers and history recorders for deterministic tests.",
+        "A single stable command runs core source-linked E2E tests.",
+        "Existing Keychain, prompt, glossary, OCR source editing, language, and style tests remain passing.",
+        "No Provider request, Keychain, OCR, history, window default, or shortcut behavior is intentionally changed by the seam extraction."
+      ],
+      "passes": true,
+      "last_verified": "2026-07-04",
+      "notes": "Added ProviderEndpoint.swift, TranslationRequestLifecycle.swift, LongTextTranslation.swift, FloatingWindowPlacement.swift, and Scripts/run-core-e2e.sh. QuickTextTranslationStore and ScreenshotTranslationComparisonStore now accept TranslationClientFactory and historyRecorder injections so fake providers can verify lifecycle behavior without real network or real history writes. The first-stage split intentionally avoided a large same-turn move of all Keychain, Prompt, Glossary, and Provider client code out of ProviderSettings.swift; those deeper mechanical moves remain a lower-risk follow-up now that seams and tests exist. Verification: Scripts/run-core-e2e.sh passed and includes provider-endpoint-timeout, long-text, translation-request-lifecycle, keychain-cache, translation-language-controls, translation-style, custom-translation-prompt, terminology-glossary, floating-window-position-preferences, and ocr-source-text-editing E2Es. ./init.sh and ./init.sh --run passed."
     }
   ],
   "conditional_reference_documents": [
@@ -439,6 +520,10 @@
     {
       "path": "Docs/ai-translation-macos-v1-prd.md",
       "use_when": "Only when the user explicitly requests V1 PRD reference, alignment, review, or PRD/planning work."
+    },
+    {
+      "path": "Docs/ai-translation-macos-v2-prd.md",
+      "use_when": "Only when the user explicitly requests V2 PRD reference, alignment, review, or PRD/planning work."
     },
     {
       "path": "https://my.feishu.cn/docx/ILjQdLxl7oeQsNxJ8FVcYSDhnng",

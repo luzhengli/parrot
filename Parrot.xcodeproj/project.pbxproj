@@ -19,6 +19,10 @@
 		2F3A6C8D2B10000100A0000A /* TranslationHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001C /* TranslationHistory.swift */; };
 		2F3A6C8D2B10000100A0000B /* ShortcutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001D /* ShortcutSettings.swift */; };
 		2F3A6C8D2B10000100A0000C /* ParrotUIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001E /* ParrotUIComponents.swift */; };
+		2F3A6C8D2B10000100A0000D /* ProviderEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A0001F /* ProviderEndpoint.swift */; };
+		2F3A6C8D2B10000100A0000E /* TranslationRequestLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00021 /* TranslationRequestLifecycle.swift */; };
+		2F3A6C8D2B10000100A0000F /* LongTextTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00022 /* LongTextTranslation.swift */; };
+		2F3A6C8D2B10000100A00023 /* FloatingWindowPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3A6C8D2B10000100A00024 /* FloatingWindowPlacement.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +41,10 @@
 		2F3A6C8D2B10000100A0001C /* TranslationHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationHistory.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A0001D /* ShortcutSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSettings.swift; sourceTree = "<group>"; };
 		2F3A6C8D2B10000100A0001E /* ParrotUIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParrotUIComponents.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A0001F /* ProviderEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderEndpoint.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A00021 /* TranslationRequestLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationRequestLifecycle.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A00022 /* LongTextTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LongTextTranslation.swift; sourceTree = "<group>"; };
+		2F3A6C8D2B10000100A00024 /* FloatingWindowPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingWindowPlacement.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +84,10 @@
 				2F3A6C8D2B10000100A00017 /* GlobalShortcutManager.swift */,
 				2F3A6C8D2B10000100A00018 /* ScreenshotSelectionController.swift */,
 				2F3A6C8D2B10000100A00019 /* ProviderSettings.swift */,
+				2F3A6C8D2B10000100A0001F /* ProviderEndpoint.swift */,
+				2F3A6C8D2B10000100A00021 /* TranslationRequestLifecycle.swift */,
+				2F3A6C8D2B10000100A00022 /* LongTextTranslation.swift */,
+				2F3A6C8D2B10000100A00024 /* FloatingWindowPlacement.swift */,
 				2F3A6C8D2B10000100A0001E /* ParrotUIComponents.swift */,
 				2F3A6C8D2B10000100A0001A /* ProviderSettingsView.swift */,
 				2F3A6C8D2B10000100A0001D /* ShortcutSettings.swift */,
@@ -185,6 +197,10 @@
 				2F3A6C8D2B10000100A00005 /* GlobalShortcutManager.swift in Sources */,
 				2F3A6C8D2B10000100A00006 /* ScreenshotSelectionController.swift in Sources */,
 				2F3A6C8D2B10000100A00007 /* ProviderSettings.swift in Sources */,
+				2F3A6C8D2B10000100A0000D /* ProviderEndpoint.swift in Sources */,
+				2F3A6C8D2B10000100A0000E /* TranslationRequestLifecycle.swift in Sources */,
+				2F3A6C8D2B10000100A0000F /* LongTextTranslation.swift in Sources */,
+				2F3A6C8D2B10000100A00023 /* FloatingWindowPlacement.swift in Sources */,
 				2F3A6C8D2B10000100A0000C /* ParrotUIComponents.swift in Sources */,
 				2F3A6C8D2B10000100A00008 /* ProviderSettingsView.swift in Sources */,
 				2F3A6C8D2B10000100A0000B /* ShortcutSettings.swift in Sources */,

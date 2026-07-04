@@ -50,6 +50,17 @@ struct OCRSourceTextEditingState: Equatable {
 
 @MainActor
 private final class ScreenshotTranslationComparisonStore: ObservableObject {
+    private enum TranslationControlFlow: Error {
+        case awaitingLargeTextConfirmation
+    }
+
+    private struct SegmentRetryState {
+        let sourceText: String
+        let preferences: TranslationLanguagePreferences
+        var outputs: [Int: String]
+        var failedSegmentIndex: Int
+    }
+
     @Published private var sourceEditingState: OCRSourceTextEditingState {
         didSet {
             handleSourceTextChange(from: oldValue)
@@ -61,14 +72,34 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
     @Published private(set) var statusMessage: String?
     @Published private(set) var isStatusError = false
     @Published private(set) var isTranslating = false
+    @Published private(set) var requiresLargeTextConfirmation = false
 
     private let keychain: KeychainSecretStore
+    private let clientFactory: TranslationClientFactory
+    private let historyRecorder: @MainActor (String, String, String) -> Void
+    private let requestCoordinator = TranslationRequestCoordinator()
     private var hasAttemptedTranslation = false
     private var lastTranslatedSourceText: String?
+    private var segmentRetryState: SegmentRetryState?
 
-    init(sourceText: String, keychain: KeychainSecretStore = KeychainSecretStore()) {
+    init(
+        sourceText: String,
+        keychain: KeychainSecretStore = KeychainSecretStore(),
+        clientFactory: @escaping TranslationClientFactory = { settings, apiKey in
+            OpenAICompatibleProviderClient(settings: settings, apiKey: apiKey)
+        },
+        historyRecorder: @escaping @MainActor (String, String, String) -> Void = { sourceText, translatedText, sourceType in
+            TranslationHistoryStore.shared.addRecord(
+                sourceText: sourceText,
+                translatedText: translatedText,
+                sourceType: sourceType
+            )
+        }
+    ) {
         self.sourceEditingState = OCRSourceTextEditingState(recognizedText: sourceText)
         self.keychain = keychain
+        self.clientFactory = clientFactory
+        self.historyRecorder = historyRecorder
     }
 
     var sourceText: String {
@@ -109,13 +140,29 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         }
 
         hasAttemptedTranslation = true
-        await translate()
+        let task = startTranslation()
+        await task?.value
     }
 
     func retryTranslation() {
         hasAttemptedTranslation = true
-        Task {
-            await translate()
+        startTranslation(retryFailedSegmentOnly: true)
+    }
+
+    func confirmLargeTextTranslation() {
+        hasAttemptedTranslation = true
+        startTranslation(allowLargeText: true)
+    }
+
+    func cancelTranslation(showStatus: Bool = true) {
+        let hadActiveRequest = isTranslating || requestCoordinator.hasActiveRequest
+        requestCoordinator.cancelActiveRequest()
+        isTranslating = false
+        requiresLargeTextConfirmation = false
+
+        if showStatus, hadActiveRequest {
+            statusMessage = "Translation canceled."
+            isStatusError = false
         }
     }
 
@@ -136,19 +183,49 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
         isStatusError = false
     }
 
-    private func translate() async {
+    @discardableResult
+    private func startTranslation(allowLargeText: Bool = false, retryFailedSegmentOnly: Bool = false) -> Task<Void, Never>? {
         let requestText = sourceEditingState.requestText
-        guard !requestText.isEmpty, !isTranslating else {
-            return
+        guard !requestText.isEmpty else {
+            return nil
+        }
+        if isTranslating {
+            cancelTranslation(showStatus: false)
         }
 
         isTranslating = true
+        requiresLargeTextConfirmation = false
         latestDetectedSource = TranslationLanguageResolver.detectSourceLanguage(in: requestText)
         languagePreferences.save()
-        translatedText = ""
+        if !retryFailedSegmentOnly {
+            translatedText = ""
+            segmentRetryState = nil
+        }
         statusMessage = "Translating recognized text with the configured provider..."
         isStatusError = false
 
+        let requestID = requestCoordinator.beginRequest()
+        let task = Task { [weak self] in
+            guard let self else {
+                return
+            }
+            await self.runTranslation(
+                requestID: requestID,
+                requestText: requestText,
+                allowLargeText: allowLargeText,
+                retryFailedSegmentOnly: retryFailedSegmentOnly
+            )
+        }
+        requestCoordinator.attachTask(task, to: requestID)
+        return task
+    }
+
+    private func runTranslation(
+        requestID: TranslationRequestID,
+        requestText: String,
+        allowLargeText: Bool,
+        retryFailedSegmentOnly: Bool
+    ) async {
         do {
             let settings = LLMProviderSettings.loadSaved()
             guard keychain.hasSavedAPIKeyRecord(providerID: settings.providerID) else {
@@ -159,16 +236,19 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
                 throw ProviderSettingsError.missingAPIKey
             }
 
-            let client = OpenAICompatibleProviderClient(settings: settings, apiKey: apiKey)
-            let finalTranslation = try await client.translateStreaming(requestText, preferences: languagePreferences) { [weak self] delta in
-                self?.translatedText += delta
+            let client = clientFactory(settings, apiKey)
+            let finalTranslation = try await performTranslation(
+                requestID: requestID,
+                requestText: requestText,
+                client: client,
+                allowLargeText: allowLargeText,
+                retryFailedSegmentOnly: retryFailedSegmentOnly
+            )
+            guard requestCoordinator.isActive(requestID) else {
+                return
             }
             translatedText = finalTranslation
-            TranslationHistoryStore.shared.addRecord(
-                sourceText: requestText,
-                translatedText: finalTranslation,
-                sourceType: "Screenshot"
-            )
+            historyRecorder(requestText, finalTranslation, "Screenshot")
             lastTranslatedSourceText = requestText
             if sourceEditingState.requestText == requestText {
                 statusMessage = "Translation ready."
@@ -177,13 +257,153 @@ private final class ScreenshotTranslationComparisonStore: ObservableObject {
                 statusMessage = "Original text edited. Use Again to translate the updated text."
             }
             isStatusError = false
+            segmentRetryState = nil
+        } catch TranslationControlFlow.awaitingLargeTextConfirmation {
+            // Keep the confirmation status already prepared in performTranslation.
+        } catch is CancellationError {
+            if requestCoordinator.isActive(requestID) {
+                statusMessage = "Translation canceled."
+                isStatusError = false
+            }
         } catch {
-            translatedText = ""
-            statusMessage = error.userFacingMessage
+            guard requestCoordinator.isActive(requestID) else {
+                return
+            }
+            if segmentRetryState == nil {
+                translatedText = ""
+                statusMessage = error.userFacingMessage
+            }
             isStatusError = true
         }
 
-        isTranslating = false
+        if requestCoordinator.isActive(requestID) {
+            isTranslating = false
+            requestCoordinator.finishRequest(requestID)
+        }
+    }
+
+    private func performTranslation(
+        requestID: TranslationRequestID,
+        requestText: String,
+        client: TranslationStreamingProviding,
+        allowLargeText: Bool,
+        retryFailedSegmentOnly: Bool
+    ) async throws -> String {
+        let plan = LongTextTranslationPlanner.plan(for: requestText, allowLargeText: allowLargeText)
+        switch plan {
+        case .single:
+            return try await performSingleTranslation(requestID: requestID, requestText: requestText, client: client)
+        case .segmented(let segments):
+            return try await performSegmentedTranslation(
+                requestID: requestID,
+                requestText: requestText,
+                segments: segments,
+                client: client,
+                retryFailedSegmentOnly: retryFailedSegmentOnly
+            )
+        case .requiresConfirmation(let characterCount, _):
+            requiresLargeTextConfirmation = true
+            translatedText = ""
+            statusMessage = "This OCR text is \(characterCount) characters. Review the cost and latency risk before translating it."
+            isStatusError = true
+            throw TranslationControlFlow.awaitingLargeTextConfirmation
+        }
+    }
+
+    private func performSingleTranslation(
+        requestID: TranslationRequestID,
+        requestText: String,
+        client: TranslationStreamingProviding
+    ) async throws -> String {
+        try Task.checkCancellation()
+        statusMessage = "Translating recognized text with the configured provider..."
+        let finalTranslation = try await client.translateStreaming(
+            requestText,
+            preferences: languagePreferences,
+            style: TranslationStyle.loadSaved(),
+            promptPreferences: TranslationPromptPreferences.loadSaved(),
+            glossaryEntries: nil
+        ) { [weak self] delta in
+            guard let self, self.requestCoordinator.isActive(requestID) else {
+                return
+            }
+            self.translatedText += delta
+        }
+        try Task.checkCancellation()
+        return finalTranslation
+    }
+
+    private func performSegmentedTranslation(
+        requestID: TranslationRequestID,
+        requestText: String,
+        segments: [TranslationSegment],
+        client: TranslationStreamingProviding,
+        retryFailedSegmentOnly: Bool
+    ) async throws -> String {
+        let retryState = retryFailedSegmentOnly ? segmentRetryState : nil
+        var outputs = retryState?.sourceText == requestText && retryState?.preferences == languagePreferences
+            ? retryState?.outputs ?? [:]
+            : [:]
+        let startIndex = retryState?.sourceText == requestText && retryState?.preferences == languagePreferences
+            ? retryState?.failedSegmentIndex ?? 0
+            : 0
+        segmentRetryState = nil
+
+        for segment in segments where segment.index >= startIndex {
+            try Task.checkCancellation()
+            guard requestCoordinator.isActive(requestID) else {
+                throw CancellationError()
+            }
+
+            statusMessage = "Translating \(segment.index + 1)/\(segments.count)..."
+            var segmentBuffer = ""
+
+            do {
+                let segmentTranslation = try await client.translateStreaming(
+                    segment.text,
+                    preferences: languagePreferences,
+                    style: TranslationStyle.loadSaved(),
+                    promptPreferences: TranslationPromptPreferences.loadSaved(),
+                    glossaryEntries: nil
+                ) { [weak self] delta in
+                    guard let self, self.requestCoordinator.isActive(requestID) else {
+                        return
+                    }
+                    segmentBuffer += delta
+                    outputs[segment.index] = segmentBuffer
+                    self.translatedText = self.combinedSegmentOutput(outputs, segmentCount: segments.count)
+                }
+                outputs[segment.index] = segmentTranslation
+                translatedText = combinedSegmentOutput(outputs, segmentCount: segments.count)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                if requestCoordinator.isActive(requestID) {
+                    segmentRetryState = SegmentRetryState(
+                        sourceText: requestText,
+                        preferences: languagePreferences,
+                        outputs: outputs,
+                        failedSegmentIndex: segment.index
+                    )
+                    statusMessage = "Segment \(segment.index + 1)/\(segments.count) failed. Retry will continue from that segment."
+                    isStatusError = true
+                }
+                throw error
+            }
+        }
+
+        let finalTranslation = combinedSegmentOutput(outputs, segmentCount: segments.count)
+        guard !finalTranslation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ProviderSettingsError.unexpectedResponse
+        }
+        return finalTranslation
+    }
+
+    private func combinedSegmentOutput(_ outputs: [Int: String], segmentCount: Int) -> String {
+        (0..<segmentCount)
+            .compactMap { outputs[$0]?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
     }
 
     private func handleSourceTextChange(from oldState: OCRSourceTextEditingState) {
@@ -735,7 +955,10 @@ struct ScreenshotSelectionResultView: View {
 
             await store.translateIfNeeded()
         }
-        .onExitCommand(perform: onClose)
+        .onExitCommand(perform: cancelAndClose)
+        .onDisappear {
+            store.cancelTranslation(showStatus: false)
+        }
     }
 
     private var header: some View {
@@ -843,7 +1066,7 @@ struct ScreenshotSelectionResultView: View {
                 text: sourceTextBinding,
                 placeholder: status.isSuccess ? "" : "No recognized text to translate.",
                 isEditable: status.isSuccess,
-                onCancel: onClose
+                onCancel: cancelAndClose
             )
             .frame(height: 360)
             .parrotPanel(fill: Color(nsColor: .textBackgroundColor))
@@ -909,14 +1132,21 @@ struct ScreenshotSelectionResultView: View {
             }
             .disabled(!store.canRetry)
 
+            if store.requiresLargeTextConfirmation {
+                Button("Translate Anyway") {
+                    store.confirmLargeTextTranslation()
+                }
+                .disabled(store.isTranslating)
+            }
+
             if !status.isSuccess {
                 Button("New Screenshot") {
-                    onRetrySelection()
+                    cancelAndRetrySelection()
                 }
             }
         } trailing: {
             Button("Close") {
-                onClose()
+                cancelAndClose()
             }
             .keyboardShortcut(.cancelAction)
         }
@@ -940,6 +1170,16 @@ struct ScreenshotSelectionResultView: View {
         }
 
         return status.isSuccess ? "" : "No translation available."
+    }
+
+    private func cancelAndClose() {
+        store.cancelTranslation(showStatus: false)
+        onClose()
+    }
+
+    private func cancelAndRetrySelection() {
+        store.cancelTranslation(showStatus: false)
+        onRetrySelection()
     }
 }
 

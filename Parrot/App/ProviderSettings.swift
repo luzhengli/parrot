@@ -1,237 +1,7 @@
 import Combine
-import CoreGraphics
 import Foundation
 import LocalAuthentication
 import Security
-
-enum FloatingWindowPositionPreference: String, CaseIterable, Codable, Identifiable {
-    case screenCenter = "screen-center"
-    case mouseNearby = "mouse-nearby"
-    case lastPosition = "last-position"
-
-    var id: String { rawValue }
-
-    static let storageKey = "FloatingWindowPositionPreference"
-    static let lastTopLeftStorageKey = "FloatingWindowLastTopLeft"
-    static let `default`: FloatingWindowPositionPreference = .screenCenter
-
-    var displayName: String {
-        switch self {
-        case .screenCenter:
-            return "Screen Center"
-        case .mouseNearby:
-            return "Mouse Nearby"
-        case .lastPosition:
-            return "Last Position"
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .screenCenter:
-            return "Open lightweight translation windows in the current screen center."
-        case .mouseNearby:
-            return "Open lightweight translation windows near the current pointer."
-        case .lastPosition:
-            return "Open lightweight translation windows at the last user-moved position."
-        }
-    }
-
-    static func loadSaved(from userDefaults: UserDefaults = .standard) -> FloatingWindowPositionPreference {
-        loadSavedOverride(from: userDefaults) ?? .default
-    }
-
-    static func loadSavedOverride(from userDefaults: UserDefaults = .standard) -> FloatingWindowPositionPreference? {
-        guard let rawValue = userDefaults.string(forKey: storageKey) else {
-            return nil
-        }
-
-        return FloatingWindowPositionPreference(rawValue: rawValue)
-    }
-
-    static func hasSavedPreference(in userDefaults: UserDefaults = .standard) -> Bool {
-        loadSavedOverride(from: userDefaults) != nil
-    }
-
-    func save(to userDefaults: UserDefaults = .standard) {
-        userDefaults.set(rawValue, forKey: Self.storageKey)
-    }
-
-    static func clearSavedPreference(from userDefaults: UserDefaults = .standard) {
-        userDefaults.removeObject(forKey: storageKey)
-    }
-
-    static func saveLastTopLeft(_ point: CGPoint, to userDefaults: UserDefaults = .standard) {
-        guard let data = try? JSONEncoder().encode(StoredTopLeft(point: point)) else {
-            return
-        }
-
-        userDefaults.set(data, forKey: Self.lastTopLeftStorageKey)
-    }
-
-    static func loadLastTopLeft(from userDefaults: UserDefaults = .standard) -> CGPoint? {
-        guard let data = userDefaults.data(forKey: Self.lastTopLeftStorageKey),
-              let storedPoint = try? JSONDecoder().decode(StoredTopLeft.self, from: data)
-        else {
-            return nil
-        }
-
-        return CGPoint(x: storedPoint.x, y: storedPoint.y)
-    }
-
-    private struct StoredTopLeft: Codable {
-        let x: CGFloat
-        let y: CGFloat
-
-        init(point: CGPoint) {
-            x = point.x
-            y = point.y
-        }
-    }
-}
-
-enum FloatingWindowPositioning {
-    static let edgePadding: CGFloat = 12
-    static let anchorGap: CGFloat = 12
-
-    static func frame(
-        for preference: FloatingWindowPositionPreference,
-        windowSize: CGSize,
-        visibleFrame: CGRect,
-        mouseLocation: CGPoint,
-        lastTopLeft: CGPoint? = nil,
-        nearbyAnchorRect: CGRect? = nil
-    ) -> CGRect {
-        switch preference {
-        case .screenCenter:
-            return centeredFrame(windowSize: windowSize, visibleFrame: visibleFrame)
-        case .mouseNearby:
-            return frameNearAnchor(
-                anchorRect: nearbyAnchorRect ?? CGRect(origin: mouseLocation, size: .zero),
-                windowSize: windowSize,
-                visibleFrame: visibleFrame
-            )
-        case .lastPosition:
-            guard let lastTopLeft else {
-                return centeredFrame(windowSize: windowSize, visibleFrame: visibleFrame)
-            }
-
-            return frameAtTopLeft(
-                lastTopLeft,
-                windowSize: windowSize,
-                visibleFrame: visibleFrame
-            )
-        }
-    }
-
-    static func centeredFrame(windowSize: CGSize, visibleFrame: CGRect) -> CGRect {
-        clampedFrame(
-            origin: CGPoint(
-                x: visibleFrame.midX - windowSize.width / 2,
-                y: visibleFrame.midY - windowSize.height / 2
-            ),
-            windowSize: windowSize,
-            visibleFrame: visibleFrame
-        )
-    }
-
-    static func frameAtTopLeft(
-        _ topLeft: CGPoint,
-        windowSize: CGSize,
-        visibleFrame: CGRect
-    ) -> CGRect {
-        clampedFrame(
-            origin: CGPoint(x: topLeft.x, y: topLeft.y - windowSize.height),
-            windowSize: windowSize,
-            visibleFrame: visibleFrame
-        )
-    }
-
-    static func frameNearAnchor(
-        anchorRect: CGRect,
-        windowSize: CGSize,
-        visibleFrame: CGRect
-    ) -> CGRect {
-        let verticallyAlignedY = anchorRect.midY - windowSize.height / 2
-        let horizontallyAlignedX = anchorRect.midX - windowSize.width / 2
-        let candidates = [
-            CGPoint(x: anchorRect.maxX + anchorGap, y: verticallyAlignedY),
-            CGPoint(x: anchorRect.minX - anchorGap - windowSize.width, y: verticallyAlignedY),
-            CGPoint(x: horizontallyAlignedX, y: anchorRect.maxY + anchorGap),
-            CGPoint(x: horizontallyAlignedX, y: anchorRect.minY - anchorGap - windowSize.height)
-        ]
-
-        if let visibleCandidate = candidates.first(where: {
-            isFullyVisible(
-                CGRect(origin: $0, size: windowSize),
-                in: visibleFrame
-            )
-        }) {
-            return roundedFrame(origin: visibleCandidate, size: windowSize)
-        }
-
-        return clampedFrame(
-            origin: candidates.first ?? CGPoint(x: visibleFrame.midX, y: visibleFrame.midY),
-            windowSize: windowSize,
-            visibleFrame: visibleFrame
-        )
-    }
-
-    static func clampedFrame(
-        origin: CGPoint,
-        windowSize: CGSize,
-        visibleFrame: CGRect
-    ) -> CGRect {
-        let paddedFrame = visibleFrame.insetBy(dx: edgePadding, dy: edgePadding)
-        let x = clampedCoordinate(
-            proposed: origin.x,
-            min: paddedFrame.minX,
-            max: paddedFrame.maxX - windowSize.width,
-            fallback: visibleFrame.midX - windowSize.width / 2
-        )
-        let y = clampedCoordinate(
-            proposed: origin.y,
-            min: paddedFrame.minY,
-            max: paddedFrame.maxY - windowSize.height,
-            fallback: visibleFrame.midY - windowSize.height / 2
-        )
-
-        return roundedFrame(origin: CGPoint(x: x, y: y), size: windowSize)
-    }
-
-    private static func isFullyVisible(_ frame: CGRect, in visibleFrame: CGRect) -> Bool {
-        let paddedFrame = visibleFrame.insetBy(dx: edgePadding, dy: edgePadding)
-        guard paddedFrame.width >= frame.width,
-              paddedFrame.height >= frame.height
-        else {
-            return false
-        }
-
-        return paddedFrame.contains(frame)
-    }
-
-    private static func clampedCoordinate(
-        proposed: CGFloat,
-        min minimum: CGFloat,
-        max maximum: CGFloat,
-        fallback: CGFloat
-    ) -> CGFloat {
-        guard maximum >= minimum else {
-            return fallback
-        }
-
-        return Swift.min(Swift.max(proposed, minimum), maximum)
-    }
-
-    private static func roundedFrame(origin: CGPoint, size: CGSize) -> CGRect {
-        CGRect(
-            x: origin.x.rounded(),
-            y: origin.y.rounded(),
-            width: size.width.rounded(),
-            height: size.height.rounded()
-        )
-    }
-}
 
 enum TranslationStyle: String, CaseIterable, Codable, Identifiable {
     case accurate
@@ -1031,27 +801,7 @@ struct UserFacingErrorPresentation {
     }
 
     private static func safeMessage(_ message: String) -> String {
-        var safe = message
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        safe = safe.replacingOccurrences(
-            of: #"sk-[A-Za-z0-9_\-]{8,}"#,
-            with: "[redacted]",
-            options: .regularExpression
-        )
-        safe = safe.replacingOccurrences(
-            of: #"(?i)(api[_ -]?key[=: ]+)[A-Za-z0-9_\-\.]{8,}"#,
-            with: "$1[redacted]",
-            options: .regularExpression
-        )
-
-        if safe.count > 240 {
-            safe = String(safe.prefix(240)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
-        }
-
-        return safe
+        ProviderErrorSanitizer.safeMessage(message)
     }
 }
 
@@ -1065,6 +815,7 @@ final class ProviderSettingsStore: ObservableObject {
     @Published var selectedProviderID: String
     @Published var baseURLString: String
     @Published var modelName: String
+    @Published var requestTimeoutSeconds: Double
     @Published var apiKeyInput = ""
     @Published private(set) var hasSavedAPIKey: Bool
     @Published private(set) var statusMessage: String?
@@ -1085,6 +836,7 @@ final class ProviderSettingsStore: ObservableObject {
         selectedProviderID = settings.providerID
         baseURLString = settings.baseURLString
         modelName = settings.modelName
+        requestTimeoutSeconds = ProviderTimeoutPreference.loadSaved(from: userDefaults).requestTimeoutSeconds
         hasSavedAPIKey = keychain.hasSavedAPIKeyRecord(providerID: settings.providerID)
     }
 
@@ -1176,6 +928,7 @@ final class ProviderSettingsStore: ObservableObject {
             throw ProviderSettingsError.requestFailed("Unable to save provider settings.")
         }
         userDefaults.set(data, forKey: LLMProviderSettings.storageKey)
+        ProviderTimeoutPreference(requestTimeoutSeconds: requestTimeoutSeconds).save(to: userDefaults)
     }
 
     private func saveAPIKeyIfNeeded() throws -> String? {
@@ -1370,9 +1123,20 @@ final class KeychainSecretStore {
     }
 }
 
-struct OpenAICompatibleProviderClient {
+struct OpenAICompatibleProviderClient: TranslationStreamingProviding {
     let settings: LLMProviderSettings
     let apiKey: String
+    let timeoutPreference: ProviderTimeoutPreference
+
+    init(
+        settings: LLMProviderSettings,
+        apiKey: String,
+        timeoutPreference: ProviderTimeoutPreference = .loadSaved()
+    ) {
+        self.settings = settings
+        self.apiKey = apiKey
+        self.timeoutPreference = timeoutPreference
+    }
 
     func testConnection() async throws -> String {
         let completion = try await makeChatCompletion(
@@ -1479,17 +1243,7 @@ struct OpenAICompatibleProviderClient {
     }
 
     private func sanitizedProviderMessage(_ message: String) -> String {
-        var sanitized = message
-            .replacingOccurrences(of: apiKey, with: "[redacted]")
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if sanitized.count > 220 {
-            sanitized = String(sanitized.prefix(220)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
-        }
-
-        return sanitized
+        ProviderErrorSanitizer.safeMessage(message, redactedSecrets: [apiKey], maxLength: 220)
     }
 
     private func makeChatCompletion(
@@ -1501,7 +1255,7 @@ struct OpenAICompatibleProviderClient {
         let url = try chatCompletionsURL()
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 25
+        request.timeoutInterval = timeoutPreference.urlRequestTimeout
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(OpenAIChatCompletionRequest(
@@ -1513,11 +1267,12 @@ struct OpenAICompatibleProviderClient {
         ))
 
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 25
-        configuration.timeoutIntervalForResource = 30
+        configuration.timeoutIntervalForRequest = timeoutPreference.urlRequestTimeout
+        configuration.timeoutIntervalForResource = timeoutPreference.standardResourceTimeout
         let session = URLSession(configuration: configuration)
 
         do {
+            try Task.checkCancellation()
             let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw ProviderSettingsError.unexpectedResponse
@@ -1528,6 +1283,8 @@ struct OpenAICompatibleProviderClient {
             }
 
             return try JSONDecoder().decode(OpenAIChatCompletionResponse.self, from: data)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as ProviderSettingsError {
             throw error
         } catch let error as URLError {
@@ -1549,7 +1306,7 @@ struct OpenAICompatibleProviderClient {
         let url = try chatCompletionsURL()
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 25
+        request.timeoutInterval = timeoutPreference.urlRequestTimeout
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(OpenAIChatCompletionRequest(
@@ -1561,11 +1318,12 @@ struct OpenAICompatibleProviderClient {
         ))
 
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 25
-        configuration.timeoutIntervalForResource = 45
+        configuration.timeoutIntervalForRequest = timeoutPreference.urlRequestTimeout
+        configuration.timeoutIntervalForResource = timeoutPreference.streamingResourceTimeout
         let session = URLSession(configuration: configuration)
 
         do {
+            try Task.checkCancellation()
             let (bytes, response) = try await session.bytes(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw ProviderSettingsError.unexpectedResponse
@@ -1576,6 +1334,7 @@ struct OpenAICompatibleProviderClient {
             }
 
             for try await line in bytes.lines {
+                try Task.checkCancellation()
                 let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard trimmedLine.hasPrefix("data:") else {
                     continue
@@ -1598,6 +1357,8 @@ struct OpenAICompatibleProviderClient {
                     }
                 }
             }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as ProviderSettingsError {
             throw error
         } catch let error as URLError {
@@ -1611,25 +1372,11 @@ struct OpenAICompatibleProviderClient {
     }
 
     private func chatCompletionsURL() throws -> URL {
-        guard var components = URLComponents(string: settings.baseURLString),
-              components.scheme == "https",
-              components.host != nil
-        else {
-            throw ProviderSettingsError.invalidBaseURL
-        }
-
         guard !settings.modelName.isEmpty else {
             throw ProviderSettingsError.missingModel
         }
 
-        let basePath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        components.path = "/" + ([basePath, "chat/completions"].filter { !$0.isEmpty }.joined(separator: "/"))
-
-        guard let url = components.url else {
-            throw ProviderSettingsError.invalidBaseURL
-        }
-
-        return url
+        return try ProviderEndpointNormalizer.chatCompletionsURL(from: settings.baseURLString)
     }
 
     func translationDebugPrompt(

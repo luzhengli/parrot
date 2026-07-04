@@ -76,6 +76,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(shortcutsMenuItem)
         menu.addItem(.separator())
         menu.addItem(makeMenuItem(
+            title: "Setup Checklist",
+            action: #selector(showSetupChecklist),
+            keyEquivalent: "",
+            systemImageName: "checklist"
+        ))
+        menu.addItem(makeMenuItem(
             title: "Settings",
             action: #selector(showSettings),
             keyEquivalent: ",",
@@ -199,7 +205,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func showSettings() {
+        presentSettings(initialSection: .model)
+    }
+
+    @objc private func showSetupChecklist() {
+        presentSettings(initialSection: .setup)
+    }
+
+    private func presentSettings(initialSection: ProviderSettingsView.Section) {
+        if initialSection == .setup, settingsWindowController != nil {
+            settingsWindowController?.close()
+            settingsWindowController = nil
+        }
+
         let view = ProviderSettingsView(
+            initialSection: initialSection,
             onShortcutsSaved: { [weak self] in
                 self?.reloadGlobalShortcuts()
             },
@@ -217,7 +237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         )
         presentWindow(&settingsWindowController, title: "Settings", rootView: view, usesIntegratedTitleBar: true)
-        resizeSettingsWindow(for: .model, animate: false)
+        resizeSettingsWindow(for: initialSection, animate: false)
     }
 
     private func resizeSettingsWindow(for section: ProviderSettingsView.Section, animate: Bool) {
@@ -239,11 +259,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func showProviderSetupIfNeeded() {
         let settings = LLMProviderSettings.loadSaved()
-        guard !KeychainSecretStore().hasSavedAPIKeyRecord(providerID: settings.providerID) else {
+        let hasAPIKeyRecord = KeychainSecretStore().hasSavedAPIKeyRecord(providerID: settings.providerID)
+        let hasValidEndpoint = (try? ProviderEndpointNormalizer.chatCompletionsURL(from: settings.baseURLString)) != nil
+            && !settings.modelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        guard !hasAPIKeyRecord || !hasValidEndpoint else {
             return
         }
 
-        showSettings()
+        presentSettings(initialSection: .setup)
     }
 
     @objc private func toggleShortcuts() {
