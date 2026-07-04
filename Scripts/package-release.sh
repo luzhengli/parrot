@@ -282,7 +282,7 @@ Developer ID signed or notarized.
 
 - DMG: open the image and drag \`$APP_NAME\` to \`Applications\`.
 - ZIP: unzip the archive and move \`$APP_NAME\` to \`Applications\`.
-- This is an unsigned RC package. Use right-click > Open if macOS blocks the
+- This is an unsigned release package. Use right-click > Open if macOS blocks the
   first launch for a trusted local test build.
 
 ## Verify
@@ -333,7 +333,7 @@ xattr -dr com.apple.quarantine /path/to/$APP_NAME
 - If Keychain access fails after upgrading from an old debug or unsigned build,
   re-enter the API Key in Settings > Model.
 - Check for Updates can download and open published .dmg or .zip release assets,
-  but unsigned RC builds still require manual macOS approval and app replacement.
+  but unsigned builds still require manual macOS approval and app replacement.
 
 ## Feedback
 
