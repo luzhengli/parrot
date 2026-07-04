@@ -768,6 +768,7 @@ struct ParrotReleaseInfo: Equatable {
     let releaseDate: String
     let releaseNotesURL: URL
     let downloadURL: URL
+    let downloadAssetName: String?
     let isPrerelease: Bool
     let summary: String
     let checksumSummary: String?
@@ -810,7 +811,11 @@ final class ParrotUpdateChecker: ObservableObject {
             let (data, response) = try await dataLoader(request)
             if let httpResponse = response as? HTTPURLResponse,
                !(200..<300).contains(httpResponse.statusCode) {
-                status = .unableToCheck(message: "GitHub Releases returned HTTP \(httpResponse.statusCode). Try again later.")
+                if httpResponse.statusCode == 404 {
+                    status = .unableToCheck(message: "The configured GitHub release feed was not found. Confirm the repository is public and has a published release, then try again.")
+                } else {
+                    status = .unableToCheck(message: "GitHub Releases returned HTTP \(httpResponse.statusCode). Try again later.")
+                }
                 return
             }
 
@@ -843,6 +848,7 @@ final class ParrotUpdateChecker: ObservableObject {
                 || asset.name.localizedCaseInsensitiveContains("checksum")
         }
         let downloadURL = downloadAsset.flatMap { URL(string: $0.browserDownloadURL) } ?? releaseNotesURL
+        let downloadAssetName = downloadAsset?.name
         let summary = response.body?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: .newlines)
@@ -858,6 +864,7 @@ final class ParrotUpdateChecker: ObservableObject {
             releaseDate: response.publishedAt ?? "unknown",
             releaseNotesURL: releaseNotesURL,
             downloadURL: downloadURL,
+            downloadAssetName: downloadAssetName,
             isPrerelease: response.prerelease,
             summary: summary.isEmpty ? "See release notes for details." : summary,
             checksumSummary: checksumSummary
@@ -879,7 +886,7 @@ final class ParrotUpdateChecker: ObservableObject {
             let message = """
             Version \(latestRelease.version) is available. Current version: \(currentVersion) (\(currentBuild)).
             \(latestRelease.summary)
-            Manual download only for \(ParrotAboutInfo.releaseChannel); Parrot will not install updates automatically.
+            Parrot can download the unsigned release asset to Downloads and open it for you. macOS may still require manual approval before you replace the app.
             \(latestRelease.checksumSummary ?? "No checksum or signature metadata was found in the release feed. Verify release assets manually before replacing the app.")
             """
             return .updateAvailable(latestRelease, message: message)
@@ -954,6 +961,117 @@ final class ParrotUpdateChecker: ObservableObject {
             case name
             case browserDownloadURL = "browser_download_url"
         }
+    }
+}
+
+enum ParrotUpdateDownloadStatus: Equatable {
+    case idle
+    case downloading(fileName: String)
+    case downloaded(fileName: String, fileURL: URL)
+    case unableToDownload(message: String)
+}
+
+@MainActor
+final class ParrotUpdateDownloader: ObservableObject {
+    typealias DownloadLoader = (URLRequest) async throws -> (URL, URLResponse)
+
+    @Published private(set) var status: ParrotUpdateDownloadStatus = .idle
+
+    private let downloadLoader: DownloadLoader
+    private let downloadsDirectoryProvider: () throws -> URL
+    private let fileManager: FileManager
+
+    init(
+        downloadLoader: @escaping DownloadLoader = { request in
+            try await URLSession.shared.download(for: request)
+        },
+        downloadsDirectoryProvider: @escaping () throws -> URL = {
+            guard let downloadsDirectory = FileManager.default.urls(
+                for: .downloadsDirectory,
+                in: .userDomainMask
+            ).first else {
+                throw ProviderSettingsError.requestFailed("Unable to locate the Downloads folder.")
+            }
+            return downloadsDirectory
+        },
+        fileManager: FileManager = .default
+    ) {
+        self.downloadLoader = downloadLoader
+        self.downloadsDirectoryProvider = downloadsDirectoryProvider
+        self.fileManager = fileManager
+    }
+
+    func reset() {
+        status = .idle
+    }
+
+    func download(_ release: ParrotReleaseInfo) async -> URL? {
+        guard let assetName = release.downloadAssetName,
+              assetName.localizedCaseInsensitiveContains(".dmg")
+                || assetName.localizedCaseInsensitiveContains(".zip")
+        else {
+            status = .unableToDownload(message: "The latest release does not include a downloadable macOS .dmg or .zip asset. Open Release Notes to download manually.")
+            return nil
+        }
+
+        status = .downloading(fileName: assetName)
+
+        do {
+            var request = URLRequest(url: release.downloadURL)
+            request.httpMethod = "GET"
+            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+            request.setValue("Parrot/\(release.version) (\(ParrotAboutInfo.releaseChannel))", forHTTPHeaderField: "User-Agent")
+
+            let (temporaryURL, response) = try await downloadLoader(request)
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200..<300).contains(httpResponse.statusCode) {
+                status = .unableToDownload(message: "GitHub returned HTTP \(httpResponse.statusCode) while downloading \(assetName).")
+                return nil
+            }
+
+            let downloadsDirectory = try downloadsDirectoryProvider()
+            try fileManager.createDirectory(
+                at: downloadsDirectory,
+                withIntermediateDirectories: true
+            )
+            let destinationURL = uniqueDestinationURL(
+                for: assetName,
+                in: downloadsDirectory
+            )
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.moveItem(at: temporaryURL, to: destinationURL)
+            status = .downloaded(fileName: assetName, fileURL: destinationURL)
+            return destinationURL
+        } catch {
+            status = .unableToDownload(message: "Unable to download \(assetName): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func uniqueDestinationURL(for fileName: String, in directory: URL) -> URL {
+        let baseURL = directory.appendingPathComponent(fileName)
+        guard fileManager.fileExists(atPath: baseURL.path) else {
+            return baseURL
+        }
+
+        let fileExtension = baseURL.pathExtension
+        let baseName = fileExtension.isEmpty
+            ? baseURL.deletingPathExtension().lastPathComponent
+            : String(baseURL.lastPathComponent.dropLast(fileExtension.count + 1))
+
+        for index in 2...999 {
+            let candidateName = fileExtension.isEmpty
+                ? "\(baseName) \(index)"
+                : "\(baseName) \(index).\(fileExtension)"
+            let candidateURL = directory.appendingPathComponent(candidateName)
+            if !fileManager.fileExists(atPath: candidateURL.path) {
+                return candidateURL
+            }
+        }
+
+        return directory.appendingPathComponent(UUID().uuidString + "-" + fileName)
     }
 }
 

@@ -295,6 +295,7 @@ struct ProviderEndpointTimeoutE2E {
         try require(release.version == "0.2.0", "GitHub release tag should normalize to a SemVer version.")
         try require(release.isPrerelease, "Prerelease flag should be preserved.")
         try require(release.downloadURL.absoluteString.hasSuffix("Parrot-0.2.0.dmg"), "DMG asset should be selected for manual download.")
+        try require(release.downloadAssetName == "Parrot-0.2.0.dmg", "DMG asset name should be retained for one-click downloads.")
         try require(release.checksumSummary?.contains("SHA256SUMS.txt") == true, "Checksum metadata should be detected when present.")
         try require(!release.summary.contains("Fifth line"), "Release summary should be bounded.")
 
@@ -307,7 +308,8 @@ struct ProviderEndpointTimeoutE2E {
             throw E2EFailure.assertion("Older current version should report update available.")
         }
         try require(availableRelease.version == "0.2.0", "Update status should include latest release info.")
-        try require(message.contains("Manual download only"), "Unsigned RC update message should not imply automatic install.")
+        try require(message.contains("download the unsigned release asset"), "Unsigned RC update message should explain one-click download.")
+        try require(message.contains("manual approval"), "Unsigned RC update message should not imply silent replacement.")
 
         guard case .upToDate = ParrotUpdateChecker.status(currentVersion: "0.2.0", currentBuild: "1", latestRelease: release) else {
             throw E2EFailure.assertion("Equal current/latest version should report up to date.")
@@ -346,6 +348,61 @@ struct ProviderEndpointTimeoutE2E {
             throw E2EFailure.assertion("Invalid update feed should report unable to check.")
         }
         try require(invalidMessage.contains("Unable to check"), "Invalid feed failure should be user understandable.")
+
+        let missingFeedChecker = ParrotUpdateChecker { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 404,
+                httpVersion: "HTTP/1.1",
+                headerFields: nil
+            )!
+            return (Data(#"{"message":"Not Found"}"#.utf8), response)
+        }
+        await missingFeedChecker.checkForUpdates(currentVersion: "0.1.0", currentBuild: "1")
+        guard case .unableToCheck(let missingFeedMessage) = missingFeedChecker.status else {
+            throw E2EFailure.assertion("Missing GitHub release feed should report unable to check.")
+        }
+        try require(
+            missingFeedMessage.contains("release feed was not found"),
+            "404 checks should explain that the configured public release feed is missing."
+        )
+
+        let temporaryRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("parrot-update-download-e2e-\(UUID().uuidString)", isDirectory: true)
+        let downloadsDirectory = temporaryRoot.appendingPathComponent("Downloads", isDirectory: true)
+        let fakeDownloadedFile = temporaryRoot.appendingPathComponent("Parrot-0.2.0-source.dmg")
+        try FileManager.default.createDirectory(at: temporaryRoot, withIntermediateDirectories: true)
+        try Data("fake dmg".utf8).write(to: fakeDownloadedFile)
+        defer {
+            try? FileManager.default.removeItem(at: temporaryRoot)
+        }
+
+        let downloader = ParrotUpdateDownloader(
+            downloadLoader: { request in
+                try require(request.url == release.downloadURL, "Update downloader should request the selected release asset.")
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: "HTTP/1.1",
+                    headerFields: nil
+                )!
+                return (fakeDownloadedFile, response)
+            },
+            downloadsDirectoryProvider: {
+                downloadsDirectory
+            }
+        )
+        let savedURL = await downloader.download(release)
+        try require(savedURL?.lastPathComponent == "Parrot-0.2.0.dmg", "One-click update download should save the release asset name.")
+        try require(
+            FileManager.default.fileExists(atPath: savedURL?.path ?? ""),
+            "One-click update download should move the asset into Downloads."
+        )
+        guard case .downloaded(let downloadedName, let downloadedURL) = downloader.status else {
+            throw E2EFailure.assertion("Successful one-click update download should report downloaded status.")
+        }
+        try require(downloadedName == "Parrot-0.2.0.dmg", "Downloaded status should include the asset name.")
+        try require(downloadedURL == savedURL, "Downloaded status should include the saved file URL.")
     }
 
     private static func runAboutDiagnosticsValidation() throws {

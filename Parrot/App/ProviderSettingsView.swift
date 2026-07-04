@@ -59,6 +59,7 @@ struct ProviderSettingsView: View {
     @StateObject private var shortcutStore = ShortcutSettingsStore()
     @StateObject private var glossaryStore = TranslationGlossaryStore.shared
     @StateObject private var updateChecker = ParrotUpdateChecker()
+    @StateObject private var updateDownloader = ParrotUpdateDownloader()
     @ObservedObject private var historyStore = TranslationHistoryStore.shared
     @State private var selectedSection: Section
     @State private var translationStyle = TranslationStyle.loadSaved()
@@ -953,10 +954,16 @@ struct ProviderSettingsView: View {
                     }
 
                     Button {
-                        NSWorkspace.shared.open(release.downloadURL)
+                        downloadAndOpenUpdate(release)
                     } label: {
-                        Label("Download Update", systemImage: "arrow.down.circle")
+                        if case .downloading = updateDownloader.status {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Download and Open Update", systemImage: "arrow.down.circle")
+                        }
                     }
+                    .disabled(isUpdateDownloading)
 
                     Button {
                         copyUpdateVersionInfo()
@@ -964,7 +971,42 @@ struct ProviderSettingsView: View {
                         Label("Copy Version Info", systemImage: "doc.on.doc")
                     }
                 }
+
+                updateDownloadStatusView
             }
+        }
+    }
+
+    private var isUpdateDownloading: Bool {
+        if case .downloading = updateDownloader.status {
+            return true
+        }
+        return false
+    }
+
+    @ViewBuilder
+    private var updateDownloadStatusView: some View {
+        switch updateDownloader.status {
+        case .idle:
+            EmptyView()
+        case .downloading(let fileName):
+            ParrotStatusBanner(
+                kind: .progress,
+                title: "Downloading Update",
+                message: "Downloading \(fileName) to your Downloads folder."
+            )
+        case .downloaded(let fileName, let fileURL):
+            ParrotStatusBanner(
+                kind: .success,
+                title: "Update Downloaded",
+                message: "\(fileName) was saved to \(fileURL.deletingLastPathComponent().path) and opened with macOS."
+            )
+        case .unableToDownload(let message):
+            ParrotStatusBanner(
+                kind: .error,
+                title: "Unable to Download",
+                message: message
+            )
         }
     }
 
@@ -1366,11 +1408,21 @@ struct ProviderSettingsView: View {
 
     private func checkForUpdates() {
         aboutStatusMessage = nil
+        updateDownloader.reset()
         Task {
             await updateChecker.checkForUpdates(
                 currentVersion: appVersion,
                 currentBuild: buildNumber
             )
+        }
+    }
+
+    private func downloadAndOpenUpdate(_ release: ParrotReleaseInfo) {
+        aboutStatusMessage = nil
+        Task {
+            if let fileURL = await updateDownloader.download(release) {
+                NSWorkspace.shared.open(fileURL)
+            }
         }
     }
 

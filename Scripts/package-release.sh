@@ -332,7 +332,8 @@ xattr -dr com.apple.quarantine /path/to/$APP_NAME
   Recording settings. Enable the entry for the current /Applications copy.
 - If Keychain access fails after upgrading from an old debug or unsigned build,
   re-enter the API Key in Settings > Model.
-- Automatic update download and installation is not implemented yet.
+- Check for Updates can download and open published .dmg or .zip release assets,
+  but unsigned RC builds still require manual macOS approval and app replacement.
 
 ## Feedback
 

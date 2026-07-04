@@ -151,7 +151,9 @@ from Keychain.
 - Translation quality, availability, and latency depend on the configured
   provider.
 - The app is macOS-only.
-- Automatic update download and installation is not implemented yet.
+- Check for Updates can download and open published `.dmg` or `.zip` release
+  assets, but unsigned RC builds still require manual macOS approval and app
+  replacement.
 
 ## Developer Verification
 
